@@ -1,0 +1,13 @@
+{
+    "mongodb": {
+        "uri": "mongodb://127.0.0.1:27017",
+        "dbname": "pixiv_bot"
+    },
+    "pixiv": {
+        "cookie": "",
+        "ua": ""
+    },
+    "tg": {
+        "token": ""
+    }
+}
