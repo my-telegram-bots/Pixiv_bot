@@ -15,48 +15,58 @@ let r_p = axios.create({
 })
 
 // mc 简写了下 MongoDB CLient
-const mc = new MongoClient(config.mongodb.uri, {
+const mc = new MongoClient(config.mongodb.uri,{
     useUnifiedTopology: true
 })
 const bot = new Telegraf(config.tg.token)
 
 // 引入 i18n
 const l = {}
-read_i18n()
+load_i18n()
 bot.use(async (ctx, next) => {
     // 本来是 .lang 的 后面简单点还是 .l
     // 然后在想 这边直接 ctx.l = l[ctx.from.language_code] 好还是按需好
     // 语言库里面没有的 会 fallback 到 en
     // 随便写的
+    if(!ctx.from || ctx.from.language_code)
+        ctx.l = 'en'
     ctx.l = (ctx.from.language_code && l[ctx.from.language_code]) ? ctx.from.language_code : 'en'
     await next()
 })
-bot.start(async (ctx, next) => {
-    if (ctx.startPayload) {
+bot.start(async (ctx,next) => {
+    if(ctx.startPayload){
         // callback 到下面处理，这里不再处理
         next()
-    } else {
+    }else{
         // 回复垃圾文（（（
         ctx.reply(l[ctx.l].start)
     }
 })
-bot.on('message', async (ctx) => {
-    if (ids = get_illust_ids(ctx.message.text)) {
-        asyncForEach(ids, async id => {
-            let d = await get_illust(id, ctx.message.text.indexOf('+tag') > -1)
-            if (d.type <= 1) {
+bot.command('reload_lang',async (ctx)=>{
+    try {
+        reload_lang()
+        ctx.reply(l[ctx.l].reload_lang)
+    } catch (error) {
+        ctx.reply(l[ctx.l].reload_lang)
+    }
+})
+bot.on('message',async (ctx)=>{
+    if(ids = get_illust_ids(ctx.message.text)){
+        asyncForEach(ids,async id=>{
+            let d = await get_illust(id,ctx.message.text.indexOf('+tag') > -1)
+            if(d.type <= 1){
                 // 大图发不了就发小的
-                await asyncForEach(d.td.mediagroup_o, async (mediagroup_o, id) => {
+                await asyncForEach(d.td.mediagroup_o, async (mediagroup_o,id) => {
                     ctx.replyWithChatAction('upload_photo')
                     await ctx.replyWithMediaGroup(mediagroup_o).catch(async () => {
                         await ctx.replyWithMediaGroup(d.td.mediagroup_r[id])
                     })
                 })
-            } else if (d.type == 2) {
+            }else if(d.type == 2){
                 // ugoira 動いら
                 ctx.replyWithChatAction('upload_video')
                 let media = d.td.tg_file_id
-                if (!media) {
+                if(!media){
                     media = {
                         source: await ugoira_to_mp4(d.id)
                     }
@@ -68,7 +78,7 @@ bot.on('message', async (ctx) => {
                         Markup.button.switchToChat('share', 'https://pixiv.net/i/' + d.id)
                     ]])
                 })
-                if (!d.td.tg_file_id && data.document) {
+                if(!d.td.tg_file_id && data.document) {
                     let col = await db.collection('illust')
                     await col.updateOne({
                         id: d.id.toString(),
@@ -82,12 +92,12 @@ bot.on('message', async (ctx) => {
         })
     }
 })
-bot.on('inline_query', async (ctx) => {
+bot.on('inline_query',async (ctx)=>{
     let res = []
-    if (ids = await get_illust_ids(ctx.inlineQuery.query)) {
-        await asyncForEach(ids, async id => {
-            let d = await get_illust(id, ctx.inlineQuery.query.indexOf('+tag') > -1)
-            if (d.type == 2 && !d.td.tg_file_id) {
+    if(ids = await get_illust_ids(ctx.inlineQuery.query)){
+        await asyncForEach(ids,async id=>{
+            let d = await get_illust(id,ctx.inlineQuery.query.indexOf('+tag') > -1)
+            if(d.type == 2 && !d.td.tg_file_id){
                 // 这个时候就偷偷开始处理了 所以不加 await
                 ugoira_to_mp4(d.id)
                 let a = await ctx.answerInlineQuery([], {
@@ -100,20 +110,23 @@ bot.on('inline_query', async (ctx) => {
             res = d.td.inline.concat(res)
         })
     }
-    await ctx.answerInlineQuery(res, {
+    await ctx.answerInlineQuery(res,{
         cache_time: 0
     })
+})
+bot.catch(async (ctx)=>{
+    console.error('error',ctx)
 })
 // 先连数据库 再启动 bot
 mc.connect().then(async m => {
     db = m.db(config.mongodb.dbname)
     bot.launch().then(async () => {
         console.log('started!')
-    }).catch(e => {
+    }).catch(e=>{
         console.error('offline or bad bot token')
         process.exit()
     })
-}).catch(() => {
+}).catch(()=>{
     console.error('db connect error')
     process.exit()
 })
@@ -127,18 +140,18 @@ mc.connect().then(async m => {
  * @param {boolean} show_inline_keyboard 是否输出键盘
  * @param {number} mode 模式
  */
-async function get_illust(id, show_tags = false, show_inline_keyboard = false, mode = 0) {
+async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode = 0) {
     let col = await db.collection('illust')
     let illust = await col.findOne({
         illustId: id.toString()
     })
     console.log(id)
     // 如果数据库没有缓存结果，那么就向 pixiv api 查询
-    if (!illust) {
+    if(!illust) {
         try {
             illust = (await r_p.get('illust/' + id)).data
             // 应该是没有检索到 直接返回 false 得了
-            if (illust.error)
+            if(illust.error)
                 return false
             illust = illust.body
         } catch (error) {
@@ -147,7 +160,7 @@ async function get_illust(id, show_tags = false, show_inline_keyboard = false, m
         }
         // 删除我觉得不需要的 data
         delete illust.zoneConfig,
-            delete illust.extraData
+        delete illust.extraData
         delete illust.userIllusts
         delete illust.noLoginData
         delete illust.fanboxPromotion
@@ -162,7 +175,7 @@ async function get_illust(id, show_tags = false, show_inline_keyboard = false, m
     asyncForEach(illust.tags.tags, tag => {
         td.tags.push(tag.tag)
     })
-    if (illust.illustType <= 1) {
+    if(illust.illustType <= 1){
         // for (let i = 0; i < illust.pageCount; i++) {
         //     // 通过观察url规律 图片链接只是 p0 -> p1 这样的
         //     // 不过没有 weight 和 height 放弃了
@@ -170,7 +183,7 @@ async function get_illust(id, show_tags = false, show_inline_keyboard = false, m
         //     td.regular_urls.push(illust.urls.regular.replace('p0', 'p' + i))
         //     td.original_urls.push(illust.urls.original.replace('p0', 'p' + i))
         // }
-        if (illust.pageCount == 1) {
+        if(illust.pageCount == 1) {
             td = {
                 thumb_urls: [illust.urls.thumb],
                 regular_urls: [illust.urls.regular],
@@ -181,7 +194,7 @@ async function get_illust(id, show_tags = false, show_inline_keyboard = false, m
                 }],
                 tags: td.tags
             }
-        } else if (illust.pageCount > 1) {
+        } else if(illust.pageCount > 1) {
             // 多p处理
             try {
                 td = {
@@ -212,13 +225,13 @@ async function get_illust(id, show_tags = false, show_inline_keyboard = false, m
         td.inline = []
         await asyncForEach(td.size, (size, pid) => {
             caption = illust.title + (td.original_urls.length > 1 ? (' #' + (pid + 1).toString()) : '')
-            if (show_tags)
+            if(show_tags)
                 caption += '\n' + td.tags.map(tag => {
                     return '#' + tag + ' '
                 })
             // 10个一组
             let gid = Math.floor(pid / 10)
-            if (!td.mediagroup_o[gid]) {
+            if(!td.mediagroup_o[gid]) {
                 td.mediagroup_o[gid] = []
                 td.mediagroup_r[gid] = []
             }
@@ -236,7 +249,7 @@ async function get_illust(id, show_tags = false, show_inline_keyboard = false, m
             td.inline[pid] = {
                 type: 'photo',
                 id: 'p_' + illust.id + '-' + pid,
-                // 图片 size 太大基本发不出去了 用小图凑合`
+                // 图片 size 太大基本发不出去了 用小图凑合
                 photo_url: (size.width > 2000 || size.height > 2000) ? td.regular_urls[pid] : td.original_urls[pid],
                 thumb_url: td.thumb_urls[pid],
                 caption: caption,
@@ -248,21 +261,22 @@ async function get_illust(id, show_tags = false, show_inline_keyboard = false, m
                 ]])
             }
         })
-    } else if (illust.illustType == 2) {
-        td = {
-            size: [{
-                width: illust.width,
-                height: illust.height
-            }],
-            inline: [],
-            tags: td.tags
-        }
-        let caption = illust.title
-        if (show_tags)
-            caption += '\n' + td.tags.map(tag => {
-                return '#' + tag + ' '
-            })
-        if (illust.tg_file_id) {
+    }else if(illust.illustType == 2){
+        // inline 只有在现存动图的情况下有意义
+        if(illust.tg_file_id){
+            td = {
+                size: [{
+                    width: illust.width,
+                    height: illust.height
+                }],
+                inline: [],
+                tags: td.tags
+            }
+            let caption = illust.title
+            if (show_tags)
+                caption += '\n' + td.tags.map(tag => {
+                    return '#' + tag + ' '
+                })
             td.tg_file_id = illust.tg_file_id
             td.inline[0] = {
                 type: 'mpeg4_gif',
@@ -274,8 +288,6 @@ async function get_illust(id, show_tags = false, show_inline_keyboard = false, m
                     Markup.button.switchToChat('share', 'https://pixiv.net/i/' + illust.id)
                 ]])
             }
-        } else {
-
         }
     }
     return {
@@ -290,7 +302,7 @@ async function get_illust(id, show_tags = false, show_inline_keyboard = false, m
  * @param {*} text 文本
  */
 function get_illust_ids(text) {
-    if (!text)
+    if(!text)
         return false
     let ids = []
     // 首先以换行来分割
@@ -301,21 +313,21 @@ function get_illust_ids(text) {
             try {
                 // https://www.pixiv.net/member_illust.php?mode=medium&illust_id=87430599 
                 // 老版
-                if (u && !isNaN(parseInt(u.replace('#', '').replace('id', '')))) {
+                if(u && !isNaN(parseInt(u.replace('#','').replace('id','')))){
                     // 匹配 #idxxxxxxx #xxxxxxx
                     ids.push(parseInt(u.replace('#', '').replace('id', '')))
-                } else if (uu = new URL(u).searchParams.get('illust_id')) {
-                    if (uu) {
+                }else if(uu = new URL(u).searchParams.get('illust_id')) {
+                    if(uu) {
                         ids.push(uu)
                     }
-                } else {
+                }else{
                     // 参考链接
                     // https://www.pixiv.net/artworks/87466156
                     // http://www.pixiv.net/artworks/87466156
                     // https://pixiv.net/i/87466156
                     // 还有纯 id 也匹配了
-                    let t = u.replace('https://', '').replace('http://', '').replace('www.', '').replace('pixiv.net', '').replace(/\//ig, '').replace('artworks', '').replace('i', '')
-                    if (!isNaN(t) && t)
+                    let t = u.replace('https://', '').replace('http://', '').replace('www.','').replace('pixiv.net','').replace(/\//ig, '').replace('artworks','').replace('i','')
+                    if(!isNaN(t) && t)
                         ids.push(t)
                 }
             } catch (error) {
@@ -325,8 +337,8 @@ function get_illust_ids(text) {
     return ids
 }
 
-async function ugoira_to_mp4(id, force = false) {
-    if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`))
+async function ugoira_to_mp4(id,force = false) {
+    if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`)) 
         return `./tmp/mp4_1/${id}.mp4`
     try {
         id = parseInt(id).toString()
@@ -334,7 +346,7 @@ async function ugoira_to_mp4(id, force = false) {
         if (ud.error)
             return false
         ud = ud.body
-        // 确定一帧的时长
+        // 确定每一帧出现的时长
         let frame = '# timecode format v2\n0\n'
         let tempframe = 0
         ud.frames.forEach((f) => {
@@ -343,24 +355,28 @@ async function ugoira_to_mp4(id, force = false) {
         }, this)
         fs.writeFileSync(`./tmp/timecode/${id}`, frame)
         // 下载
-        await download_ugoira(id, ud.originalSrc)
+        await download_ugoira(id,ud.originalSrc)
         // Windows 自己补全这些软件并且自己改路径之类的 不做兼容
         // 解压没有现成好用的轮子
         // 所以干脆直接 exec 了 以后有好办法再改咯
-        if (fs.existsSync(`./tmp/mp4_0/${id}.mp4`)) {
+        // force 为强制更新
+        if (fs.existsSync(`./tmp/mp4_0/${id}.mp4`)){
             if (!force)
                 fs.unlinkSync(`./tmp/mp4_0/${id}.mp4`)
             else
                 return `./tmp/mp4_1/${id}.mp4`
         }
-        if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`)) {
-            if (!force)
+        if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`)){
+            if(!force)
                 fs.unlinkSync(`./tmp/mp4_1/${id}.mp4`)
             else
                 return `./tmp/mp4_1/${id}.mp4`
         }
+        await exec(`unzip -n './tmp/zip/${id}.zip' -d './tmp/ugoira/${id}'`)
         // 处理开始！
+        // 先用 ffmpeg 转成图片
         await exec(`ffmpeg -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 60 * 1000 })
+        // 然后用 mp4fpsmod 添加时间轴
         await exec(`./mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 60 * 1000 })
         return `./tmp/mp4_1/${id}.mp4`
     } catch (error) {
@@ -368,7 +384,7 @@ async function ugoira_to_mp4(id, force = false) {
         return false
     }
 }
-function download_ugoira(id, url) {
+function download_ugoira(id,url) {
     // s t r e a m 没 有 a s y n c
     return new Promise(async (resolve, reject) => {
         let d = (await axios.get(url, {
@@ -379,7 +395,7 @@ function download_ugoira(id, url) {
             }
         })).data
         let zipfile = fs.createWriteStream(`./tmp/zip/${id}.zip`)
-        await d.pipe(zipfile)
+        d.pipe(zipfile)
         zipfile.on('finish', resolve)
     })
 }
@@ -387,7 +403,7 @@ function download_ugoira(id, url) {
  * 从 ./lang 读取 i18n 文件们
  * 这样比较好动态读取 不用重启整个进程（（（
  */
-function read_i18n() {
+function load_i18n(){
     fs.readdirSync('./lang').map(file_name => {
         l[file_name.replace('.json', '')] = JSON.parse(fs.readFileSync('./lang/' + file_name).toString())
     })

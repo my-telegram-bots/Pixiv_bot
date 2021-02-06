@@ -1,5 +1,6 @@
 {
     "start": "Pixiv bot へようこそ\nこのロボットはPixivのリングでイラストや動画を便利に送信できます。\n\n管理者: @makeding",
     "pm_to_generate_ugoira": "クリックして動いらを生成する",
-    "reload_lang": "言語は正常にロードされました"
+    "reload_lang": "言語は正常にロードされました",
+    "error": "エラーが発生しました"
 }
