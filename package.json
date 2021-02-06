@@ -1,14 +1,15 @@
 {
-    "name": "pixiv_bot",
-    "version": "2.0.0",
-    "description": "A telegram bot",
-    "main": "app.js",
-    "repository": "https://github.com/my-telegram-bots/Pixiv_bot",
-    "author": "huggy",
-    "license": "MIT",
-    "dependencies": {
-        "axios": "^0.21.1",
-        "mongodb": "^3.6.3",
-        "telegraf": "^4.0.2"
-    }
+  "name": "pixiv_bot",
+  "version": "2.0.1",
+  "description": "A telegram bot link pixiv and telegram",
+  "main": "app.js",
+  "repository": "https://github.com/my-telegram-bots/Pixiv_bot",
+  "author": "huggy",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "mongodb": "^3.6.3",
+    "telegraf": "^4.0.2",
+    "telegraf-throttler": "^0.5.0"
+  }
 }

@@ -8,7 +8,7 @@ Link: https://t.me/Pixiv_bot
     3. create pull request
 ## install (ArchLinux)
     
-    pacman -S yarn pm2 ffmpeg
+    pacman -S yarn pm2 ffmpeg unzip
     yay -S mongodb-bin mp4fpsmod
     git clone https://github.com/my-telegram-bots/Pixiv_bot.git
     systemctl enable pm2 mongodb --now
