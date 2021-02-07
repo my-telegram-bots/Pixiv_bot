@@ -6,13 +6,21 @@ const { default: axios } = require('axios')
 const exec = require('util').promisify((require('child_process')).exec)
 let config = require('./config.json')
 const throttler = telegrafThrottler({
-    // example https://github.com/KnightNiwrem/telegraf-throttler
-    out:{
-        minTime: 25,
-        reservoir: 3,
-        reservoirRefreshAmount: 3,
-        reservoirRefreshInterval: 10000,
+    group: {
+        minTime: 500
     },
+    in: {
+        highWater: 100,
+        minTime: 500
+    },
+    out: {
+        highWater: 100,
+        minTime: 500
+    },
+    onThrottlerError: (error) =>{
+        console.warn(error)
+        return true
+    }
 })
 let db = {}
 let r_p = axios.create({
@@ -39,7 +47,7 @@ bot.use(async (ctx, next) => {
     // 然后在想 这边直接 ctx.l = l[ctx.from.language_code] 好还是按需好
     // 语言库里面没有的 会 fallback 到 en
     // 随便写的
-    if(!ctx.from || ctx.from.language_code)
+    if(!ctx.from || !ctx.from.language_code)
         ctx.l = 'en'
     else
         ctx.l = (ctx.from.language_code && l[ctx.from.language_code]) ? ctx.from.language_code : 'en'
@@ -106,7 +114,7 @@ bot.on('text',async (ctx)=>{
 })
 bot.on('inline_query',async (ctx)=>{
     let res = []
-    if(ids = get_illust_ids(ctx.inlineQuery.query)){
+    if(ids = await get_illust_ids(ctx.inlineQuery.query)){
         await asyncForEach(ids,async id=>{
             let d = await get_illust(id,ctx.inlineQuery.query.indexOf('+tag') > -1)
             if(d.type == 2 && !d.td.tg_file_id){
@@ -114,7 +122,7 @@ bot.on('inline_query',async (ctx)=>{
                 ugoira_to_mp4(d.id)
                 let a = await ctx.answerInlineQuery([], {
                     switch_pm_text: l[ctx.l].pm_to_generate_ugoira,
-                    switch_pm_parameter: ids.join('-_-').toString(), // 这里对应 get_illust_ids
+                    switch_pm_parameter: ids.join('-_-').toString(),
                     cache_time: 0
                 })
                 return
@@ -127,6 +135,7 @@ bot.on('inline_query',async (ctx)=>{
     })
 })
 bot.catch(async (error,ctx)=>{
+
     console.error('error',error)
 })
 // 先连数据库 再启动 bot
@@ -177,7 +186,7 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
         delete illust.noLoginData
         delete illust.fanboxPromotion
         illust.id = illust.illustId
-        // 插裤
+        // 写裤
         col.insertOne(illust)
     }
     // 接下来是处理成 tg 要的格式（图片之类的）
@@ -241,7 +250,7 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
                 caption += '\n' + td.tags.map(tag => {
                     return '#' + tag + ' '
                 })
-            // 10个一组 mediagroup
+            // 10个一组
             let gid = Math.floor(pid / 10)
             if(!td.mediagroup_o[gid]) {
                 td.mediagroup_o[gid] = []
@@ -422,6 +431,6 @@ function load_i18n(){
 }
 async function asyncForEach(array, callback) {
     for (let index = 0; index < array.length; index++) {
-        await callback(array[index], index, array)
+        await callback(array[index], index, array);
     }
 }
