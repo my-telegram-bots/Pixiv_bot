@@ -114,7 +114,7 @@ bot.on('text',async (ctx)=>{
 })
 bot.on('inline_query',async (ctx)=>{
     let res = []
-    if(ids = await get_illust_ids(ctx.inlineQuery.query)){
+    if(ids = get_illust_ids(ctx.inlineQuery.query)){
         await asyncForEach(ids,async id=>{
             let d = await get_illust(id,ctx.inlineQuery.query.indexOf('+tag') > -1)
             if(d.type == 2 && !d.td.tg_file_id){
@@ -122,7 +122,7 @@ bot.on('inline_query',async (ctx)=>{
                 ugoira_to_mp4(d.id)
                 let a = await ctx.answerInlineQuery([], {
                     switch_pm_text: l[ctx.l].pm_to_generate_ugoira,
-                    switch_pm_parameter: ids.join('-_-').toString(),
+                    switch_pm_parameter: ids.join('-_-').toString(), // 这里对应 get_illust_ids 的处理
                     cache_time: 0
                 })
                 return
@@ -186,7 +186,7 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
         delete illust.noLoginData
         delete illust.fanboxPromotion
         illust.id = illust.illustId
-        // 写裤
+        // 插裤
         col.insertOne(illust)
     }
     // 接下来是处理成 tg 要的格式（图片之类的）
@@ -250,7 +250,7 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
                 caption += '\n' + td.tags.map(tag => {
                     return '#' + tag + ' '
                 })
-            // 10个一组
+            // 10个一组 mediagroup
             let gid = Math.floor(pid / 10)
             if(!td.mediagroup_o[gid]) {
                 td.mediagroup_o[gid] = []
@@ -278,7 +278,7 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
                 photo_height: size.height,
                 ...Markup.inlineKeyboard([[
                     Markup.button.url('open', 'https://www.pixiv.net/artworks/' + illust.id),
-                    Markup.button.switchToChat('share', 'https://pixiv.net/i/' + illust.id)
+                    Markup.button.switchToChat('share', 'https://pixiv.net/i/' + illust.id + (show_tags ? ' +tags' : ''))
                 ]])
             }
         })
@@ -334,7 +334,7 @@ function get_illust_ids(text) {
             try {
                 // https://www.pixiv.net/member_illust.php?mode=medium&illust_id=87430599 
                 // 老版
-                if(u && !isNaN(parseInt(u.replace('#','').replace('id','')))){
+                if(u && u.length > 7 && !isNaN(parseInt(u.replace('#','').replace('id','')))){
                     // 匹配 #idxxxxxxx #xxxxxxx
                     ids.push(parseInt(u.replace('#', '').replace('id', '')))
                 }else if(uu = new URL(u).searchParams.get('illust_id')) {
@@ -398,7 +398,7 @@ async function ugoira_to_mp4(id,force = false) {
         // 先用 ffmpeg 转成图片
         await exec(`ffmpeg -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 60 * 1000 })
         // 然后用 mp4fpsmod 添加时间轴
-        await exec(`./mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 60 * 1000 })
+        await exec(`mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 60 * 1000 })
         return `./tmp/mp4_1/${id}.mp4`
     } catch (error) {
         console.error(error)
@@ -431,6 +431,6 @@ function load_i18n(){
 }
 async function asyncForEach(array, callback) {
     for (let index = 0; index < array.length; index++) {
-        await callback(array[index], index, array);
+        await callback(array[index], index, array)
     }
 }
