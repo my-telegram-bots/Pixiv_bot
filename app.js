@@ -124,7 +124,7 @@ bot.on('inline_query',async (ctx)=>{
     // 目前暂定 offset 只是页数吧 这样就直接转了，以后有需求再改
     offset = parseInt(offset)
     if(ids = get_illust_ids(query)){
-        await asyncForEach(ids,async id=>{
+        await asyncForEach(ids.reverse(),async id=>{
             let d = await get_illust(id,query.indexOf('+tag') > -1)
             // 动图目前还是要私聊机器人生成
             if(d.type == 2 && !d.td.tg_file_id){
@@ -155,6 +155,13 @@ bot.catch(async (error,ctx)=>{
 mc.connect().then(async m => {
     db = m.db(config.mongodb.dbname)
     bot.launch().then(async () => {
+        try {
+            exec('ffmpeg')
+            exec('mp4fpsmod')
+        } catch (error) {
+            console.error('You must install ffmpeg and mp4fpsmod to enable ugoira to mp4 function')
+            process.exit()
+        }
         console.log('started!')
     }).catch(e=>{
         console.error('offline or bad bot token')
@@ -265,7 +272,6 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
                 caption += '\n' + td.tags.map(tag => {
                     return '#' + tag + ' '
                 })
-            caption += `\n[pixiv.net/i/${illust.id}](https://www.pixiv.net/artworks/${illust.id})`
             // 10个一组 mediagroup
             let gid = Math.floor(pid / 10)
             if(!td.mediagroup_o[gid]) {
@@ -275,7 +281,7 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
             td.mediagroup_o[gid][pid % 10] = {
                 type: 'photo',
                 media: td.original_urls[pid].replace('https://i.pximg.net/', 'https://i-cf.pximg.net/'),
-                caption: caption,
+                caption: caption +  `\npixiv.net/i/${illust.id}`,
                 type: 'photo'
             }
             td.mediagroup_r[gid][pid % 10] = td.mediagroup_o[gid][pid % 10]
