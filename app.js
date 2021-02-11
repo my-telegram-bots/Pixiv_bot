@@ -114,29 +114,38 @@ bot.on('text',async (ctx)=>{
 })
 bot.on('inline_query',async (ctx)=>{
     let res = []
-    if(ids = get_illust_ids(ctx.inlineQuery.query)){
+    let { query,offset } = ctx.inlineQuery
+    if(!offset)
+        offset = 0
+    // 目前暂定 offset 只是页数吧 这样就直接转了，以后有需求再改
+    offset = parseInt(offset)
+    if(ids = get_illust_ids(query)){
         await asyncForEach(ids,async id=>{
-            let d = await get_illust(id,ctx.inlineQuery.query.indexOf('+tag') > -1)
+            let d = await get_illust(id,query.indexOf('+tag') > -1)
+            // 动图目前还是要私聊机器人生成
             if(d.type == 2 && !d.td.tg_file_id){
                 // 这个时候就偷偷开始处理了 所以不加 await
                 ugoira_to_mp4(d.id)
-                let a = await ctx.answerInlineQuery([], {
+                await ctx.answerInlineQuery([], {
                     switch_pm_text: l[ctx.l].pm_to_generate_ugoira,
                     switch_pm_parameter: ids.join('-_-').toString(), // 这里对应 get_illust_ids 的处理
                     cache_time: 0
                 })
-                return
+                return true
             }
             res = d.td.inline.concat(res)
         })
     }
-    await ctx.answerInlineQuery(res,{
-        cache_time: 0
-    })
+    let res_options = {
+        cache_time: 60
+    }
+    if(res.splice((offset + 1) * 20 - 1,20))
+        res_options.next_offset = offset + 1
+    await ctx.answerInlineQuery(res.splice(offset * 20,20),res_options)
 })
 bot.catch(async (error,ctx)=>{
-
-    console.error('error',error)
+    ctx.telegram.sendMessage(config.tg.master_id,'error' + error)
+    console.error('error!',error)
 })
 // 先连数据库 再启动 bot
 mc.connect().then(async m => {
@@ -162,6 +171,8 @@ mc.connect().then(async m => {
  * @param {number} mode 模式
  */
 async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode = 0) {
+    if(id.toString().length < 6 || id.toString().length > 8)
+        return false
     let col = await db.collection('illust')
     let illust = await col.findOne({
         illustId: id.toString()
