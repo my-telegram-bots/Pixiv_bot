@@ -21,6 +21,8 @@ Link: https://t.me/Pixiv_bot
 ## todolist
     1. subscribe
     2. inline query daily rank
-
+    3. custom format
+    4. error handle
+    5. web version
 ## License
     MIT

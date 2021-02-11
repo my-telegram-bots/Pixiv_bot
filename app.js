@@ -46,7 +46,7 @@ bot.use(async (ctx, next) => {
     // 本来是 .lang 的 后面简单点还是 .l
     // 然后在想 这边直接 ctx.l = l[ctx.from.language_code] 好还是按需好
     // 语言库里面没有的 会 fallback 到 en
-    // 随便写的
+    // 随便写的 以后可能要改（可能会遇到复杂的 i18n）
     if(!ctx.from || !ctx.from.language_code)
         ctx.l = 'en'
     else
@@ -54,6 +54,7 @@ bot.use(async (ctx, next) => {
     await next()
 })
 bot.start(async (ctx,next) => {
+    // 这里的 startPayload 参考 tg api 文档的 deeplink 
     if(ctx.startPayload){
         // callback 到下面处理，这里不再处理
         next()
@@ -63,11 +64,14 @@ bot.start(async (ctx,next) => {
     }
 })
 bot.command('reload_lang',async (ctx)=>{
-    try {
-        reload_lang()
-        ctx.reply(l[ctx.l].reload_lang)
-    } catch (error) {
-        ctx.reply(l[ctx.l].reload_lang)
+    // 只有管理员才能重载啦
+    if(ctx.chat.id == config.tg.master_id){
+        try {
+            reload_lang()
+            ctx.reply(l[ctx.l].reload_lang)
+        } catch (error) {
+            ctx.reply(l[ctx.l].reload_lang)
+        }
     }
 })
 bot.on('text',async (ctx)=>{
@@ -261,6 +265,7 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
                 caption += '\n' + td.tags.map(tag => {
                     return '#' + tag + ' '
                 })
+            caption += `\n[pixiv.net/i/${illust.id}](https://www.pixiv.net/artworks/${illust.id})`
             // 10个一组 mediagroup
             let gid = Math.floor(pid / 10)
             if(!td.mediagroup_o[gid]) {
@@ -273,11 +278,8 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
                 caption: caption,
                 type: 'photo'
             }
-            td.mediagroup_r[gid][pid % 10] = {
-                type: 'photo',
-                media: td.regular_urls[pid].replace('https://i.pximg.net/', 'https://i-cf.pximg.net/'),
-                caption: caption,
-            }
+            td.mediagroup_r[gid][pid % 10] = td.mediagroup_o[gid][pid % 10]
+            td.mediagroup_r[gid][pid % 10].media = td.regular_urls[pid].replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
             td.inline[pid] = {
                 type: 'photo',
                 id: 'p_' + illust.id + '-' + pid,
@@ -343,21 +345,24 @@ function get_illust_ids(text) {
         // 接着按照空格来分割
         ntext.split(' ').forEach(u => {
             try {
-                // https://www.pixiv.net/member_illust.php?mode=medium&illust_id=87430599 
-                // 老版
-                if(u && u.length > 7 && !isNaN(parseInt(u.replace('#','').replace('id','')))){
+                if(!u || u.length < 6){
+                    return []
+                // 这里是纯匹配数字
+                }else if(u.length > 7 && !isNaN(parseInt(u.replace('#','').replace('id','')))){
                     // 匹配 #idxxxxxxx #xxxxxxx
                     ids.push(parseInt(u.replace('#', '').replace('id', '')))
+                // 匹配老款 https://www.pixiv.net/member_illust.php?mode=medium&illust_id=87430599
                 }else if(uu = new URL(u).searchParams.get('illust_id')) {
                     if(uu) {
                         ids.push(uu)
                     }
                 }else{
+                    // 在是url的前提下，继续匹配（如果不是url 上面 new URL 会直接报错 然后不处理了
                     // 参考链接
                     // https://www.pixiv.net/artworks/87466156
                     // http://www.pixiv.net/artworks/87466156
                     // https://pixiv.net/i/87466156
-                    // 还有纯 id 也匹配了
+                    // 还有纯 id 也匹配了（一般轮不到这）
                     let t = u.replace('https://', '').replace('http://', '').replace('www.','').replace('pixiv.net','').replace(/\//ig, '').replace('artworks','').replace('i','')
                     if(!isNaN(t) && t)
                         ids.push(t)
