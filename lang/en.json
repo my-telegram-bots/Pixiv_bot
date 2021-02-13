@@ -1,5 +1,5 @@
 {
-    "start": "Hello, This bot is a Pixiv helper, You can send me Pixiv link and I'll send illust / manga / ugoira yo you.\n\nMaintainer: @makeding",
+    "start": "Hello, This bot is a Pixiv helper, You can send me Pixiv link and I'll send illust / manga / ugoira to you.\n\nMaintainer: @makeding",
     "pm_to_generate_ugoira": "Click me to generate ugoira",
     "reload_lang": "Language loaded successfully",
     "error": "Something went wrong :("
