@@ -15,6 +15,7 @@ Link: https://t.me/Pixiv_bot
     cp config_sample.json config.json
     # edit
     # vim config.json
+    # nano config.json
     pm2 start --name pixiv_bot app.js
     pm2 save
     pm2 startup
@@ -24,5 +25,6 @@ Link: https://t.me/Pixiv_bot
     3. error handle
     4. web version
     5. R18 alert
+    6. bookmarks
 ## License
     MIT

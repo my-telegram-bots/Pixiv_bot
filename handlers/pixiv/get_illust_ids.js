@@ -34,7 +34,7 @@ function get_illust_ids(text) {
                 // http://www.pixiv.net/artworks/87466156
                 // https://pixiv.net/i/87466156
                 // 还有纯 id 也匹配了（一般轮不到这）
-                let t = u.replace('https://', '').replace('http://', '').replace('www.','').replace('pixiv.net','').replace(/\//ig, '').replace('artworks','').replace('i','')
+                let t = u.replace('https://', '').replace('http://', '').replace('www.','').replace('pixiv.net','').replace(/\//ig, '').replace('artworks','').replace('i','').replace('en','')
                 if(!isNaN(t) && t && t.length == 8)
                     ids.push(t)
             }
