@@ -6,7 +6,7 @@ const mc = new MongoClient(config.mongodb.uri, {
     useUnifiedTopology: true
 })
 async function db(){
-    let illust_col =  await mc.db(config.mongodb.dbname).collection('illust')
+    let illust_col = mc.db(config.mongodb.dbname).collection('illust')
     illust_col.createIndex({
         id: 1
     }, {
@@ -18,6 +18,7 @@ async function db(){
 fs.mkdirSync('./tmp')
 fs.mkdirSync('./tmp/zip')
 fs.mkdirSync('./tmp/timecode')
-fs.mkdirSync('./tmp/ugoira_0')
-fs.mkdirSync('./tmp/ugoira_1')
+fs.mkdirSync('./tmp/mp4_0')
+fs.mkdirSync('./tmp/mp4_1')
+fs.mkdirSync('./tmp/ugoira')
 db()

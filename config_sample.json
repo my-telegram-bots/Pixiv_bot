@@ -8,6 +8,7 @@
         "ua": ""
     },
     "tg": {
+        "master_id": 1,
         "token": ""
     }
 }
