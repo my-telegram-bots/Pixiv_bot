@@ -4,7 +4,6 @@
  * @param {*} text 文本
  */
 function get_illust_ids(text) {
-    console.log(text)
     if(!text)
         return false
     let ids = []

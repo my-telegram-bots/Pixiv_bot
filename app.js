@@ -4,6 +4,7 @@ const { telegrafThrottler } = require('telegraf-throttler')
 const exec = require('util').promisify((require('child_process')).exec)
 let config = require('./config.json')
 const { get_illust, get_illust_ids, ugoira_to_mp4, asyncForEach} = require('./handlers')
+const db = require('./db')
 const throttler = telegrafThrottler({
     group: {
         minTime: 500
@@ -62,7 +63,6 @@ bot.command('reload_lang',async (ctx)=>{
 })
 bot.on('text',async (ctx)=>{
     if(ids = get_illust_ids(ctx.message.text)){
-        console.log(ids)
         asyncForEach(ids,async id=>{
             let d = await get_illust(id,ctx.message.text.indexOf('+tag') > -1)
             if(d.type <= 1){
