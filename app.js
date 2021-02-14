@@ -5,6 +5,7 @@ const exec = require('util').promisify((require('child_process')).exec)
 let config = require('./config.json')
 const { get_illust, get_illust_ids, ugoira_to_mp4, asyncForEach} = require('./handlers')
 const db = require('./db')
+const get_ranking = require('./handlers/telegram/get_ranking')
 const throttler = telegrafThrottler({
     group: {
         minTime: 500
@@ -110,6 +111,9 @@ bot.on('inline_query',async (ctx)=>{
         offset = 0
     // 目前暂定 offset 只是页数吧 这样就直接转了，以后有需求再改
     offset = parseInt(offset)
+    let res_options = {
+        cache_time: 60
+    }
     if(ids = get_illust_ids(query)){
         await asyncForEach(ids.reverse(),async id=>{
             let d = await get_illust(id,query.indexOf('+tag') > -1)
@@ -126,13 +130,16 @@ bot.on('inline_query',async (ctx)=>{
             }
             res = d.td.inline.concat(res)
         })
+        if(res.splice((offset + 1) * 20 - 1,20))
+            res_options.next_offset = offset + 1
+        res = res.splice(offset * 20,20)
+    }else if(query == ''){
+        let data = await get_ranking(offset)
+        res = data.data
+        if(data.next_offset)
+            res_options.next_offset = data.next_offset
     }
-    let res_options = {
-        cache_time: 60
-    }
-    if(res.splice((offset + 1) * 20 - 1,20))
-        res_options.next_offset = offset + 1
-    await ctx.answerInlineQuery(res.splice(offset * 20,20),res_options)
+    await ctx.answerInlineQuery(res,res_options)
 })
 bot.catch(async (error,ctx)=>{
     ctx.telegram.sendMessage(config.tg.master_id,'error' + error)
