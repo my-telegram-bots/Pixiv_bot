@@ -13,7 +13,8 @@ module.exports = async (...arg)=>{
             type: 'photo',
             id: 'p_' + p.id,
             photo_url: (p.width > 2000 || p.height > 2000) ? p.murl : p.ourl,
-            thumb_url: p.murl,
+            // 图片太多 加载好慢 先用小图preview
+            thumb_url: p.turl,
             caption: p.title,
             photo_width: p.width,
             photo_height: p.height,

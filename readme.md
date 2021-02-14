@@ -20,9 +20,9 @@ Link: https://t.me/Pixiv_bot
     pm2 startup
 ## todolist
     1. subscribe
-    3. custom format
-    4. error handle
-    5. web version
-    6. R18 alert
+    2. custom format
+    3. error handle
+    4. web version
+    5. R18 alert
 ## License
     MIT

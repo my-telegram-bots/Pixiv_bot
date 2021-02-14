@@ -45,11 +45,13 @@ module.exports = async (page = 1, mode = 'daily', filter_type = [0, 2], date = f
         data: data.contents.filter((p) => {
             return filter_type.indexOf(parseInt(p.illust_type)) > -1
         }).map((p) => {
+            p.url = p.url.replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
             return {
                 id: p.illust_id,
                 title: p.title,
                 ourl: p.url.replace("/c/240x480/img-master/", "/img-original/").replace("_master1200", ""),
                 murl: p.url.replace("/c/240x480/img-master/", "/img-master/"),
+                turl: p.url,
                 width: p.width,
                 height: p.height,
                 tags: p.tags
