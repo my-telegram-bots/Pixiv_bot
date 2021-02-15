@@ -52,6 +52,7 @@ async function ugoira_to_mp4(id,force = false) {
 }
 function download_ugoira(id,url) {
     // s t r e a m 没 有 a s y n c
+    url = url.replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
     return new Promise(async (resolve, reject) => {
         let d = (await axios.get(url, {
             responseType: 'stream',

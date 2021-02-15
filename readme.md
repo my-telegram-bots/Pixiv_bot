@@ -7,7 +7,6 @@ Link: https://t.me/Pixiv_bot
     2. copy lang/en.json -> lang/_lang_code_.json
     3. create pull request
 ## install (ArchLinux)
-    
     pacman -S yarn pm2 ffmpeg unzip
     yay -S mongodb-bin mp4fpsmod
     git clone https://github.com/my-telegram-bots/Pixiv_bot.git
@@ -19,6 +18,9 @@ Link: https://t.me/Pixiv_bot
     pm2 start --name pixiv_bot app.js
     pm2 save
     pm2 startup
+## config
+To access R18(g) contents, You must fill the config.json->pixiv->cookie.  
+You can login via your browser and open developer tools to select network tab and get the cookie your logined.
 ## todolist
     1. subscribe
     2. custom format

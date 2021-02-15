@@ -30,13 +30,17 @@ function get_illust_ids(text) {
             } catch (error) {
                 // 在是url的前提下，继续匹配（如果不是url 上面 new URL 会直接报错 然后不处理了
                 // 参考链接
+                // https://www.pixiv.net/en/artworks/87466156
                 // https://www.pixiv.net/artworks/87466156
                 // http://www.pixiv.net/artworks/87466156
                 // https://pixiv.net/i/87466156
+                // pixiv.net/i/87466156
+                // 87466156
                 // 还有纯 id 也匹配了（一般轮不到这）
                 let t = u.replace('https://', '').replace('http://', '').replace('www.','').replace('pixiv.net','').replace(/\//ig, '').replace('artworks','').replace('i','').replace('en','')
-                if(!isNaN(t) && t && t.length == 8)
+                if(!isNaN(t) && t && t.length == 8){
                     ids.push(t)
+                }
             }
         })
     })
