@@ -3,7 +3,7 @@ const { Telegraf } = require('telegraf')
 const { telegrafThrottler } = require('telegraf-throttler')
 const exec = require('util').promisify((require('child_process')).exec)
 let config = require('./config.json')
-const { k_os, handle_illust, get_illust_ids, ugoira_to_mp4, asyncForEach, handle_ranking} = require('./handlers')
+const { k_os, handle_illust, get_illust_ids, ugoira_to_mp4, asyncForEach, handle_ranking, download_file} = require('./handlers')
 const db = require('./db')
 const throttler = telegrafThrottler({
     group: {
@@ -47,10 +47,11 @@ bot.use(async (ctx, next) => {
         ctx.flag = {
             tags: text.indexOf('+tag') > -1,
             share: text.indexOf('-share') == -1,
-            remove_keyboard: text.indexOf('-rm') > -1
+            remove_keyboard: text.indexOf('-rm') > -1,
+            asfile: text.indexOf('+file') > -1
         }
         // replaced text
-        ctx.rtext = text.replace(/\+tags/ig,'').replace(/\+tag/ig,'').replace(/\-share/ig,'').replace(/\+album/ig,'').replace(/\-rm/ig,'')
+        ctx.rtext = text.replace(/\+tags/ig,'').replace(/\+tag/ig,'').replace(/\-share/ig,'').replace(/\+album/ig,'').replace(/\-rm/ig,'').replace(/\+file/ig,'')
     } catch (error) {
         
     }
@@ -88,13 +89,33 @@ bot.on('text',async (ctx,next)=>{
                 return false
             }
             if(d.type <= 1){
-                // 大图发不了就发小的
-                await asyncForEach(d.td.mediagroup_o, async (mediagroup_o,id) => {
-                    ctx.replyWithChatAction('upload_photo')
-                    await ctx.replyWithMediaGroup(mediagroup_o).catch(async () => {
-                        await ctx.replyWithMediaGroup(d.td.mediagroup_r[id])
+                if(ctx.flag.asfile){
+                    await asyncForEach(d.td.original_urls, async (imgurl,id) => {
+                        ctx.replyWithChatAction('upload_document')
+                        // Post the file using multipart/form-data in the usual way that files are uploaded via the browser. 10 MB max size for photos, 50 MB for other files.
+                        await ctx.replyWithDocument(imgurl,{
+                            thumb: d.td.thumb_urls[id],
+                            caption: d.title + (d.td.original_urls.length > 1 ? '#' + (id + 1) : '')
+                        }).catch(async ()=>{
+                            ctx.replyWithChatAction('upload_document')
+                            await ctx.replyWithDocument({source: await download_file(imgurl)},{
+                                caption: d.title + (d.td.original_urls.length > 1 ? '#' + (id + 1) : '')
+                            }).catch(async (e)=>{
+                                await ctx.reply(l[ctx.l].file_too_large + imgurl.replace('https://i.pximg.net',config.pixiv.pximgproxy))
+                                console.warn(e)
+                            })
+                        })
                     })
-                })
+                }else{
+                    // 大图发不了就发小的
+                    await asyncForEach(d.td.mediagroup_o, async (mediagroup_o,id) => {
+                        ctx.replyWithChatAction('upload_photo')
+                        await ctx.replyWithMediaGroup(mediagroup_o).catch(async () => {
+                            ctx.replyWithChatAction('upload_photo')
+                            await ctx.replyWithMediaGroup(d.td.mediagroup_r[id])
+                        })
+                    })
+                }
             // ugoira
             }else if(d.type == 2){ 
                 ctx.replyWithChatAction('upload_video')

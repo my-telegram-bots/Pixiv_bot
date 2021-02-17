@@ -3,6 +3,7 @@ const { default: axios } = require('axios')
 const exec = require('util').promisify((require('child_process')).exec)
 const fs = require('fs')
 const config = require('../../config.json')
+const { download_file } = require('../common')
 async function ugoira_to_mp4(id,force = false) {
     if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`)) 
         return `./tmp/mp4_1/${id}.mp4`
@@ -21,7 +22,7 @@ async function ugoira_to_mp4(id,force = false) {
         }, this)
         fs.writeFileSync(`./tmp/timecode/${id}`, frame)
         // 下载
-        await download_ugoira(id,ud.originalSrc)
+        await download_file(ud.originalSrc,id)
         // Windows 自己补全这些软件并且自己改路径之类的 不做兼容
         // 解压没有现成好用的轮子
         // 所以干脆直接 exec 了 以后有好办法再改咯
@@ -38,7 +39,7 @@ async function ugoira_to_mp4(id,force = false) {
             else
                 return `./tmp/mp4_1/${id}.mp4`
         }
-        await exec(`unzip -n './tmp/zip/${id}.zip' -d './tmp/ugoira/${id}'`)
+        await exec(`unzip -n './tmp/file/${id}.zip' -d './tmp/ugoira/${id}'`)
         // 处理开始！
         // 先用 ffmpeg 转成图片
         await exec(`ffmpeg -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
@@ -50,20 +51,5 @@ async function ugoira_to_mp4(id,force = false) {
         return false
     }
 }
-function download_ugoira(id,url) {
-    // s t r e a m 没 有 a s y n c
-    url = url.replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
-    return new Promise(async (resolve, reject) => {
-        let d = (await axios.get(url, {
-            responseType: 'stream',
-            headers: {
-                'User-Agent': config.pixiv.ua,
-                'Referer': 'https://www.pixiv.net'
-            }
-        })).data
-        let zipfile = fs.createWriteStream(`./tmp/zip/${id}.zip`)
-        d.pipe(zipfile)
-        zipfile.on('finish', resolve)
-    })
-}
+
 module.exports = ugoira_to_mp4
