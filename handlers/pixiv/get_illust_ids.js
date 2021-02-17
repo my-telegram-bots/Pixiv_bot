@@ -7,9 +7,9 @@ function get_illust_ids(text) {
     if(!text)
         return false
     let ids = []
-    // 首先以换行来分割
     // A-Z, a-z, 0-9, _ and - are allowed. We recommend using base64url to encode parameters with binary and other types of content.
-    text.replace(/-_-/ig, ' ').replace(/  /ig, ' ').replace(/\+tags/ig, '').split('\n').forEach(ntext => {
+    // 首先以换行来分割
+    text.replace(/-_-/ig, ' ').replace(/  /ig, ' ').split('\n').forEach(ntext => {
         // 接着按照空格来分割
         ntext.split(' ').forEach(u => {
             try {

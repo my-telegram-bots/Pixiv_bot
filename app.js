@@ -1,12 +1,10 @@
 const fs = require('fs')
-const { Telegraf, Markup } = require('telegraf')
+const { Telegraf } = require('telegraf')
 const { telegrafThrottler } = require('telegraf-throttler')
 const exec = require('util').promisify((require('child_process')).exec)
 let config = require('./config.json')
-const { get_illust, get_illust_ids, ugoira_to_mp4, asyncForEach} = require('./handlers')
+const { k_os, handle_illust, get_illust_ids, ugoira_to_mp4, asyncForEach, handle_ranking} = require('./handlers')
 const db = require('./db')
-const get_ranking = require('./handlers/telegram/get_ranking')
-const { k_os } = require('./handlers/telegram/keyboard')
 const throttler = telegrafThrottler({
     group: {
         minTime: 500
@@ -46,7 +44,7 @@ bot.use(async (ctx, next) => {
             text = ctx.message.text
         if(ctx.inlineQuery && ctx.inlineQuery.query)
             text = ctx.inlineQuery.query
-        ctx.keyboard_flag = {
+        ctx.flag = {
             tags: text.indexOf('+tag') > -1,
             share: text.indexOf('-share') == -1,
             remove_keyboard: text.indexOf('-rm') > -1
@@ -82,7 +80,7 @@ bot.command('reload_lang',async (ctx)=>{
 bot.on('text',async (ctx,next)=>{
     if(ids = get_illust_ids(ctx.rtext)){
         asyncForEach(ids,async id=>{
-            let d = await get_illust(id,ctx.keyboard_flag)
+            let d = await handle_illust(id,ctx.flag)
             if(!d){
                 // 群组就不返回找不到 id 的提示了
                 if(ctx.chat.id > 0)
@@ -108,7 +106,7 @@ bot.on('text',async (ctx,next)=>{
                 }
                 let data = await ctx.replyWithAnimation(media, {
                     caption: d.title,
-                    ...k_os(d.id,ctx.keyboard_flag)
+                    ...k_os(d.id,ctx.flag)
                 })
                 // 保存动图的 tg file id
                 if(!d.td.tg_file_id && data.document) {
@@ -133,16 +131,14 @@ bot.on('inline_query',async (ctx)=>{
     if(!offset)
         offset = 0
     let query = ctx.rtext
-    console.log(ctx.rtext)
     // 目前暂定 offset 只是页数吧 这样就直接转了，以后有需求再改
     offset = parseInt(offset)
     let res_options = {
         cache_time: 60
     }
-    console.log(ctx.keyboard_flag)
     if(ids = get_illust_ids(query)){
         await asyncForEach(ids.reverse(),async id=>{
-            let d = await get_illust(id,ctx.keyboard_flag)
+            let d = await handle_illust(id,ctx.flag)
             // 动图目前还是要私聊机器人生成
             if(d.type == 2 && !d.td.tg_file_id){
                 // 这个时候就偷偷开始处理了 所以不加 await
@@ -160,7 +156,7 @@ bot.on('inline_query',async (ctx)=>{
             res_options.next_offset = offset + 1
         res = res.splice(offset * 20,20)
     }else if(query.replace(/ /g,'') == ''){
-        let data = await get_ranking([offset],ctx.keyboard_flag)
+        let data = await handle_ranking([offset],ctx.flag)
         res = data.data
         if(data.next_offset)
             res_options.next_offset = data.next_offset
@@ -172,14 +168,18 @@ bot.catch(async (error,ctx)=>{
     console.error('error!',error)
 })
 bot.launch().then(async () => {
-    try {
-        await exec('which ffmpeg')
-        await exec('which mp4fpsmod')
-    } catch (error) {
-        console.error('You must install ffmpeg and mp4fpsmod to enable ugoira to mp4 function',error)
-        process.exit()
+    if(!process.env.DEPENDIONLESS){
+        try {
+            await exec('which ffmpeg')
+            await exec('which mp4fpsmod')
+        } catch (error) {
+            console.error('You must install ffmpeg and mp4fpsmod to enable ugoira to mp4 function',error)
+            console.error('If you want to run but and won\'t install ffmpeg and mp4fpsmod, please exec following command:')
+            console.error('DEPENDIONLESS=1 node app.js')
+            process.exit()
+        }
     }
-    console.log('started!')
+    console.log(new Date(),'started!')
 }).catch(e=>{
     console.error('offline or bad bot token')
     process.exit()

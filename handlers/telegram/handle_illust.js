@@ -1,47 +1,18 @@
-const r_p = require('./r_p')
-const db = require('../../db')
-const { asyncForEach } = require('../common')
-const { Markup } = require('telegraf')
+
 const { k_os } = require('../telegram/keyboard')
+const { asyncForEach } = require('../common')
+const get_illust = require('../pixiv/illust')
+const r_p = require('../pixiv/r_p')
 
 /**
- * 获取 illust
- * 会进行缓存 数据存 MongoDB 里面（暂时不考虑更新这种东西）
- * @param {number} id illust_id
- * @param {object} keyboard_flag 键盘的样式
+ * 处理成tg友好型数据
+ * @param {*} id 
+ * @param {*} flag 
  */
-async function get_illust(id,keyboard_flag){
-    if(id.toString().length < 6 || id.toString().length > 8)
+async function handle_illust(id,flag){
+    let illust = await get_illust(id)
+    if(!illust)
         return false
-    let col = await db.collection('illust')
-    let illust = await col.findOne({
-        illustId: id.toString()
-    })
-    console.log(id)
-    // 如果数据库没有缓存结果，那么就向 pixiv api 查询
-    if(!illust) {
-        try {
-            illust = (await r_p.get('illust/' + id)).data
-            // 应该是没有检索到 直接返回 false 得了
-            if(illust.error)
-                return false
-            illust = illust.body
-        } catch (error) {
-            // 一般是网路 还有登录问题
-            console.warn(error)
-            return false
-        }
-        // 删除我觉得不需要的 data
-        delete illust.zoneConfig,
-        delete illust.extraData
-        delete illust.userIllusts
-        delete illust.noLoginData
-        delete illust.fanboxPromotion
-        illust.id = illust.illustId
-        // 插裤
-        col.insertOne(illust)
-    }
-    // 接下来是处理成 tg 要的格式（图片之类的）
     let td = {
         tags: []
     }
@@ -98,7 +69,7 @@ async function get_illust(id,keyboard_flag){
         td.inline = []
         await asyncForEach(td.size, (size, pid) => {
             caption = illust.title + (td.original_urls.length > 1 ? (' #' + (pid + 1).toString()) : '')
-            if(keyboard_flag.tags)
+            if(flag.tags)
                 caption += '\n' + td.tags.map(tag => {
                     return '#' + tag + ' '
                 })
@@ -125,9 +96,12 @@ async function get_illust(id,keyboard_flag){
                 caption: caption,
                 photo_width: size.width,
                 photo_height: size.height,
-                ...k_os(illust.id,keyboard_flag)
+                ...k_os(illust.id,flag)
             }
         })
+        if(td.size.length == 1){
+            
+        }
     }else if(illust.illustType == 2){
         // inline 只有在现存动图的情况下有意义
         if(illust.tg_file_id){
@@ -150,7 +124,7 @@ async function get_illust(id,keyboard_flag){
                 id: 'p' + illust.id,
                 mpeg4_file_id: illust.tg_file_id,
                 caption: caption,
-                ...k_os(illust.id,keyboard_flag)
+                ...k_os(illust.id,flag)
             }
         }
     }
@@ -161,4 +135,4 @@ async function get_illust(id,keyboard_flag){
         td: td
     }
 }
-module.exports = get_illust
+module.exports = handle_illust

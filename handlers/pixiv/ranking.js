@@ -10,7 +10,7 @@ const r_p = require("./r_p")
  */
 // 本来 date 写了一大坨 后面发现不带参数就是当天的
 // 备用 new Date(new Date().getTime() + (9 * 60 * 60 * 1000)).toISOString().split('T')[0].replace(/-/g,'')
-module.exports = async (page = 1, mode = 'daily', filter_type = [0, 2], date = false) => {
+async function ranking(page = 1, mode = 'daily', filter_type = [0, 2], date = false){
     if(page == 0)
         page = 1
     if (['daily', 'weekly', 'monthly'].indexOf(mode) == -1)
@@ -61,3 +61,4 @@ module.exports = async (page = 1, mode = 'daily', filter_type = [0, 2], date = f
         next_page: data.next
     }
 }
+module.exports = ranking

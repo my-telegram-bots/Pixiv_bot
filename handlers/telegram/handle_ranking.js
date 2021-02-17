@@ -1,9 +1,8 @@
-// 作为 ../pixiv/ranking 的 tg 封装
-
 const ranking = require("../pixiv/ranking")
 const { k_os } = require("./keyboard")
 
-module.exports = async ([...rank],keyboard_flag)=>{
+// 作为 ../pixiv/ranking 的 tg 封装
+async function handle_ranking([...rank],flag){
     console.log(...rank)
     let data = await ranking(...rank)
     if(!data)
@@ -19,7 +18,7 @@ module.exports = async ([...rank],keyboard_flag)=>{
             caption: p.title,
             photo_width: p.width,
             photo_height: p.height,
-            ...k_os(p.id,keyboard_flag)
+            ...k_os(p.id,flag)
         })
     })
     return {
@@ -27,3 +26,4 @@ module.exports = async ([...rank],keyboard_flag)=>{
         next_offset: data.next_page
     }
 }
+module.exports = handle_ranking
