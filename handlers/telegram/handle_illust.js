@@ -3,7 +3,7 @@ const { k_os } = require('../telegram/keyboard')
 const { asyncForEach } = require('../common')
 const get_illust = require('../pixiv/illust')
 const r_p = require('../pixiv/r_p')
-
+const { format } = require('./format')
 /**
  * 处理成tg友好型数据
  * 作为 ../pixiv/illust 的tg封装
@@ -16,12 +16,26 @@ async function handle_illust(id,flag){
     if(!typeof illust == 'number' || !illust)
         return illust
     let td = {
+        id: illust.id,
+        title: illust.title,
+        author_name: illust.userName,
+        author_id: illust.userId,
+        inline: [],
         tags: []
     }
     asyncForEach(illust.tags.tags, tag => {
         td.tags.push(tag.tag)
     })
     if(illust.illustType <= 1){
+        td = {
+            ...td,
+            thumb_urls: [],
+            regular_urls: [],
+            original_urls: [],
+            size: [],
+            mediagroup_o: [],
+            mediagroup_r: [],
+        }
         // for (let i = 0; i < illust.pageCount; i++) {
         //     // 通过观察url规律 图片链接只是 p0 -> p1 这样的
         //     // 不过没有 weight 和 height 放弃了
@@ -31,29 +45,20 @@ async function handle_illust(id,flag){
         // }
         if(illust.pageCount == 1) {
             td = {
+                ...td,
                 thumb_urls: [illust.urls.thumb],
                 regular_urls: [illust.urls.regular],
                 original_urls: [illust.urls.original],
                 size: [{
                     width: illust.width,
                     height: illust.height
-                }],
-                title: illust.title,
-                id: illust.id,
-                tags: td.tags
+                }]
             }
         } else if(illust.pageCount > 1) {
             // 多p处理
             try {
-                td = {
-                    thumb_urls: [],
-                    regular_urls: [],
-                    original_urls: [],
-                    size: [],
-                    tags: td.tags
-                }
                 let pages = (await r_p('illust/' + id + '/pages')).data.body
-                // 应该不会有 error 就不 return 了
+                // 应该不会有 error 就不做错误处理了
                 pages.forEach(p =>{
                     td.thumb_urls.push(p.urls.thumb_mini.replace('i.pximg.net', 'i-cf.pximg.net'))
                     td.regular_urls.push(p.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net'))
@@ -64,19 +69,10 @@ async function handle_illust(id,flag){
                     })
                 })
             } catch (error) {
-                console.error(error)
+                console.warn(error)
             }
         }
-        td = td
-        td.mediagroup_o = []
-        td.mediagroup_r = []
-        td.inline = []
         await asyncForEach(td.size, (size, pid) => {
-            caption = illust.title + (td.original_urls.length > 1 ? (' #' + (pid + 1).toString()) : '')
-            if(flag.tags)
-                caption += '\n' + td.tags.map(tag => {
-                    return '#' + tag + ' '
-                })
             // 10个一组 mediagroup
             let gid = Math.floor(pid / 10)
             if(!td.mediagroup_o[gid]) {
@@ -86,7 +82,8 @@ async function handle_illust(id,flag){
             td.mediagroup_o[gid][pid % 10] = {
                 type: 'photo',
                 media: td.original_urls[pid],
-                caption: caption +  `\npixiv.net/i/${illust.id}`,
+                caption: format(td,flag,'message',pid),
+                parse_mode: 'Markdown',
                 type: 'photo'
             }
             td.mediagroup_r[gid][pid % 10] = td.mediagroup_o[gid][pid % 10]
@@ -97,7 +94,8 @@ async function handle_illust(id,flag){
                 // 图片 size 太大基本发不出去了 用小图凑合
                 photo_url: (size.width > 2000 || size.height > 2000) ? td.regular_urls[pid] : td.original_urls[pid],
                 thumb_url: td.thumb_urls[pid],
-                caption: caption,
+                caption: format(td,flag,'inline',pid),
+                parse_mode: 'Markdown',
                 photo_width: size.width,
                 photo_height: size.height,
                 ...k_os(illust.id,flag)
@@ -107,26 +105,19 @@ async function handle_illust(id,flag){
         // inline + ugoira 只有在现存动图的情况下有意义
         if(illust.tg_file_id){
             td = {
+                ...td,
                 size: [{
                     width: illust.width,
                     height: illust.height
-                }],
-                inline: [],
-                title: illust.title,
-                id: illust.id,
-                tags: td.tags
+                }]
             }
-            let caption = illust.title
-            if (show_tags)
-                caption += '\n' + td.tags.map(tag => {
-                    return '#' + tag + ' '
-                })
             td.tg_file_id = illust.tg_file_id
             td.inline[0] = {
                 type: 'mpeg4_gif',
                 id: 'p' + illust.id,
                 mpeg4_file_id: illust.tg_file_id,
-                caption: caption,
+                caption: format(td,flag,'message',1),
+                parse_mode: 'Markdown',
                 ...k_os(illust.id,flag)
             }
         }

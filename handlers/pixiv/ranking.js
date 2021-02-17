@@ -52,9 +52,12 @@ async function ranking(page = 1, mode = 'daily', filter_type = [0, 2], date = fa
                 ourl: p.url.replace("/c/240x480/img-master/", "/img-original/").replace("_master1200", ""),
                 murl: p.url.replace("/c/240x480/img-master/", "/img-master/"),
                 turl: p.url,
+                original_urls: [p.url.replace("/c/240x480/img-master/", "/img-original/").replace("_master1200", "")],
                 width: p.width,
                 height: p.height,
-                tags: p.tags
+                tags: p.tags,
+                author_name: p.user_name,
+                author_id: p.user_id
             }
         }),
         date: data.date,

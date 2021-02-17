@@ -1,9 +1,9 @@
 const ranking = require("../pixiv/ranking")
+const { format } = require("./format")
 const { k_os } = require("./keyboard")
 
 // 作为 ../pixiv/ranking 的 tg 封装
 async function handle_ranking([...rank],flag){
-    console.log(...rank)
     let data = await ranking(...rank)
     if(!data)
         return false
@@ -15,7 +15,8 @@ async function handle_ranking([...rank],flag){
             photo_url: (p.width > 2000 || p.height > 2000) ? p.murl : p.ourl,
             // 图片太多 加载好慢 先用小图preview
             thumb_url: p.turl,
-            caption: p.title,
+            caption: format(p,flag,'inline',1),
+            parse_mode: 'Markdown',
             photo_width: p.width,
             photo_height: p.height,
             ...k_os(p.id,flag)
