@@ -1,10 +1,11 @@
 // 作为 ../pixiv/ranking 的 tg 封装
 
-const { Markup } = require("telegraf")
 const ranking = require("../pixiv/ranking")
+const { k_os } = require("./keyboard")
 
-module.exports = async (...arg)=>{
-    let data = await ranking(...arg)
+module.exports = async ([...rank],keyboard_flag)=>{
+    console.log(...rank)
+    let data = await ranking(...rank)
     if(!data)
         return false
     let inline = []
@@ -18,10 +19,7 @@ module.exports = async (...arg)=>{
             caption: p.title,
             photo_width: p.width,
             photo_height: p.height,
-            ...Markup.inlineKeyboard([[
-                Markup.button.url('open', 'https://www.pixiv.net/artworks/' + p.id),
-                Markup.button.switchToChat('share', 'https://pixiv.net/i/' + p.id)
-            ]])
+            ...k_os(p.id,keyboard_flag)
         })
     })
     return {

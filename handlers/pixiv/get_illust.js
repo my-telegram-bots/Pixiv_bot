@@ -2,16 +2,15 @@ const r_p = require('./r_p')
 const db = require('../../db')
 const { asyncForEach } = require('../common')
 const { Markup } = require('telegraf')
+const { k_os } = require('../telegram/keyboard')
 
 /**
  * 获取 illust
  * 会进行缓存 数据存 MongoDB 里面（暂时不考虑更新这种东西）
  * @param {number} id illust_id
- * @param {boolean} show_tags 是否输出tag
- * @param {boolean} show_inline_keyboard 是否输出键盘
- * @param {number} mode 模式
+ * @param {object} keyboard_flag 键盘的样式
  */
-async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode = 0) {
+async function get_illust(id,keyboard_flag){
     if(id.toString().length < 6 || id.toString().length > 8)
         return false
     let col = await db.collection('illust')
@@ -99,7 +98,7 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
         td.inline = []
         await asyncForEach(td.size, (size, pid) => {
             caption = illust.title + (td.original_urls.length > 1 ? (' #' + (pid + 1).toString()) : '')
-            if(show_tags)
+            if(keyboard_flag.tags)
                 caption += '\n' + td.tags.map(tag => {
                     return '#' + tag + ' '
                 })
@@ -126,10 +125,7 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
                 caption: caption,
                 photo_width: size.width,
                 photo_height: size.height,
-                ...Markup.inlineKeyboard([[
-                    Markup.button.url('open', 'https://www.pixiv.net/artworks/' + illust.id),
-                    Markup.button.switchToChat('share', 'https://pixiv.net/i/' + illust.id + (show_tags ? ' +tags' : ''))
-                ]])
+                ...k_os(illust.id,keyboard_flag)
             }
         })
     }else if(illust.illustType == 2){
@@ -154,10 +150,7 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
                 id: 'p' + illust.id,
                 mpeg4_file_id: illust.tg_file_id,
                 caption: caption,
-                ...Markup.inlineKeyboard([[
-                    Markup.button.url('open', 'https://www.pixiv.net/artworks/' + illust.id),
-                    Markup.button.switchToChat('share', 'https://pixiv.net/i/' + illust.id)
-                ]])
+                ...k_os(illust.id,keyboard_flag)
             }
         }
     }

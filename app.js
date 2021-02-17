@@ -6,6 +6,7 @@ let config = require('./config.json')
 const { get_illust, get_illust_ids, ugoira_to_mp4, asyncForEach} = require('./handlers')
 const db = require('./db')
 const get_ranking = require('./handlers/telegram/get_ranking')
+const { k_os } = require('./handlers/telegram/keyboard')
 const throttler = telegrafThrottler({
     group: {
         minTime: 500
@@ -39,6 +40,22 @@ bot.use(async (ctx, next) => {
         ctx.l = 'en'
     else
         ctx.l = (ctx.from.language_code && l[ctx.from.language_code]) ? ctx.from.language_code : 'en'
+    try {
+        let text = ''
+        if(ctx.message && ctx.message.text)
+            text = ctx.message.text
+        if(ctx.inlineQuery && ctx.inlineQuery.query)
+            text = ctx.inlineQuery.query
+        ctx.keyboard_flag = {
+            tags: text.indexOf('+tag') > -1,
+            share: text.indexOf('-share') == -1,
+            remove_keyboard: text.indexOf('-rm') > -1
+        }
+        // replaced text
+        ctx.rtext = text.replace(/\+tags/ig,'').replace(/\+tag/ig,'').replace(/\-share/ig,'').replace(/\+album/ig,'').replace(/\-rm/ig,'')
+    } catch (error) {
+        
+    }
     await next()
 })
 bot.start(async (ctx,next) => {
@@ -62,12 +79,12 @@ bot.command('reload_lang',async (ctx)=>{
         }
     }
 })
-bot.on('text',async (ctx)=>{
-    if(ids = get_illust_ids(ctx.message.text)){
+bot.on('text',async (ctx,next)=>{
+    if(ids = get_illust_ids(ctx.rtext)){
         asyncForEach(ids,async id=>{
-            let d = await get_illust(id,ctx.message.text.indexOf('+tag') > -1)
+            let d = await get_illust(id,ctx.keyboard_flag)
             if(!d){
-                // 群组就不返回找不到id的提示了
+                // 群组就不返回找不到 id 的提示了
                 if(ctx.chat.id > 0)
                     await ctx.reply(l[ctx.l].illust_404)
                 return false
@@ -91,10 +108,7 @@ bot.on('text',async (ctx)=>{
                 }
                 let data = await ctx.replyWithAnimation(media, {
                     caption: d.title,
-                    ...Markup.inlineKeyboard([[
-                        Markup.button.url('open', 'https://www.pixiv.net/artworks/' + d.id),
-                        Markup.button.switchToChat('share', 'https://pixiv.net/i/' + d.id)
-                    ]])
+                    ...k_os(d.id,ctx.keyboard_flag)
                 })
                 // 保存动图的 tg file id
                 if(!d.td.tg_file_id && data.document) {
@@ -109,21 +123,26 @@ bot.on('text',async (ctx)=>{
                 }
             }
         })
+    }else{
+        next()
     }
 })
 bot.on('inline_query',async (ctx)=>{
     let res = []
-    let { query,offset } = ctx.inlineQuery
+    let { offset } = ctx.inlineQuery
     if(!offset)
         offset = 0
+    let query = ctx.rtext
+    console.log(ctx.rtext)
     // 目前暂定 offset 只是页数吧 这样就直接转了，以后有需求再改
     offset = parseInt(offset)
     let res_options = {
         cache_time: 60
     }
+    console.log(ctx.keyboard_flag)
     if(ids = get_illust_ids(query)){
         await asyncForEach(ids.reverse(),async id=>{
-            let d = await get_illust(id,query.indexOf('+tag') > -1)
+            let d = await get_illust(id,ctx.keyboard_flag)
             // 动图目前还是要私聊机器人生成
             if(d.type == 2 && !d.td.tg_file_id){
                 // 这个时候就偷偷开始处理了 所以不加 await
@@ -140,8 +159,8 @@ bot.on('inline_query',async (ctx)=>{
         if(res.splice((offset + 1) * 20 - 1,20))
             res_options.next_offset = offset + 1
         res = res.splice(offset * 20,20)
-    }else if(query == ''){
-        let data = await get_ranking(offset)
+    }else if(query.replace(/ /g,'') == ''){
+        let data = await get_ranking([offset],ctx.keyboard_flag)
         res = data.data
         if(data.next_offset)
             res_options.next_offset = data.next_offset
