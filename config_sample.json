@@ -5,11 +5,11 @@
     },
     "pixiv": {
         "cookie": "",
-        "ua": ""
+        "ua": "",
+        "pximgproxy": "https://i-cf.pximg.net/"
     },
     "tg": {
         "master_id": 1,
-        "token": "",
-        "pximgproxy": "https://i-cf.pximg.net/"
+        "token": ""
     }
 }

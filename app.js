@@ -82,7 +82,7 @@ bot.on('text',async (ctx,next)=>{
     if(ids = get_illust_ids(ctx.rtext)){
         asyncForEach(ids,async id=>{
             let d = await handle_illust(id,ctx.flag)
-            if(!d){
+            if(!d && typeof d == 'boolean'){
                 // 群组就不返回找不到 id 的提示了
                 if(ctx.chat.id > 0)
                     await ctx.reply(l[ctx.l].illust_404)

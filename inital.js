@@ -15,7 +15,7 @@ async function handle(){
     })
     // 新建文件夹
     fs.mkdirSync('./tmp')
-    fs.mkdirSync('./tmp/zip')
+    fs.mkdirSync('./tmp/file')
     fs.mkdirSync('./tmp/timecode')
     fs.mkdirSync('./tmp/mp4_0')
     fs.mkdirSync('./tmp/mp4_1')

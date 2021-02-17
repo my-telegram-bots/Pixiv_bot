@@ -6,13 +6,15 @@ const r_p = require('../pixiv/r_p')
 
 /**
  * 处理成tg友好型数据
+ * 作为 ../pixiv/illust 的tg封装
  * @param {*} id 
  * @param {*} flag 
+
  */
 async function handle_illust(id,flag){
     let illust = await get_illust(id)
-    if(!illust)
-        return false
+    if(!typeof illust == 'number' || !illust)
+        return illust
     let td = {
         tags: []
     }
@@ -36,6 +38,8 @@ async function handle_illust(id,flag){
                     width: illust.width,
                     height: illust.height
                 }],
+                title: illust.title,
+                id: illust.id,
                 tags: td.tags
             }
         } else if(illust.pageCount > 1) {
@@ -50,10 +54,10 @@ async function handle_illust(id,flag){
                 }
                 let pages = (await r_p('illust/' + id + '/pages')).data.body
                 // 应该不会有 error 就不 return 了
-                pages.forEach(p => {
-                    td.thumb_urls.push(p.urls.thumb_mini)
-                    td.regular_urls.push(p.urls.regular)
-                    td.original_urls.push(p.urls.original)
+                pages.forEach(p =>{
+                    td.thumb_urls.push(p.urls.thumb_mini.replace('i.pximg.net', 'i-cf.pximg.net'))
+                    td.regular_urls.push(p.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net'))
+                    td.original_urls.push(p.urls.original.replace('i.pximg.net', 'i-cf.pximg.net'))
                     td.size.push({
                         width: p.width,
                         height: p.height
@@ -81,12 +85,12 @@ async function handle_illust(id,flag){
             }
             td.mediagroup_o[gid][pid % 10] = {
                 type: 'photo',
-                media: td.original_urls[pid].replace('https://i.pximg.net/', 'https://i-cf.pximg.net/'),
+                media: td.original_urls[pid],
                 caption: caption +  `\npixiv.net/i/${illust.id}`,
                 type: 'photo'
             }
             td.mediagroup_r[gid][pid % 10] = td.mediagroup_o[gid][pid % 10]
-            td.mediagroup_r[gid][pid % 10].media = td.regular_urls[pid].replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
+            td.mediagroup_r[gid][pid % 10].media = td.regular_urls[pid]
             td.inline[pid] = {
                 type: 'photo',
                 id: 'p_' + illust.id + '-' + pid,
@@ -99,11 +103,8 @@ async function handle_illust(id,flag){
                 ...k_os(illust.id,flag)
             }
         })
-        if(td.size.length == 1){
-            
-        }
     }else if(illust.illustType == 2){
-        // inline 只有在现存动图的情况下有意义
+        // inline + ugoira 只有在现存动图的情况下有意义
         if(illust.tg_file_id){
             td = {
                 size: [{
@@ -111,6 +112,8 @@ async function handle_illust(id,flag){
                     height: illust.height
                 }],
                 inline: [],
+                title: illust.title,
+                id: illust.id,
                 tags: td.tags
             }
             let caption = illust.title
