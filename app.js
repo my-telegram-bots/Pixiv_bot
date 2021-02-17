@@ -66,6 +66,12 @@ bot.on('text',async (ctx)=>{
     if(ids = get_illust_ids(ctx.message.text)){
         asyncForEach(ids,async id=>{
             let d = await get_illust(id,ctx.message.text.indexOf('+tag') > -1)
+            if(!d){
+                // 群组就不返回找不到id的提示了
+                if(ctx.chat.id > 0)
+                    await ctx.reply(l[ctx.l].illust_404)
+                return false
+            }
             if(d.type <= 1){
                 // 大图发不了就发小的
                 await asyncForEach(d.td.mediagroup_o, async (mediagroup_o,id) => {
@@ -74,8 +80,8 @@ bot.on('text',async (ctx)=>{
                         await ctx.replyWithMediaGroup(d.td.mediagroup_r[id])
                     })
                 })
-            }else if(d.type == 2){
-                // ugoira 動いら
+            // ugoira
+            }else if(d.type == 2){ 
                 ctx.replyWithChatAction('upload_video')
                 let media = d.td.tg_file_id
                 if(!media){
@@ -90,6 +96,7 @@ bot.on('text',async (ctx)=>{
                         Markup.button.switchToChat('share', 'https://pixiv.net/i/' + d.id)
                     ]])
                 })
+                // 保存动图的 tg file id
                 if(!d.td.tg_file_id && data.document) {
                     let col = await db.collection('illust')
                     await col.updateOne({

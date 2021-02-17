@@ -1,5 +1,6 @@
 {
     "start": "歡迎使用 Pixiv bot\n我可以透過鏈接幫助你快速發送各類插圖與動圖\n\n維護者: @makeding",
+    "illust_404": "該作品已被刪除，或作品ID不存在。",
     "pm_to_generate_ugoira": "點我生成動圖",
     "reload_lang": "語言載入成功",
     "error": "發生了點錯誤"

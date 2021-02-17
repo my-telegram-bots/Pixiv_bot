@@ -17,7 +17,6 @@ Link: https://t.me/Pixiv_bot
     # nano config.json
     pm2 start --name pixiv_bot app.js
     pm2 save
-    pm2 startup
 ## config
 To access R18(g) contents, You must fill the config.json->pixiv->cookie.  
 You can login via your browser and open developer tools to select network tab and get the cookie your logined.
@@ -28,5 +27,8 @@ You can login via your browser and open developer tools to select network tab an
     4. web version
     5. R18 alert
     6. bookmarks
-## License
-    MIT
+# License
+MIT
+
+
+Made with ❤️

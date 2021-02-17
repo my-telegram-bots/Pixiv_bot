@@ -29,7 +29,8 @@ async function get_illust(id,show_tags = false,show_inline_keyboard = false,mode
             illust = illust.body
         } catch (error) {
             // 一般是网路 还有登录问题
-            console.error(error)
+            console.warn(error)
+            return false
         }
         // 删除我觉得不需要的 data
         delete illust.zoneConfig,
