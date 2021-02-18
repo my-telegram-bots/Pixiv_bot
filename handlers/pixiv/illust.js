@@ -20,12 +20,12 @@ async function get_illust(id){
             illust = (await r_p.get('illust/' + id)).data
             // 应该是没有检索到 直接返回 false 得了
             if(illust.error)
-                return false
+                return 404
             illust = illust.body
         } catch (error) {
             // 一般是网路 还有登录问题
             console.warn(error)
-            return false
+            return 404
         }
         // 删除我觉得不需要的 data
         delete illust.zoneConfig,

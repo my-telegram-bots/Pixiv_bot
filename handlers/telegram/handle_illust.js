@@ -13,7 +13,7 @@ const { format } = require('./format')
  */
 async function handle_illust(id,flag){
     let illust = await get_illust(id)
-    if(!typeof illust == 'number' || !illust)
+    if(typeof illust == 'number' || !illust)
         return illust
     let td = {
         id: illust.id,
@@ -32,9 +32,7 @@ async function handle_illust(id,flag){
             thumb_urls: [],
             regular_urls: [],
             original_urls: [],
-            size: [],
-            mediagroup_o: [],
-            mediagroup_r: [],
+            size: []
         }
         // for (let i = 0; i < illust.pageCount; i++) {
         //     // 通过观察url规律 图片链接只是 p0 -> p1 这样的
@@ -73,21 +71,6 @@ async function handle_illust(id,flag){
             }
         }
         await asyncForEach(td.size, (size, pid) => {
-            // 10个一组 mediagroup
-            let gid = Math.floor(pid / 10)
-            if(!td.mediagroup_o[gid]) {
-                td.mediagroup_o[gid] = []
-                td.mediagroup_r[gid] = []
-            }
-            td.mediagroup_o[gid][pid % 10] = {
-                type: 'photo',
-                media: td.original_urls[pid],
-                caption: format(td,flag,'message',pid),
-                parse_mode: 'Markdown',
-                type: 'photo'
-            }
-            td.mediagroup_r[gid][pid % 10] = td.mediagroup_o[gid][pid % 10]
-            td.mediagroup_r[gid][pid % 10].media = td.regular_urls[pid]
             td.inline[pid] = {
                 type: 'photo',
                 id: 'p_' + illust.id + '-' + pid,

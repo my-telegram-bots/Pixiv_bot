@@ -50,7 +50,10 @@ function format(td, flag, mode = 'message', p, custom_template = false){
         template = template.replace(/%p%/g,`${(p + 1)}/${td.original_urls.length}`)
     else
         template = template.replace(/%p%/,'')
-    return template.replace(/%title%/g,td.title).replace(/%url%/g,`https://pixiv.net/i/${td.id}`).replace(/%author_name%/g,td.author_name).replace(/%author_url%/g,`https://www.pixiv.net/users/${td.author_id}`)
+    return template.replace(/%title%/g,td.title)
+    .replace(/%url%/g,`https://pixiv.net/i/${td.id}`)
+    .replace(/%author_name%/g,td.author_name.replace(/\[/,'\\[').replace(/\]/,'\\]').replace(/_/,'\\_'))
+    .replace(/%author_url%/g,`https://www.pixiv.net/users/${td.author_id}`)
 }
 
 function format_group(td, flag, mode = 'message', p, custom_template = false){

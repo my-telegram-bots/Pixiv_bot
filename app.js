@@ -6,6 +6,7 @@ let config = require('./config.json')
 const { k_os, handle_illust, get_illust_ids, ugoira_to_mp4, asyncForEach, handle_ranking, download_file} = require('./handlers')
 const db = require('./db')
 const { format } = require('./handlers/telegram/format')
+const { mg_create, mg_albumize } = require('./handlers/telegram/mediagroup')
 const throttler = telegrafThrottler({
     group: {
         minTime: 500
@@ -49,7 +50,12 @@ bot.use(async (ctx, next) => {
             tags: text.indexOf('+tag') > -1,
             share: text.indexOf('-share') == -1,
             remove_keyboard: text.indexOf('-rm') > -1,
-            asfile: text.indexOf('+file') > -1
+            asfile: text.indexOf('+file') > -1,
+            album: text.indexOf('+album') > -1,
+        }
+        ctx.temp_data = {
+            mediagroup_o: [],
+            mediagroup_r: []
         }
         // replaced text
         ctx.rtext = text.replace(/\+tags/ig,'').replace(/\+tag/ig,'').replace(/\-share/ig,'').replace(/\+album/ig,'').replace(/\-rm/ig,'').replace(/\+file/ig,'').replace('@' + ctx.botInfo.username,'')
@@ -88,15 +94,16 @@ bot.command('set_format',async (ctx,next)=>{
 })
 bot.on('text',async (ctx,next)=>{
     if(ids = get_illust_ids(ctx.rtext)){
-        asyncForEach(ids,async id=>{
+        await asyncForEach(ids,async id=>{
             let d = await handle_illust(id,ctx.flag)
-            if(!d && typeof d == 'boolean'){
+            if(!d && typeof d == 'number'){
                 // 群组就不返回找不到 id 的提示了
                 if(ctx.chat.id > 0)
                     await ctx.reply(l[ctx.l].illust_404)
                 return false
             }
-            if(d.type <= 1){
+            let mg = mg_create(d.td,ctx.flag)
+            if(d.type <= 1){ // 0 1 -> illust manga
                 if(ctx.flag.asfile){
                     await asyncForEach(d.td.original_urls, async (imgurl,id) => {
                         ctx.replyWithChatAction('upload_document')
@@ -116,30 +123,28 @@ bot.on('text',async (ctx,next)=>{
                             })
                         })
                     })
-                }else{
-                    // 大图发不了就发小的
-                    if(d.td.mediagroup_o[0].length == 1){
+                }
+                if(!ctx.flag.album){
+                    if(mg.mediagroup_o.length == 1){
+                        // 这里发单图 sendphoto 才有按钮（（
                         ctx.replyWithChatAction('upload_photo')
                         let extra = {
                             parse_mode: 'Markdown',
-                            caption: format(d.td,ctx.flag,'inline',-1),
+                            caption: format(d.td,ctx.flag,'inline',-1), // 默认 inline 相比 message 少了 url 所以这里偷懒直接用 inline 的模板
                             ...k_os(d.id,ctx.flag)
                         }
-                        await ctx.replyWithPhoto(d.td.mediagroup_o[0][0].media,extra).catch(async ()=>{
-                            await ctx.replyWithPhoto(d.td.mediagroup_r[0][0].media,extra)
+                        await ctx.replyWithPhoto(mg.mediagroup_o[0].media,extra).catch(async ()=>{
+                            await ctx.replyWithPhoto(mg.mediagroup_r[0].media,extra)
                         })
                     }else{
-                        await asyncForEach(d.td.mediagroup_o, async (mediagroup_o,id) => {
-                            ctx.replyWithChatAction('upload_photo')
-                            await ctx.replyWithMediaGroup(mediagroup_o).catch(async () => {
-                                ctx.replyWithChatAction('upload_photo')
-                                await ctx.replyWithMediaGroup(d.td.mediagroup_r[id])
-                            })
-                        })
+                        ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o,...mg_albumize(mg.mediagroup_o)]
+                        ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,...mg_albumize(mg.mediagroup_r)]
                     }
+                }else{
+                    ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o,...mg.mediagroup_o]
+                    ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,...mg.mediagroup_r]
                 }
-            // ugoira
-            }else if(d.type == 2){ 
+            }else if(d.type == 2){ // 2 = ugoira
                 ctx.replyWithChatAction('upload_video')
                 let media = d.td.tg_file_id
                 if(!media){
@@ -164,6 +169,19 @@ bot.on('text',async (ctx,next)=>{
                 }
             }
         })
+        if(ctx.flag.album){
+            ctx.temp_data.mediagroup_o = mg_albumize(ctx.temp_data.mediagroup_o)
+            ctx.temp_data.mediagroup_r = mg_albumize(ctx.temp_data.mediagroup_r)
+        }
+        if(ctx.temp_data.mediagroup_o.length > 0){
+            await asyncForEach(ctx.temp_data.mediagroup_o, async (mediagroup_o,id) => {
+                ctx.replyWithChatAction('upload_photo')
+                await ctx.replyWithMediaGroup(mediagroup_o).catch(async () => {
+                    ctx.replyWithChatAction('upload_photo')
+                    await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_r[id])
+                })
+            })
+        }
     }else{
         next()
     }
