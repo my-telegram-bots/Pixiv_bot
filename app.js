@@ -52,7 +52,7 @@ bot.use(async (ctx, next) => {
             asfile: text.indexOf('+file') > -1
         }
         // replaced text
-        ctx.rtext = text.replace(/\+tags/ig,'').replace(/\+tag/ig,'').replace(/\-share/ig,'').replace(/\+album/ig,'').replace(/\-rm/ig,'').replace(/\+file/ig,'')
+        ctx.rtext = text.replace(/\+tags/ig,'').replace(/\+tag/ig,'').replace(/\-share/ig,'').replace(/\+album/ig,'').replace(/\-rm/ig,'').replace(/\+file/ig,'').replace('@' + ctx.botInfo.username,'')
     } catch (error) {
         
     }
@@ -78,6 +78,13 @@ bot.command('reload_lang',async (ctx)=>{
             ctx.reply(l[ctx.l].reload_lang)
         }
     }
+})
+bot.command('set_format',async (ctx,next)=>{
+    let rmtext = ctx.rtext.replace('message','').replace('inline','')
+    if(ctx.rtext){
+        
+    }
+
 })
 bot.on('text',async (ctx,next)=>{
     if(ids = get_illust_ids(ctx.rtext)){

@@ -18,9 +18,9 @@ function format(td, flag, mode = 'message', p, custom_template = false){
     let template = ''
     if(!custom_template){
         if(mode == 'message'){
-                template = '%title% / [%author_name%](%author_url%) %p%\n'
-                template += '%tags%\n'
-                template += '%url%'
+            template = '%title% / [%author_name%](%author_url%) %p%\n'
+            template += '%tags%\n'
+            template += '%url%'
         }else if(mode == 'inline'){
             template = '%title% / [%author_name%](%author_url%) %p%\n'
             template += '%tags%\n'
@@ -46,7 +46,7 @@ function format(td, flag, mode = 'message', p, custom_template = false){
             template = template.replace(r,rr)
         }
     })
-    if(td.original_urls.length > 1 && p !== -1)
+    if(td.original_urls && td.original_urls.length > 1 && p !== -1)
         template = template.replace(/%p%/g,`${(p + 1)}/${td.original_urls.length}`)
     else
         template = template.replace(/%p%/,'')

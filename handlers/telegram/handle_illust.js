@@ -46,9 +46,9 @@ async function handle_illust(id,flag){
         if(illust.pageCount == 1) {
             td = {
                 ...td,
-                thumb_urls: [illust.urls.thumb],
-                regular_urls: [illust.urls.regular],
-                original_urls: [illust.urls.original],
+                thumb_urls: [illust.urls.thumb.replace('i.pximg.net', 'i-cf.pximg.net')],
+                regular_urls: [illust.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net')],
+                original_urls: [illust.urls.original.replace('i.pximg.net', 'i-cf.pximg.net')],
                 size: [{
                     width: illust.width,
                     height: illust.height
