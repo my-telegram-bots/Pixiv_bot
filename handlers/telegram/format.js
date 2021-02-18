@@ -17,7 +17,11 @@
 function format(td, flag, mode = 'message', p, custom_template = false){
     let template = ''
     if(!custom_template){
-        if(mode == 'message'){
+        if(flag.telegraph){
+            template = '%title% / %author_name% %p%\n'
+            template += '%url%\n'
+            template += '%tags%\n'
+        }else if(mode == 'message'){
             template = '%title% / [%author_name%](%author_url%) %p%\n'
             template += '%tags%\n'
             template += '%url%'

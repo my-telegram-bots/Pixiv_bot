@@ -10,6 +10,7 @@
     },
     "tg": {
         "master_id": 1,
-        "token": ""
+        "token": "",
+        "access_token": ""
     }
 }

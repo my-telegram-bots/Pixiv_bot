@@ -7,6 +7,7 @@ const { k_os, handle_illust, get_illust_ids, ugoira_to_mp4, asyncForEach, handle
 const db = require('./db')
 const { format } = require('./handlers/telegram/format')
 const { mg_create, mg_albumize } = require('./handlers/telegram/mediagroup')
+const { mg2telegraph } = require('./handlers/telegram/telegraph')
 const throttler = telegrafThrottler({
     group: {
         minTime: 500
@@ -52,13 +53,18 @@ bot.use(async (ctx, next) => {
             remove_keyboard: text.indexOf('-rm') > -1,
             asfile: text.indexOf('+file') > -1,
             album: text.indexOf('+album') > -1,
+            telegraph: text.indexOf('+graph') > -1 || text.indexOf('+telegraph') > -1,
+        }
+        if(ctx.flag.telegraph){
+            ctx.flag.album = true
+            ctx.flag.tags = true
         }
         ctx.temp_data = {
             mediagroup_o: [],
             mediagroup_r: []
         }
         // replaced text
-        ctx.rtext = text.replace(/\+tags/ig,'').replace(/\+tag/ig,'').replace(/\-share/ig,'').replace(/\+album/ig,'').replace(/\-rm/ig,'').replace(/\+file/ig,'').replace('@' + ctx.botInfo.username,'')
+        ctx.rtext = text.replace(/\+tags/ig,'').replace(/\+tag/ig,'').replace(/\-share/ig,'').replace(/\+album/ig,'').replace(/\-rm/ig,'').replace(/\+file/ig,'').replace(/\+telegraph/ig,'').replace(/\+graph/ig,'').replace('@' + ctx.botInfo.username,'')
     } catch (error) {
         
     }
@@ -104,7 +110,7 @@ bot.on('text',async (ctx,next)=>{
             }
             let mg = mg_create(d.td,ctx.flag)
             if(d.type <= 1){ // 0 1 -> illust manga
-                if(ctx.flag.asfile){
+                if(ctx.flag.asfile && !ctx.flag.telegraph){
                     await asyncForEach(d.td.original_urls, async (imgurl,id) => {
                         ctx.replyWithChatAction('upload_document')
                         // Post the file using multipart/form-data in the usual way that files are uploaded via the browser. 10 MB max size for photos, 50 MB for other files.
@@ -118,7 +124,7 @@ bot.on('text',async (ctx,next)=>{
                                 parse_mode: 'Markdown',
                                 caption: format(d.td,ctx.flag,'message',id),
                             }).catch(async (e)=>{
-                                await ctx.reply(l[ctx.l].file_too_large + imgurl.replace('https://i.pximg.net',config.pixiv.pximgproxy))
+                                await ctx.reply(l[ctx.l].file_too_large + imgurl.replace('i.pximg.net',config.pixiv.pximgproxy))
                                 console.warn(e)
                             })
                         })
@@ -145,42 +151,57 @@ bot.on('text',async (ctx,next)=>{
                     ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,...mg.mediagroup_r]
                 }
             }else if(d.type == 2){ // 2 = ugoira
-                ctx.replyWithChatAction('upload_video')
-                let media = d.td.tg_file_id
-                if(!media){
-                    media = {
-                        source: await ugoira_to_mp4(d.id)
-                    }
-                }
-                let data = await ctx.replyWithAnimation(media, {
-                    caption: d.title,
-                    ...k_os(d.id,ctx.flag)
-                })
-                // 保存动图的 tg file id
-                if(!d.td.tg_file_id && data.document) {
-                    let col = await db.collection('illust')
-                    await col.updateOne({
-                        id: d.id.toString(),
-                    }, {
-                        $set: {
-                            tg_file_id: data.document.file_id
+                if(ctx.temp_data.telegraph){
+                    ctx.reply()
+                }else{
+                    ctx.replyWithChatAction('upload_video')
+                    let media = d.td.tg_file_id
+                    if(!media){
+                        media = {
+                            source: await ugoira_to_mp4(d.id)
                         }
+                    }
+                    let data = await ctx.replyWithAnimation(media, {
+                        caption: d.title,
+                        ...k_os(d.id,ctx.flag)
                     })
+                    // 保存动图的 tg file id
+                    if(!d.td.tg_file_id && data.document) {
+                        let col = await db.collection('illust')
+                        await col.updateOne({
+                            id: d.id.toString(),
+                        }, {
+                            $set: {
+                                tg_file_id: data.document.file_id
+                            }
+                        })
+                    }
                 }
             }
         })
-        if(ctx.flag.album){
-            ctx.temp_data.mediagroup_o = mg_albumize(ctx.temp_data.mediagroup_o)
-            ctx.temp_data.mediagroup_r = mg_albumize(ctx.temp_data.mediagroup_r)
-        }
-        if(ctx.temp_data.mediagroup_o.length > 0){
-            await asyncForEach(ctx.temp_data.mediagroup_o, async (mediagroup_o,id) => {
-                ctx.replyWithChatAction('upload_photo')
-                await ctx.replyWithMediaGroup(mediagroup_o).catch(async () => {
+        if(ctx.flag.telegraph){
+            try {
+                let url = await mg2telegraph(ctx.temp_data.mediagroup_o)
+                if(url){
+                    ctx.reply(url)
+                }
+            } catch (error) {
+                
+            }
+        }else{
+            if(ctx.flag.album){
+                ctx.temp_data.mediagroup_o = mg_albumize(ctx.temp_data.mediagroup_o)
+                ctx.temp_data.mediagroup_r = mg_albumize(ctx.temp_data.mediagroup_r)
+            }
+            if(ctx.temp_data.mediagroup_o.length > 0){
+                await asyncForEach(ctx.temp_data.mediagroup_o, async (mediagroup_o,id) => {
                     ctx.replyWithChatAction('upload_photo')
-                    await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_r[id])
+                    await ctx.replyWithMediaGroup(mediagroup_o).catch(async () => {
+                        ctx.replyWithChatAction('upload_photo')
+                        await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_r[id])
+                    })
                 })
-            })
+            }
         }
     }else{
         next()

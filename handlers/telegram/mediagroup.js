@@ -1,8 +1,7 @@
-const { asyncForEach } = require("../common")
 const { format } = require("./format")
 function mg_create(td,flag){
     let mediagroup_o = mediagroup_r  = []
-    if(td.original_urls)
+    if(td && td.original_urls)
         td.size.forEach((size, pid) => {
             let mediagroup_data = {
                 type: 'photo',
