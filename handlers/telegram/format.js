@@ -18,9 +18,11 @@ function format(td, flag, mode = 'message', p, custom_template = false){
     let template = ''
     if(!custom_template){
         if(flag.telegraph){
-            template = '%title% / %author_name% %p%\n'
-            template += '%url%\n'
-            template += '%tags%\n'
+            if(p == 0){
+                template = '%title% / %author_name%\n'
+                template += '%url%\n'
+                template += '%tags%'
+            }
         }else if(mode == 'message'){
             template = '%title% / [%author_name%](%author_url%) %p%\n'
             template += '%tags%\n'
@@ -34,22 +36,23 @@ function format(td, flag, mode = 'message', p, custom_template = false){
     }
     if(!flag.tags)
         template = template.replace(/%tags%/,'')
-    template.match(/%.*%/g).forEach((r,id)=>{
-        let rr = r.replace(/%/g,'')
-        if(rr.includes('tags')){
-            let tags = '#' + td.tags.join(' #')
-            tags = tags.substr(0,tags.length - 1)
-            if(rr != 'tags'){
-                if(rr != rr.replace('|tags',tags))
-                    rr = rr.replace('|tags',tags)
-                else
-                    rr = rr.replace('tags|',tags)
-            }else{
-                rr = tags
+    if(template !== '')
+        template.match(/%.*%/g).forEach((r,id)=>{
+            let rr = r.replace(/%/g,'')
+            if(rr.includes('tags')){
+                let tags = '#' + td.tags.join(' #')
+                tags = tags.substr(0,tags.length - 1)
+                if(rr != 'tags'){
+                    if(rr != rr.replace('|tags',tags))
+                        rr = rr.replace('|tags',tags)
+                    else
+                        rr = rr.replace('tags|',tags)
+                }else{
+                    rr = tags
+                }
+                template = template.replace(r,rr)
             }
-            template = template.replace(r,rr)
-        }
-    })
+        })
     if(td.original_urls && td.original_urls.length > 1 && p !== -1)
         template = template.replace(/%p%/g,`${(p + 1)}/${td.original_urls.length}`)
     else

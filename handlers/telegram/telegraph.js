@@ -4,6 +4,15 @@ const br = {tag: 'br'}
 async function mg2telegraph(mg){
     try {
         let content = mg.map(d=>{
+            let url = d.media.replace('i-cf.pximg.net',config.pixiv.pximgproxy) 
+            if(d.caption == ''){
+                return {
+                    tag: 'img',
+                    attrs: {
+                        src: url
+                    }
+                }
+            }
             let caption = d.caption.split('\n')
             for (let i = caption.length ; i > 0; i--) {
                 caption.splice(i,0,br)
@@ -14,7 +23,7 @@ async function mg2telegraph(mg){
                     {
                         tag: 'img',
                         attrs: {
-                            'src': d.media.replace('i-cf.pximg.net',config.pixiv.pximgproxy) 
+                            'src': url
                         }
                     },
                     {

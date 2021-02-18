@@ -151,8 +151,8 @@ bot.on('text',async (ctx,next)=>{
                     ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,...mg.mediagroup_r]
                 }
             }else if(d.type == 2){ // 2 = ugoira
-                if(ctx.temp_data.telegraph){
-                    ctx.reply()
+                if(ctx.flag.telegraph){
+                    ctx.reply(l[ctx.l].telegraph_ugoira)
                 }else{
                     ctx.replyWithChatAction('upload_video')
                     let media = d.td.tg_file_id
