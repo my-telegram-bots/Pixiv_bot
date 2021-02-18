@@ -22,5 +22,3 @@ async function handle(){
     fs.mkdirSync('./tmp/ugoira')
 }
 handle()
-
-

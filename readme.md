@@ -18,16 +18,30 @@ Link: https://t.me/Pixiv_bot
     pm2 start --name pixiv_bot app.js
     pm2 save
 ## config
+### pixiv
+### cookie
 To access R18(g) contents, You must fill the config.json->pixiv->cookie.  
 You can login via your browser and open developer tools to select network tab and get the cookie you logined.  
+## ua
 get newest chrome useragent: https://t.me/chrome_useragent
+## pximgproxy
+i.pximg.net proxy
+
+### tg
+#### token
+@botfather
+#### master_id
+Report error and manage bot
+#### access_token
+`access_token` is telegraph token you can create it manually  
+see more https://telegra.ph
 ## todolist
-    1. subscribe
-    2. custom format
-    3. error handle
-    4. web version
-    5. R18 alert
-    6. bookmarks
+    1. subscribe (0%)
+    2. custom format (50%)
+    3. error handle (10%)
+    4. web version (0%)
+    5. R18 alert (0%)
+    6. bookmarks (0%)
 # License
 MIT
 

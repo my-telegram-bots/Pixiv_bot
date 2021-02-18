@@ -9,7 +9,8 @@ function get_illust_ids(text) {
     let ids = []
     // A-Z, a-z, 0-9, _ and - are allowed. We recommend using base64url to encode parameters with binary and other types of content.
     // 首先以换行来分割
-    text.replace(/-_-/ig, ' ').replace(/  /ig, ' ').split('\n').forEach(ntext => {
+    text.replace(/-_-/g, ' ').replace(/http/ig, ' ').replace(/=/g, ' ').replace(/  /g, ' ').split('\n').forEach(ntext => {
+        console.log(ntext)
         // 接着按照空格来分割
         ntext.split(' ').forEach(u => {
             try {
@@ -37,7 +38,7 @@ function get_illust_ids(text) {
                 // pixiv.net/i/87466156
                 // 87466156
                 // 还有纯 id 也匹配了（一般轮不到这）
-                let t = u.replace('https://', '').replace('http://', '').replace('www.','').replace('pixiv.net','').replace(/\//ig, '').replace('artworks','').replace('i','').replace('en','')
+                let t = u.replace('https://', '').replace('http://', '').replace('s://', '').replace('www.','').replace('pixiv.net','').replace(/\//ig, '').replace('artworks','').replace('i','').replace('en','')
                 if(!isNaN(t) && t && t.length == 8){
                     ids.push(t)
                 }
