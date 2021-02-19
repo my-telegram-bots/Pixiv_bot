@@ -25,45 +25,43 @@ function format(td, flag, mode = 'message', p, custom_template = false){
                 template += '%tags%'
             }
         }else if(mode == 'message'){
-            template = '%title% / id=%illust_id% / [%author_name%](%author_url%) %p%\n'
-            template += '%tags%\n'
-            template += '%url%'
+            template = '[%title%](%url%)% / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
+            template += '%tags%'
         }else if(mode == 'inline'){
-            template = '%title% / id=%illust_id% / [%author_name%](%author_url%) %p%\n'
-            template += '%tags%\n'
+            template = '[%title%](%url%) % / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
+            template += '%tags%'
         }
     }else{
         template = custom_template
     }
-    if(!flag.tags)
-        template = template.replaceAll('%tags%','')
-    if(template !== '')
-        template.match(/%.*%/g).forEach((r,id)=>{
-            let rr = r.replaceAll('%','')
-            if(rr.includes('tags')){
-                let tags = '#' + td.tags.join(' #')
-                tags = escape_strings(tags.substr(0,tags.length - 1))
-                if(rr != 'tags'){
-                    if(rr != rr.replace('|tags',tags))
-                        rr = rr.replace('|tags',tags)
-                    else
-                        rr = rr.replace('tags|',tags)
-                }else{
-                    rr = tags
+    if(template == ''){
+        return ''
+    }else{
+        if(td.original_urls && td.original_urls.length > 1 && p !== -1)
+            template = template.replaceAll('%p%',`${(p + 1)}/${td.original_urls.length}`)
+        else
+            template = template.replaceAll('%p%','')
+        let tags = '#' + td.tags.join(' #')
+        tags = tags.substr(0,tags.length - 1)
+        let splited_tamplate = template.replaceAll('\\%','\uff69').split('%')  // 迫真转义 这个符号不会有人打出来把！！！
+        let replace_list = [
+            ['tags',flag.tags ? tags : false],
+            ['illust_id',flag.c_show_id ? td.id : false],
+            ['url',`https://pixiv.net/i/${td.id}`],
+            ['author_url',`https://www.pixiv.net/users/${td.author_id}`],
+            ['author_name',td.author_name],
+            ['title',td.title]
+        ]
+        splited_tamplate.map((r,id)=>{
+            replace_list.forEach(x=>{
+                if(x && r.includes(x[0])){
+                    splited_tamplate[id] = Treplace(r,...x)
                 }
-                template = template.replace(r,rr)
-            }
+            })
         })
-    if(td.original_urls && td.original_urls.length > 1 && p !== -1)
-        template = template.replaceAll('%p%',`${(p + 1)}/${td.original_urls.length}`)
-    else
-        template = template.replaceAll('%p%','')
-    let res = template.replaceAll('%title%',escape_strings(td.title))
-    .replaceAll('%url%',`https://pixiv.net/i/${td.id}`)
-    .replaceAll('%author_name%',escape_strings(td.author_name))
-    .replaceAll('%author_url%',`https://www.pixiv.net/users/${td.author_id}`)
-    .replaceAll('%illust_id%',td.id)
-    return res
+        template = splited_tamplate.join('').replaceAll('\uff69','%')
+    }
+    return template
 }
 
 /**
@@ -72,9 +70,20 @@ function format(td, flag, mode = 'message', p, custom_template = false){
  */
 function escape_strings(t){
     '[]()_*`~'.split('').forEach(x=>{
-        t = t.replaceAll(x,`\\${x}`)
+        t = t.toString().replaceAll(x,`\\${x}`)
     })
     return t
+}
+function Treplace(r,name,value){
+    if(!r.includes(name))
+        return r
+    if(!value)
+        return ''
+    return r.replaceAll('\\|','\uffb4').split('|').map(l=>{
+        if(l == name)
+            return escape_strings(value)
+        return l
+    }).join('').replaceAll('\uffb4','|')
 }
 function format_group(td, flag, mode = 'message', p, custom_template = false){
 

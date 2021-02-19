@@ -57,7 +57,7 @@ async function handle_illust(id,flag){
                 type: 'mpeg4_gif',
                 id: 'p' + illust.id,
                 mpeg4_file_id: illust.tg_file_id,
-                caption: format(td,flag,'message',1),
+                caption: format(td,flag,'inline',1),
                 parse_mode: 'Markdown',
                 ...k_os(illust.id,flag)
             }

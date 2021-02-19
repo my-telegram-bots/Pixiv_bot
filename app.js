@@ -54,7 +54,8 @@ bot.use(async (ctx, next) => {
             asfile: text.indexOf('+file') > -1,
             album: text.indexOf('+album') > -1,
             telegraph: text.indexOf('+graph') > -1 || text.indexOf('+telegraph') > -1,
-            q_id: 0 // 总查询id
+            c_show_id: text.indexOf('-id') == -1,
+            q_id: 0 // 总查询id 目前用来标记 telegraph
         }
         if(ctx.flag.telegraph){
             ctx.flag.album = true
@@ -65,7 +66,14 @@ bot.use(async (ctx, next) => {
             mediagroup_r: []
         }
         // replaced text
-        ctx.rtext = text.replace(/\+tags/ig,'').replace(/\+tag/ig,'').replace(/\-share/ig,'').replace(/\+album/ig,'').replace(/\-rm/ig,'').replace(/\+file/ig,'').replace(/\+telegraph/ig,'').replace(/\+graph/ig,'').replace('@' + ctx.botInfo.username,'')
+        ctx.rtext = text.replaceAll('+tags','').replaceAll('+tag','')
+        .replaceAll('+file','')
+        .replaceAll('+telegraph','').replaceAll('+graph','')
+        .replaceAll('+album','')
+        .replaceAll('-share','')
+        .replaceAll('-rm','')
+        .replaceAll('-rm','')
+        .replaceAll('@' + ctx.botInfo.username,'')
     } catch (error) {
         
     }
