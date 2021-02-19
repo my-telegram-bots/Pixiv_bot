@@ -3,16 +3,17 @@
  * @param {*} td 
  * @param {*} flag 
  * @param {*} mode 
- * @param {*} p 
- * @param {*} custom 
+ * @param {*} p 当前 p 数
+ * @param {*} custom_template
  */
 /*
 %title%
 %tags:|tags%
 %url%
 %author_name%
-%author_name%
+%author_url%
 %p% 分p
+%illust_id% illust_id
 */
 function format(td, flag, mode = 'message', p, custom_template = false){
     let template = ''
@@ -24,11 +25,11 @@ function format(td, flag, mode = 'message', p, custom_template = false){
                 template += '%tags%'
             }
         }else if(mode == 'message'){
-            template = '%title% / [%author_name%](%author_url%) %p%\n'
+            template = '%title% / id=%illust_id% / [%author_name%](%author_url%) %p%\n'
             template += '%tags%\n'
             template += '%url%'
         }else if(mode == 'inline'){
-            template = '%title% / [%author_name%](%author_url%) %p%\n'
+            template = '%title% / id=%illust_id% / [%author_name%](%author_url%) %p%\n'
             template += '%tags%\n'
         }
     }else{
@@ -61,6 +62,7 @@ function format(td, flag, mode = 'message', p, custom_template = false){
     .replaceAll('%url%',`https://pixiv.net/i/${td.id}`)
     .replaceAll('%author_name%',escape_strings(td.author_name))
     .replaceAll('%author_url%',`https://www.pixiv.net/users/${td.author_id}`)
+    .replaceAll('%illust_id%',td.id)
     return res
 }
 

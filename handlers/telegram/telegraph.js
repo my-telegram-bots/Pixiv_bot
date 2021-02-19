@@ -3,7 +3,6 @@ const config = require('../../config.json')
 const { asyncForEach } = require('../common')
 const br = {tag: 'br'}
 async function mg2telegraph(mg){
-    // content (Array of Node, up to 64 KB)
     let t_data = [[]]
     let t_data_id = 0
     try {
@@ -40,6 +39,7 @@ async function mg2telegraph(mg){
             let same_illust = mg.filter((p)=>{
                 return p.q_id == d.q_id
             })
+            // content (Array of Node, up to 64 KB)
             if(((JSON.stringify(t_data[t_data_id]).length + same_illust.length * JSON.stringify(dd).length)) > 64000){
                 t_data_id = t_data_id + 1
                 t_data[t_data_id] = []
