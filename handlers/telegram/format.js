@@ -41,7 +41,7 @@ function format(td, flag, mode = 'message', p, custom_template = false){
             let rr = r.replace(/%/g,'')
             if(rr.includes('tags')){
                 let tags = '#' + td.tags.join(' #')
-                tags = tags.substr(0,tags.length - 1)
+                tags = escape_strings(tags.substr(0,tags.length - 1))
                 if(rr != 'tags'){
                     if(rr != rr.replace('|tags',tags))
                         rr = rr.replace('|tags',tags)
@@ -57,12 +57,23 @@ function format(td, flag, mode = 'message', p, custom_template = false){
         template = template.replace(/%p%/g,`${(p + 1)}/${td.original_urls.length}`)
     else
         template = template.replace(/%p%/,'')
-    return template.replace(/%title%/g,td.title)
-    .replace(/%url%/g,`https://pixiv.net/i/${td.id}`)
-    .replace(/%author_name%/g,td.author_name.replace(/\[/,'\\[').replace(/\]/,'\\]').replace(/_/,'\\_'))
+    let res = template.replace(/%title%/g,escape_strings(td.title))
+    .replaceAll(/%url%/g,`https://pixiv.net/i/${td.id}`)
+    .replace(/%author_name%/g,escape_strings(td.author_name))
     .replace(/%author_url%/g,`https://www.pixiv.net/users/${td.author_id}`)
+    return res
 }
 
+/**
+ * markdown 转义
+ * @param {String} t 
+ */
+function escape_strings(t){
+    '[]()_*`~'.split('').forEach(x=>{
+        t = t.replaceAll(x,`\\${x}`)
+    })
+    return t
+}
 function format_group(td, flag, mode = 'message', p, custom_template = false){
 
 }

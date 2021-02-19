@@ -211,7 +211,7 @@ bot.on('inline_query',async (ctx)=>{
     let res = []
     let { offset } = ctx.inlineQuery
     if(!offset)
-        offset = 0
+        offset = 1
     let query = ctx.rtext
     // 目前暂定 offset 只是页数吧 这样就直接转了，以后有需求再改
     offset = parseInt(offset)
