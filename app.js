@@ -54,6 +54,7 @@ bot.use(async (ctx, next) => {
             asfile: text.indexOf('+file') > -1,
             album: text.indexOf('+album') > -1,
             telegraph: text.indexOf('+graph') > -1 || text.indexOf('+telegraph') > -1,
+            q_id: 0 // 总查询id
         }
         if(ctx.flag.telegraph){
             ctx.flag.album = true
@@ -108,6 +109,7 @@ bot.on('text',async (ctx,next)=>{
                     await ctx.reply(l[ctx.l].illust_404)
                 return false
             }
+            ctx.flag.q_id += 1
             let mg = mg_create(d.td,ctx.flag)
             if(d.type <= 1){ // 0 1 -> illust manga
                 if(ctx.flag.asfile && !ctx.flag.telegraph){
@@ -181,9 +183,11 @@ bot.on('text',async (ctx,next)=>{
         })
         if(ctx.flag.telegraph){
             try {
-                let url = await mg2telegraph(ctx.temp_data.mediagroup_o)
-                if(url){
-                    ctx.reply(url)
+                let urls = await mg2telegraph(ctx.temp_data.mediagroup_o)
+                if(urls){
+                    await asyncForEach(urls,async (url)=>{
+                        ctx.reply(url)
+                    })
                 }
             } catch (error) {
                 
@@ -211,7 +215,7 @@ bot.on('inline_query',async (ctx)=>{
     let res = []
     let { offset } = ctx.inlineQuery
     if(!offset)
-        offset = 1
+        offset = 0 // 这里 offset 空的话 就定义 = 0，因为下面还有分页模块 所以就不定义为1了
     let query = ctx.rtext
     // 目前暂定 offset 只是页数吧 这样就直接转了，以后有需求再改
     offset = parseInt(offset)

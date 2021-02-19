@@ -16,6 +16,7 @@ async function handle_illust(id,flag){
     if(typeof illust == 'number' || !illust)
         return illust
     let td = {
+        ...illust.imgs_,
         id: illust.id,
         title: illust.title,
         author_name: illust.userName,
@@ -27,49 +28,6 @@ async function handle_illust(id,flag){
         td.tags.push(tag.tag)
     })
     if(illust.illustType <= 1){
-        td = {
-            ...td,
-            thumb_urls: [],
-            regular_urls: [],
-            original_urls: [],
-            size: []
-        }
-        // for (let i = 0; i < illust.pageCount; i++) {
-        //     // 通过观察url规律 图片链接只是 p0 -> p1 这样的
-        //     // 不过没有 weight 和 height 放弃了
-        //     td.thumb_urls.push(illust.urls.thumb.replace('p0', 'p' + i))
-        //     td.regular_urls.push(illust.urls.regular.replace('p0', 'p' + i))
-        //     td.original_urls.push(illust.urls.original.replace('p0', 'p' + i))
-        // }
-        if(illust.pageCount == 1) {
-            td = {
-                ...td,
-                thumb_urls: [illust.urls.thumb.replace('i.pximg.net', 'i-cf.pximg.net')],
-                regular_urls: [illust.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net')],
-                original_urls: [illust.urls.original.replace('i.pximg.net', 'i-cf.pximg.net')],
-                size: [{
-                    width: illust.width,
-                    height: illust.height
-                }]
-            }
-        } else if(illust.pageCount > 1) {
-            // 多p处理
-            try {
-                let pages = (await r_p('illust/' + id + '/pages')).data.body
-                // 应该不会有 error 就不做错误处理了
-                pages.forEach(p =>{
-                    td.thumb_urls.push(p.urls.thumb_mini.replace('i.pximg.net', 'i-cf.pximg.net'))
-                    td.regular_urls.push(p.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net'))
-                    td.original_urls.push(p.urls.original.replace('i.pximg.net', 'i-cf.pximg.net'))
-                    td.size.push({
-                        width: p.width,
-                        height: p.height
-                    })
-                })
-            } catch (error) {
-                console.warn(error)
-            }
-        }
         await asyncForEach(td.size, (size, pid) => {
             td.inline[pid] = {
                 type: 'photo',

@@ -10,6 +10,10 @@ function mg_create(td,flag){
                 parse_mode: 'Markdown',
                 type: 'photo'
             }
+            // mg2telegraph 还需要作品的 id
+            if(flag.telegraph){
+                mediagroup_data.q_id = td.id + '_' + flag.q_id
+            }
             mediagroup_o[pid] = mediagroup_data
             mediagroup_r[pid] = {
                 ...mediagroup_data,

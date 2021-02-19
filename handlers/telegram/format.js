@@ -35,10 +35,10 @@ function format(td, flag, mode = 'message', p, custom_template = false){
         template = custom_template
     }
     if(!flag.tags)
-        template = template.replace(/%tags%/,'')
+        template = template.replaceAll('%tags%','')
     if(template !== '')
         template.match(/%.*%/g).forEach((r,id)=>{
-            let rr = r.replace(/%/g,'')
+            let rr = r.replaceAll('%','')
             if(rr.includes('tags')){
                 let tags = '#' + td.tags.join(' #')
                 tags = escape_strings(tags.substr(0,tags.length - 1))
@@ -54,13 +54,13 @@ function format(td, flag, mode = 'message', p, custom_template = false){
             }
         })
     if(td.original_urls && td.original_urls.length > 1 && p !== -1)
-        template = template.replace(/%p%/g,`${(p + 1)}/${td.original_urls.length}`)
+        template = template.replaceAll('%p%',`${(p + 1)}/${td.original_urls.length}`)
     else
-        template = template.replace(/%p%/,'')
-    let res = template.replace(/%title%/g,escape_strings(td.title))
-    .replaceAll(/%url%/g,`https://pixiv.net/i/${td.id}`)
-    .replace(/%author_name%/g,escape_strings(td.author_name))
-    .replace(/%author_url%/g,`https://www.pixiv.net/users/${td.author_id}`)
+        template = template.replaceAll('%p%','')
+    let res = template.replaceAll('%title%',escape_strings(td.title))
+    .replaceAll('%url%',`https://pixiv.net/i/${td.id}`)
+    .replaceAll('%author_name%',escape_strings(td.author_name))
+    .replaceAll('%author_url%',`https://www.pixiv.net/users/${td.author_id}`)
     return res
 }
 

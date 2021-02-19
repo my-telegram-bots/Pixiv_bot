@@ -13,6 +13,11 @@ async function handle(){
     },{
         unique: true,
     })
+    (await collection('tg_user')).createIndex({
+        id: 1
+    },{
+        unique: true,
+    })
     // 新建文件夹
     fs.mkdirSync('./tmp')
     fs.mkdirSync('./tmp/file')

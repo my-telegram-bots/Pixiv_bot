@@ -1,14 +1,14 @@
 const config = require('./config.json')
 const { MongoClient } = require("mongodb")
+let db = null
+MongoClient.connect(config.mongodb.uri,{useUnifiedTopology: true},(err, client) => {
+    db = client.db(config.mongodb.dbname)
+})
 
 module.exports = {
     db: ()=>{
         return new Promise(async (resolve, reject) => {
-            MongoClient.connect(config.mongodb.uri,{useUnifiedTopology: true},(err, client) => {
-                if(err)
-                    reject(err)
-                resolve(client.db(config.mongodb.dbname))
-            })
+            resolve(db)
         })
     },
     collection: (colame)=>{
@@ -16,7 +16,6 @@ module.exports = {
             MongoClient.connect(config.mongodb.uri,{useUnifiedTopology: true},(err, client) => {
                 if(err)
                     reject(err)
-                const db = client.db(config.mongodb.dbname)
                 resolve(db.collection(colame))
             })
         })
