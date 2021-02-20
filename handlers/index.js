@@ -4,6 +4,7 @@ const handle_ranking = require('./telegram/handle_ranking')
 const get_illust_ids = require('./telegram/get_illust_ids')
 const ugoira_to_mp4 = require('./pixiv/ugoira_to_mp4')
 const keyboards = require('./telegram/keyboard')
+const {_l} = require('./telegram/i18n')
 module.exports = {
     handle_illust,
     handle_ranking,    
@@ -11,5 +12,6 @@ module.exports = {
     ugoira_to_mp4,
     ...keyboards,
     asyncForEach,
-    download_file
+    download_file,
+    _l
 }
