@@ -2,6 +2,9 @@
 Link: https://t.me/Pixiv_bot
 
 [archived version](https://github.com/my-telegram-bots/Pixiv_bot_archived)
+
+## featrue
+
 ## translate 
     1. clone project
     2. copy lang/en.json -> lang/_lang_code_.json
@@ -37,7 +40,7 @@ Report error and manage bot
 see more https://telegra.ph
 ## todolist
     1. subscribe (0%)
-    2. custom format (50%)
+    2. custom format (60%)
     3. error handle (10%)
     4. web version (0%)
     5. R18 alert (0%)

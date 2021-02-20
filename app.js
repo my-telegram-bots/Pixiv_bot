@@ -3,7 +3,7 @@ const { Telegraf } = require('telegraf')
 const { telegrafThrottler } = require('telegraf-throttler')
 const exec = require('util').promisify((require('child_process')).exec)
 let config = require('./config.json')
-const { k_os, handle_illust, get_illust_ids, ugoira_to_mp4, asyncForEach, handle_ranking, download_file} = require('./handlers')
+const { handle_illust, get_illust_ids, ugoira_to_mp4, asyncForEach, handle_ranking, download_file, k_os, k_setting_index} = require('./handlers')
 const db = require('./db')
 const { format } = require('./handlers/telegram/format')
 const { mg_create, mg_albumize } = require('./handlers/telegram/mediagroup')
@@ -47,33 +47,7 @@ bot.use(async (ctx, next) => {
             text = ctx.message.text
         if(ctx.inlineQuery && ctx.inlineQuery.query)
             text = ctx.inlineQuery.query
-        ctx.flag = {
-            tags: text.indexOf('+tag') > -1,
-            share: text.indexOf('-share') == -1,
-            remove_keyboard: text.indexOf('-rm') > -1,
-            asfile: text.indexOf('+file') > -1,
-            album: text.indexOf('+album') > -1,
-            telegraph: text.indexOf('+graph') > -1 || text.indexOf('+telegraph') > -1,
-            c_show_id: text.indexOf('-id') == -1,
-            q_id: 0 // 总查询id 目前用来标记 telegraph
-        }
-        if(ctx.flag.telegraph){
-            ctx.flag.album = true
-            ctx.flag.tags = true
-        }
-        ctx.temp_data = {
-            mediagroup_o: [],
-            mediagroup_r: []
-        }
-        // replaced text
-        ctx.rtext = text.replaceAll('+tags','').replaceAll('+tag','')
-        .replaceAll('+file','')
-        .replaceAll('+telegraph','').replaceAll('+graph','')
-        .replaceAll('+album','')
-        .replaceAll('-share','')
-        .replaceAll('-rm','')
-        .replaceAll('-rm','')
-        .replaceAll('@' + ctx.botInfo.username,'')
+        ctx.rtext = text.replaceAll('@' + ctx.botInfo.username,'')
     } catch (error) {
         
     }
@@ -100,12 +74,67 @@ bot.command('reload_lang',async (ctx)=>{
         }
     }
 })
-bot.command('set_format',async (ctx,next)=>{
-    let rmtext = ctx.rtext.replace('message','').replace('inline','')
+bot.command('setting',async (ctx,next)=>{
+    ctx.reply('Choose one item you want to set',{
+        reply_to_message_id: ctx.message.message_id,
+        ...k_setting_index()
+    })
+})
+bot.command('format',async (ctx,next)=>{
+    console.log(ctx.rtext)
+    let rmtext = ctx.rtext.replace('/format','').replace('message','').replace('inline','')
+    console.log(rmtext)
+    if(rmtext == ''){
+        if(ctx.chat.id < 0){
+            // 群组的先不做
+        }
+        ctx.reply('choose you want edit yourself',{
+            reply_to_message_id: ctx.message.message_id,
+            reply_markup: {
+                one_time_keyboard: true,
+                selective: true,
+                resize_keyboard: true,
+                keyboard: [
+                    ['message', 'inline (share)'],
+                    ['all']
+                ]
+            }
+        })
+    }
     if(ctx.rtext){
-        
+        if(ctx.message.text.includes('message')){
+
+        }
     }
 
+})
+bot.use(async (ctx,next)=>{
+    ctx.flag = {
+        tags: ctx.rtext.indexOf('+tag') > -1,
+        share: ctx.rtext.indexOf('-share') == -1,
+        remove_keyboard: ctx.rtext.indexOf('-rm') > -1,
+        asfile: ctx.rtext.indexOf('+file') > -1,
+        album: ctx.rtext.indexOf('+album') > -1,
+        telegraph: ctx.rtext.indexOf('+graph') > -1 || ctx.rtext.indexOf('+telegraph') > -1,
+        c_show_id: ctx.rtext.indexOf('-id') == -1,
+        q_id: 0 // 总查询id 目前用来标记 telegraph
+    }
+    if(ctx.flag.telegraph){
+        ctx.flag.album = true
+        ctx.flag.tags = true
+    }
+    ctx.temp_data = {
+        mediagroup_o: [],
+        mediagroup_r: []
+    }
+    // replaced text
+    ctx.rtext = ctx.rtext.replaceAll('+tags','').replaceAll('+tag','')
+    .replaceAll('+file','')
+    .replaceAll('+telegraph','').replaceAll('+graph','')
+    .replaceAll('+album','')
+    .replaceAll('-share','')
+    .replaceAll('-rm','')
+    .replaceAll('-rm','')
 })
 bot.on('text',async (ctx,next)=>{
     if(ids = get_illust_ids(ctx.rtext)){
@@ -172,7 +201,7 @@ bot.on('text',async (ctx,next)=>{
                         }
                     }
                     let data = await ctx.replyWithAnimation(media, {
-                        caption: d.title,
+                        caption: format(td,ctx.flag,'message',-1),
                         ...k_os(d.id,ctx.flag)
                     })
                     // 保存动图的 tg file id

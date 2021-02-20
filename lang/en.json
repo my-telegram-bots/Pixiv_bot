@@ -5,5 +5,8 @@
     "telegraph_ugoira": "Due to Telegraph restrictions, ugoira can't be uploaded in Telegraph, so ugoira(s) are not included in Telegraph.",
     "pm_to_generate_ugoira": "Click me to generate ugoira",
     "reload_lang": "Language loaded successfully",
-    "error": "Something went wrong :("
+    "error": "Something went wrong :(",
+    "settings": {
+        "format": "format"
+    }
 }
