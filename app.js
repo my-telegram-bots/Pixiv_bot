@@ -128,13 +128,14 @@ bot.on('text',async (ctx,next)=>{
                     await ctx.reply(_l(ctx.l,'illust_404'))
             }
             ctx.flag.q_id += 1
+            if(d.type == 2){
+                await ugoira_to_mp4(d.id)
+            }
             let mg = mg_create(d.td,ctx.flag)
             if(ctx.flag.album){
-                if(d.type == 2){
-                    await ugoira_to_mp4(d.id)
-                }
-                ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o,mg.mediagroup_o]
-                ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,mg.mediagroup_r]
+                console.log(mg.mediagroup_o)
+                ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o,...mg.mediagroup_o]
+                ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,...mg.mediagroup_r]
             }else if(ctx.flag.asfile){
                 if(d.type <= 1){
                     await asyncForEach(d.td.original_urls, async (imgurl,id) => {
@@ -178,7 +179,6 @@ bot.on('text',async (ctx,next)=>{
                     ctx.replyWithChatAction('upload_video')
                     let media = d.td.tg_file_id
                     if(!media){
-                        await ugoira_to_mp4(d.id)
                         media = {
                             source: `./tmp/mp4_1/${d.id}.mp4` // 这里还是用文件上传 而不用 url 不会被404错误给干了
                         }
@@ -208,7 +208,7 @@ bot.on('text',async (ctx,next)=>{
                 let res_data = await mg2telegraph(ctx.temp_data.mediagroup_o)
                 if(res_data){
                     await asyncForEach(res_data,async (d)=>{
-                        ctx.reply(d.ids.join('\n') + d.url)
+                        ctx.reply(d.ids.join('\n') + '\n' + d.url)
                     })
                     await ctx.reply(_l(ctx.l,'telegraph_iv'))
                 }

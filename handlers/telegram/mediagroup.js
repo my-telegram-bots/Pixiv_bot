@@ -6,7 +6,6 @@ function mg_create(td,flag){
         td.size.forEach((size, pid) => {
             let mediagroup_data = {
                 type: 'photo',
-                media: td.original_urls[pid],
                 caption: format(td,flag,'message',pid),
                 parse_mode: 'Markdown'
             }
@@ -16,18 +15,20 @@ function mg_create(td,flag){
                 mediagroup_data.q_id = flag.q_id
             }
             if(td.type <= 1){
-                mediagroup_o[pid] = mediagroup_data
+                mediagroup_o[pid] = {
+                    ...mediagroup_data,
+                    media: td.original_urls[pid],
+                }
                 mediagroup_r[pid] = {
                     ...mediagroup_data,
                     media: td.regular_urls[pid]
                 }
             }else if(td.type == 2){
-                mediagroup_o = {
+                mediagroup_o[pid] = mediagroup_r[pid] = {
                     ...mediagroup_data,
                     type: 'video',
                     media: ugoiraurl + td.id + '.mp4'
                 }
-                mediagroup_r = mediagroup_o
             }
         })
     return {

@@ -31,7 +31,7 @@ async function mg2telegraph(mg){
                     {
                         tag: (d.type == 'video') ? 'video' : 'img',
                         attrs: {
-                            'src': url
+                            src: url
                         }
                     },
                     {
