@@ -26,10 +26,10 @@ function format(td, flag, mode = 'message', p, custom_template = false){
                 template += '%tags%'
             }
         }else if(mode == 'message'){
-            template = '%NSFW|#NSFW%[%title%](%url%)% / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
+            template = '%NSFW|#NSFW %[%title%](%url%)% / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
             template += '%tags%'
         }else if(mode == 'inline'){
-            template = '%NSFW|#NSFW%[%title%](%url%) % / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
+            template = '%NSFW|#NSFW %[%title%](%url%) % / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
             template += '%tags%'
         }
     }else{
@@ -62,6 +62,9 @@ function format(td, flag, mode = 'message', p, custom_template = false){
             })
         })
         template = splited_tamplate.join('').replaceAll('\uff69','%')
+        template.match(/\[.*?\]/).map(r=>{
+            template = template.replace(r,re_escape_strings(r))
+        })
     }
     return template
 }
@@ -71,8 +74,18 @@ function format(td, flag, mode = 'message', p, custom_template = false){
  * @param {String} t 
  */
 function escape_strings(t){
-    '[]()*`~'.split('').forEach(x=>{
+    '[]()*_`~'.split('').forEach(x=>{
         t = t.toString().replaceAll(x,`\\${x}`)
+    })
+    return t
+}
+/**
+ * ta 又转义回来了
+ * @param {} t 
+ */
+function re_escape_strings(t){
+    '()*_`~'.split('').forEach(x=>{
+        t = t.toString().replaceAll('\\' + x,x)
     })
     return t
 }
