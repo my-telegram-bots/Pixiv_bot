@@ -20,7 +20,8 @@ function k_os(id,flag = false){
 
 function k_setting_index(l = require('../../lang/en.js')){
     let inline_keyboard = [[
-        Markup.button.callback(l.settings.format,'set_format')
+        Markup.button.callback(l.settings.format,'set_format'),
+        Markup.button.callback(l.settings.bookmarks,'toggle_format')
     ]]
     return Markup.inlineKeyboard(inline_keyboard).resize()
 }
