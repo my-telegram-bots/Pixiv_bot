@@ -3,6 +3,7 @@ module.exports = {
     "illust_404": "該作品已被刪除，或作品ID不存在。",
     "file_too_large": "文件太大，機器人不能直接把文件發給你，請嘗試手動下載文件\n{}",
     "telegraph_ugoira": "由於 Telegraph 限制，動圖不能上傳，所以沒有包含進去。",
+    "telegraph_iv": "您需要等一會 Telegram 的即時預覽才會出現。",
     "pm_to_generate_ugoira": "點我生成動圖",
     "error": "發生了點錯誤"
 }

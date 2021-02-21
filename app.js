@@ -119,7 +119,6 @@ bot.use(async (ctx,next)=>{
     next()
 })
 bot.on('text',async (ctx,next)=>{
-    console.log(ctx.rtext)
     if(ids = get_illust_ids(ctx.rtext)){
         await asyncForEach(ids,async id=>{
             let d = await handle_illust(id,ctx.flag)
@@ -204,11 +203,12 @@ bot.on('text',async (ctx,next)=>{
         })
         if(ctx.flag.telegraph){
             try {
-                let urls = await mg2telegraph(ctx.temp_data.mediagroup_o)
-                if(urls){
-                    await asyncForEach(urls,async (url)=>{
-                        ctx.reply(url)
+                let res_data = await mg2telegraph(ctx.temp_data.mediagroup_o)
+                if(res_data){
+                    await asyncForEach(res_data,async (d)=>{
+                        ctx.reply(d.ids.join('\n') + d.url)
                     })
+                    await ctx.reply(_l(ctx.l,'telegraph_iv'))
                 }
             } catch (error) {
                 

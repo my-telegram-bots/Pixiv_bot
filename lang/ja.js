@@ -3,6 +3,7 @@ module.exports = {
     "illust_404": "該当作品は削除されたか、存在しない作品IDです。",
     "file_too_large": "ファイルが大きすぎてボットが直接送ることができませんので、手動でファイルをダウンロードしてみてください\n{}",
     "telegraph_ugoira": "テレグラフの制約上、動いらはアップロードできませんので、含まれていません。",
+    "telegraph_iv": false, // 等翻译中
     "pm_to_generate_ugoira": "クリックして動いらを生成する",
     "error": "エラーが発生しました"
 }

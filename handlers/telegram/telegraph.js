@@ -3,13 +3,16 @@ const config = require('../../config.json')
 const { asyncForEach } = require('../common')
 const br = {tag: 'br'}
 async function mg2telegraph(mg){
-    let t_data = [[]]
+    let t_data = [{
+        content: [],
+        ids: []
+    }]
     let t_data_id = 0
     try {
         mg.forEach(d=>{
             let url = d.media.replace('i-cf.pximg.net',config.pixiv.pximgproxy)
             if(d.caption == ''){
-                t_data[t_data_id].push({
+                t_data[t_data_id].content.push({
                     tag: 'img',
                     attrs: {
                         src: url
@@ -18,7 +21,7 @@ async function mg2telegraph(mg){
                 return
             }
             let caption = d.caption.split('\n')
-            for (let i = caption.length -2 ; i > 0; i--) {
+            for (let i = caption.length; i > 0; i--) {
                 caption.splice(i,0,br)
             }
             let dd = {
@@ -37,23 +40,32 @@ async function mg2telegraph(mg){
                 ]
             }
             let same_illust = mg.filter((p)=>{
-                return p.q_id == d.q_id
+                return `${p.id}_${p.q_id}` == `${d.id}_${d.q_id}`
             })
             // content (Array of Node, up to 64 KB)
             if(((JSON.stringify(t_data[t_data_id]).length + same_illust.length * JSON.stringify(dd).length)) > 64000){
                 t_data_id = t_data_id + 1
-                t_data[t_data_id] = []
+                t_data[t_data_id] = {
+                    content: [],
+                    ids: []
+                }
             }
-            t_data[t_data_id].push(dd)
+            t_data[t_data_id].content.push(dd)
+            t_data[t_data_id].ids.push(d.id)
         })
-        let urls = []
-        await asyncForEach(t_data,async (content,id)=>{
+        let res_data = []
+        await asyncForEach(t_data,async (d,id)=>{
+            d.content[d.content.length] = {
+                tag: 'p',
+                children: [d.ids.join(' ')]
+            }
             //let data = await (await fetch('https://api.telegra.ph/editPage',{
             let data = await (await fetch('https://api.telegra.ph/createPage',{
                 method: 'post',
                 body: JSON.stringify({
                     title: 'Pixiv collection',
-                    content: JSON.stringify(content),
+                    content: JSON.stringify(d.content),
+                    path: 'Pixiv-collection-02-21',
                     access_token: config.tg.access_token,
                     author_name: 'Pixiv', // 感觉还是要自定义 等 db.user 搞了后再来把
                     author_url: 'https://t.me/Pixiv_bot'
@@ -64,12 +76,15 @@ async function mg2telegraph(mg){
             })).json()
             if(data.ok){
                 console.log(data)
-                urls.push(data.result.url)
+                res_data.push({
+                    url: data.result.url,
+                    ids: d.ids
+                })
             }else{
                 throw data
             }
         })
-        return urls
+        return res_data
     } catch (error) {
         console.warn(error)
     }
