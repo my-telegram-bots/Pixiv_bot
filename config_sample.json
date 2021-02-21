@@ -6,7 +6,8 @@
     "pixiv": {
         "cookie": "",
         "ua": "",
-        "pximgproxy": "https://i-cf.pximg.net/"
+        "pximgproxy": "",
+        "ugoiraurl": ""
     },
     "tg": {
         "master_id": 1,

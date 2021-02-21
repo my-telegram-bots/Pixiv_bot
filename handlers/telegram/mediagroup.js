@@ -1,24 +1,33 @@
 const { format } = require("./format")
+const {ugoiraurl} = require('../../config.json').pixiv
 function mg_create(td,flag){
     let mediagroup_o = mediagroup_r  = []
-    if(td && td.original_urls)
+    if(td)
         td.size.forEach((size, pid) => {
             let mediagroup_data = {
                 type: 'photo',
                 media: td.original_urls[pid],
                 caption: format(td,flag,'message',pid),
-                parse_mode: 'Markdown',
-                type: 'photo'
+                parse_mode: 'Markdown'
             }
             // mg2telegraph 还需要作品的 id
             if(flag.telegraph){
                 mediagroup_data.id = td.id
                 mediagroup_data.q_id = flag.q_id
             }
-            mediagroup_o[pid] = mediagroup_data
-            mediagroup_r[pid] = {
-                ...mediagroup_data,
-                media: td.regular_urls[pid]
+            if(td.type <= 1){
+                mediagroup_o[pid] = mediagroup_data
+                mediagroup_r[pid] = {
+                    ...mediagroup_data,
+                    media: td.regular_urls[pid]
+                }
+            }else if(td.type == 2){
+                mediagroup_o = {
+                    ...mediagroup_data,
+                    type: 'video',
+                    media: ugoiraurl + td.id + '.mp4'
+                }
+                mediagroup_r = mediagroup_o
             }
         })
     return {

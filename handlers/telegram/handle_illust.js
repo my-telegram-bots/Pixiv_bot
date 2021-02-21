@@ -19,6 +19,7 @@ async function handle_illust(id,flag){
         ...illust.imgs_,
         id: illust.id,
         title: illust.title,
+        type: illust.illustType,
         author_name: illust.userName,
         author_id: illust.userId,
         inline: [],

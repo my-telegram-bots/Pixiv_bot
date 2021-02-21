@@ -69,7 +69,7 @@ function format(td, flag, mode = 'message', p, custom_template = false){
  * @param {String} t 
  */
 function escape_strings(t){
-    '[]()_*`~'.split('').forEach(x=>{
+    '[]()*`~'.split('').forEach(x=>{
         t = t.toString().replaceAll(x,`\\${x}`)
     })
     return t

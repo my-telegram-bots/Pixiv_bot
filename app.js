@@ -126,12 +126,17 @@ bot.on('text',async (ctx,next)=>{
                 // 群组就不返回找不到 id 的提示了
                 if(ctx.chat.id > 0)
                     await ctx.reply(_l(ctx.l,'illust_404'))
-                return false
             }
             ctx.flag.q_id += 1
             let mg = mg_create(d.td,ctx.flag)
-            if(d.type <= 1){ // 0 1 -> illust manga
-                if(ctx.flag.asfile && !ctx.flag.telegraph){
+            if(ctx.flag.album){
+                if(d.type == 2){
+                    await ugoira_to_mp4(d.id)
+                }
+                ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o,mg.mediagroup_o]
+                ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,mg.mediagroup_r]
+            }else if(ctx.flag.asfile){
+                if(d.type <= 1){
                     await asyncForEach(d.td.original_urls, async (imgurl,id) => {
                         ctx.replyWithChatAction('upload_document')
                         // Post the file using multipart/form-data in the usual way that files are uploaded via the browser. 10 MB max size for photos, 50 MB for other files.
@@ -140,6 +145,7 @@ bot.on('text',async (ctx,next)=>{
                             parse_mode: 'Markdown',
                             caption: format(d.td,ctx.flag,'message',id),
                         }).catch(async ()=>{
+                            // 本地下载后再发送
                             ctx.replyWithChatAction('upload_document')
                             await ctx.replyWithDocument({source: await download_file(imgurl)},{
                                 parse_mode: 'Markdown',
@@ -150,15 +156,15 @@ bot.on('text',async (ctx,next)=>{
                             })
                         })
                     })
-                    return
                 }
-                if(!ctx.flag.album){
+            }else{
+                if(d.type <= 1){
                     if(mg.mediagroup_o.length == 1){
                         // 这里发单图 sendphoto 才有按钮（（
                         ctx.replyWithChatAction('upload_photo')
                         let extra = {
                             parse_mode: 'Markdown',
-                            caption: format(d.td,ctx.flag,'inline',-1), // 默认 inline 相比 message 少了 url 所以这里偷懒直接用 inline 的模板
+                            caption: format(d.td,ctx.flag,'message',-1),
                             ...k_os(d.id,ctx.flag)
                         }
                         await ctx.replyWithPhoto(mg.mediagroup_o[0].media,extra).catch(async ()=>{
@@ -168,23 +174,19 @@ bot.on('text',async (ctx,next)=>{
                         ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o,...mg_albumize(mg.mediagroup_o)]
                         ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,...mg_albumize(mg.mediagroup_r)]
                     }
-                }else{
-                    ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o,...mg.mediagroup_o]
-                    ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,...mg.mediagroup_r]
-                }
-            }else if(d.type == 2){ // 2 = ugoira
-                if(ctx.flag.telegraph){
-                    ctx.reply(_l(ctx.l,'telegraph_ugoira'))
-                }else{
+                }else if(d.type == 2){
                     ctx.replyWithChatAction('upload_video')
                     let media = d.td.tg_file_id
                     if(!media){
+                        await ugoira_to_mp4(d.id)
                         media = {
-                            source: await ugoira_to_mp4(d.id)
+                            source: `./tmp/mp4_1/${d.id}.mp4` // 这里还是用文件上传 而不用 url 不会被404错误给干了
                         }
+                        ctx.replyWithChatAction('upload_video')
                     }
                     let data = await ctx.replyWithAnimation(media, {
-                        caption: format(td,ctx.flag,'message',-1),
+                        caption: format(d.td,ctx.flag,'message',-1),
+                        parse_mode: 'Markdown',
                         ...k_os(d.id,ctx.flag)
                     })
                     // 保存动图的 tg file id
@@ -211,8 +213,9 @@ bot.on('text',async (ctx,next)=>{
                     await ctx.reply(_l(ctx.l,'telegraph_iv'))
                 }
             } catch (error) {
-                
+
             }
+            // 然后就是是不是打包成文件发送
         }else{
             if(ctx.flag.album){
                 ctx.temp_data.mediagroup_o = mg_albumize(ctx.temp_data.mediagroup_o)

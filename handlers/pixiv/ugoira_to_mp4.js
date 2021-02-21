@@ -5,8 +5,8 @@ const fs = require('fs')
 const config = require('../../config.json')
 const { download_file } = require('../common')
 async function ugoira_to_mp4(id,force = false) {
-    if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`)) 
-        return `./tmp/mp4_1/${id}.mp4`
+    if(fs.existsSync(`./tmp/mp4_1/${id}.mp4`) && !force)
+        return `${config.pixiv.ugoiraurl}/mp4_1/${id}.mp4`
     try {
         id = parseInt(id).toString()
         let ud = (await r_p(`/illust/${id}/ugoira_meta`)).data
@@ -45,7 +45,7 @@ async function ugoira_to_mp4(id,force = false) {
         await exec(`ffmpeg -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         // 然后用 mp4fpsmod 添加时间轴
         await exec(`mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
-        return `./tmp/mp4_1/${id}.mp4`
+        return `${config.pixiv.ugoiraurl}/mp4_1/${id}.mp4`
     } catch (error) {
         console.error(error)
         return false

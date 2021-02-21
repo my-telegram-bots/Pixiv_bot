@@ -11,6 +11,7 @@ async function mg2telegraph(mg){
     try {
         mg.forEach(d=>{
             let url = d.media.replace('i-cf.pximg.net',config.pixiv.pximgproxy)
+            // caption 为空 = 多p
             if(d.caption == ''){
                 t_data[t_data_id].content.push({
                     tag: 'img',
@@ -28,7 +29,7 @@ async function mg2telegraph(mg){
                 tag: 'figure',
                 children: [
                     {
-                        tag: 'img',
+                        tag: (d.type == 'video') ? 'video' : 'img',
                         attrs: {
                             'src': url
                         }
@@ -36,14 +37,14 @@ async function mg2telegraph(mg){
                     {
                         tag: 'figcaption',
                         children: caption
-                    },
+                    }
                 ]
             }
             let same_illust = mg.filter((p)=>{
                 return `${p.id}_${p.q_id}` == `${d.id}_${d.q_id}`
             })
             // content (Array of Node, up to 64 KB)
-            if(((JSON.stringify(t_data[t_data_id]).length + same_illust.length * JSON.stringify(dd).length)) > 64000){
+            if(((JSON.stringify(t_data[t_data_id].content).length + same_illust.length * JSON.stringify(dd).length)) > 64000){
                 t_data_id = t_data_id + 1
                 t_data[t_data_id] = {
                     content: [],
