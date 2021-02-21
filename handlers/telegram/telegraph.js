@@ -66,7 +66,6 @@ async function mg2telegraph(mg){
                 body: JSON.stringify({
                     title: 'Pixiv collection',
                     content: JSON.stringify(d.content),
-                    path: 'Pixiv-collection-02-21',
                     access_token: config.tg.access_token,
                     author_name: 'Pixiv', // 感觉还是要自定义 等 db.user 搞了后再来把
                     author_url: 'https://t.me/Pixiv_bot'

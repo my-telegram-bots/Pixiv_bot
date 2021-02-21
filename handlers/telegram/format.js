@@ -14,6 +14,7 @@
 %author_url%
 %p% 分p
 %illust_id% illust_id
+%NSFW% NSFW alert
 */
 function format(td, flag, mode = 'message', p, custom_template = false){
     let template = ''
@@ -25,10 +26,10 @@ function format(td, flag, mode = 'message', p, custom_template = false){
                 template += '%tags%'
             }
         }else if(mode == 'message'){
-            template = '[%title%](%url%)% / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
+            template = '%NSFW|#NSFW%[%title%](%url%)% / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
             template += '%tags%'
         }else if(mode == 'inline'){
-            template = '[%title%](%url%) % / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
+            template = '%NSFW|#NSFW%[%title%](%url%) % / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
             template += '%tags%'
         }
     }else{
@@ -50,7 +51,8 @@ function format(td, flag, mode = 'message', p, custom_template = false){
             ['url',`https://pixiv.net/i/${td.id}`],
             ['author_url',`https://www.pixiv.net/users/${td.author_id}`],
             ['author_name',td.author_name],
-            ['title',td.title]
+            ['title',td.title],
+            ['NSFW',td.nsfw]
         ]
         splited_tamplate.map((r,id)=>{
             replace_list.forEach(x=>{
@@ -79,6 +81,8 @@ function Treplace(r,name,value){
         return r
     if(!value)
         return ''
+    if(typeof value == 'boolean')
+        value = ''
     return r.replaceAll('\\|','\uffb4').split('|').map(l=>{
         if(l == name)
             return escape_strings(value)

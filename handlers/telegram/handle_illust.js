@@ -23,7 +23,8 @@ async function handle_illust(id,flag){
         author_name: illust.userName,
         author_id: illust.userId,
         inline: [],
-        tags: []
+        tags: [],
+        nsfw: illust.xRestrict == 1
     }
     asyncForEach(illust.tags.tags, tag => {
         td.tags.push(tag.tag)
