@@ -65,12 +65,13 @@ function format(td, flag, mode = 'message', p, custom_template = false){
         template.match(/\[.*?\]/).map(r=>{
             template = template.replace(r,re_escape_strings(r))
         })
+
     }
     return template
 }
 
 /**
- * markdown 转义
+ * MarkdownV2 转义
  * @param {String} t 
  */
 function escape_strings(t){
@@ -98,6 +99,8 @@ function Treplace(r,name,value){
         value = ''
     return r.replaceAll('\\|','\uffb4').split('|').map(l=>{
         if(l == name)
+            if(name == 'tags')
+                return value
             return escape_strings(value)
         return l
     }).join('').replaceAll('\uffb4','|')
