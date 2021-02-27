@@ -3,7 +3,7 @@ const { Telegraf } = require('telegraf')
 const { telegrafThrottler } = require('telegraf-throttler')
 const exec = require('util').promisify((require('child_process')).exec)
 let config = require('./config.json')
-const { handle_illust, get_illust_ids, ugoira_to_mp4, asyncForEach, handle_ranking, download_file, k_os, k_setting_index, _l} = require('./handlers')
+const { handle_illust, get_illust_ids, ugoira_to_mp4, asyncForEach, handle_ranking, download_file, k_os, k_set_index, k_setting_format, _l} = require('./handlers')
 const db = require('./db')
 const { format } = require('./handlers/telegram/format')
 const { mg_create, mg_albumize } = require('./handlers/telegram/mediagroup')
@@ -43,51 +43,107 @@ bot.use(async (ctx, next) => {
     } catch (error) {
         
     }
-    await next()
-})
-bot.start(async (ctx,next) => {
-    // 这里的 startPayload 参考 tg api 文档的 deeplink 
-    if(ctx.startPayload){
-        // callback 到下面处理，这里不再处理
-        next()
-    }else{
-        // 回复垃圾文（（（
-        ctx.reply(_l(ctx.l,'start',ctx.message.message_id))
-    }
-})
-bot.command('setting',async (ctx,next)=>{
-    ctx.reply('Choose one item you want to set',{
-        reply_to_message_id: ctx.message.message_id,
-        ...k_setting_index()
-    })
-})
-bot.command('format',async (ctx,next)=>{
-    console.log(ctx.rtext)
-    let rmtext = ctx.rtext.replace('/format','').replace('message','').replace('inline','')
-    console.log(rmtext)
-    if(rmtext == ''){
-        if(ctx.chat.id < 0){
-            // 群组的先不做
-        }
-        ctx.reply('choose you want edit yourself',{
-            reply_to_message_id: ctx.message.message_id,
-            reply_markup: {
-                one_time_keyboard: true,
-                selective: true,
-                resize_keyboard: true,
-                keyboard: [
-                    ['message', 'inline (share)'],
-                    ['all']
-                ]
-            }
+    ctx.db = ctx.flag = {}
+    ctx.db.s_col = await db.collection('chat_setting')
+    if((ctx.from && ctx.from.id)){
+        ctx.flag.setting = await ctx.db.s_col.findOne({
+            id: ctx.chat.id
         })
     }
-    if(ctx.rtext){
-        if(ctx.message.text.includes('message')){
-
+    if(!ctx.flag.setting && ctx.chat && ctx.chat.id){
+        ctx.flag.setting = await ctx.db.s_col.findOne({
+            id: ctx.chat.id
+        })
+    }
+    if(!ctx.flag.setting){
+        // 默认设置
+        ctx.flag.setting = {
+            format: {
+                message: false,
+                inline: false
+            },
+            dbless: true, // 数据库无当前用户自定义选项的标记,
+            status: false // 用户当前状态
+        }
+    }else {
+        ctx.flag.setting.dbless = false
+    }
+    await next()
+})
+bot.command('setting',async (ctx,next)=>{
+    //ctx.flag.setting.status = 'set_index'
+    //next()
+})
+bot.action(/set.*/,async (ctx,next)=>{
+    let p = ctx.match[0].split('|')
+    console.log(p[0])
+    if(p.length == 0){
+        await db.update_setting({
+            'status': ctx.match[0]
+        },ctx.from.id,ctx.flag)
+        switch (p[0]) {
+            case 'set_index':
+                await ctx.editMessageText('Choose one item you want to set',{
+                    ...k_set_index()
+                })
+                break
+            case 'set_format':
+                console.log('a')
+                if(p.length == 1){
+                    await ctx.editMessageText('aChoose one item you want to set',{
+                        ...k_setting_format()
+                    })
+                }else {
+                    await ctx.editMessageText('OK, Just send me the format you want.')
+                }
+                break
+            default:
+                break
         }
     }
-
+    next()
+})
+bot.use(async (ctx,next)=>{
+    if(ctx.flag.setting.status && ctx.message && ctx.message.text){
+        let value = {
+            'status': false
+        }
+        let p = ctx.flag.setting.status.split('|')
+        switch (p[0]) {
+            case 'set_index':
+                await ctx.reply('Choose one item you want to set',{
+                    ...k_set_index()
+                })
+                break;
+            case 'set_format':
+                if(p[1] == 'message' || p[1] == 'all'){
+                    value = {
+                        ...value,
+                        'format.message': ctx.message.text
+                    }
+                }
+                if(p[1] == 'inline' || p[1] == 'all'){
+                    value = {
+                        ...value,
+                        'format.inline': ctx.message.text
+                    }
+                }
+                await ctx.reply(p[1] + 'format updated!',{
+                    reply_to_message_id: ctx.message.message_id
+                })
+                break
+            default:
+                break;
+        }
+        // 更新配置
+        ctx.flag.setting = {
+            ...ctx.flag.setting,
+            value
+        }
+        await db.update_setting(value,ctx.from.id,ctx.flag)
+    }else{
+        next()
+    }
 })
 bot.use(async (ctx,next)=>{
     ctx.flag = {
@@ -115,8 +171,18 @@ bot.use(async (ctx,next)=>{
     .replaceAll('+album','')
     .replaceAll('-share','')
     .replaceAll('-rm','')
-    .replaceAll('-rm','')
+    .replaceAll('-id','')
     next()
+})
+bot.start(async (ctx,next) => {
+    // 这里的 startPayload 参考 tg api 文档的 deeplink 
+    if(ctx.startPayload){
+        // callback 到下面处理，这里不再处理
+        next()
+    }else{
+        // 回复垃圾文（（（
+        ctx.reply(_l(ctx.l,'start',ctx.message.message_id))
+    }
 })
 bot.on('text',async (ctx,next)=>{
     if(ids = get_illust_ids(ctx.rtext)){
@@ -144,7 +210,7 @@ bot.on('text',async (ctx,next)=>{
                         await ctx.replyWithDocument(imgurl,{
                             thumb: d.td.thumb_urls[id],
                             parse_mode: 'Markdown',
-                            caption: format(d.td,ctx.flag,'message',id),
+                            caption: format(d.td,ctx.flag,'message',id,ctx.flag.setting.format.message),
                         }).catch(async ()=>{
                             // 本地下载后再发送
                             ctx.replyWithChatAction('upload_document')
@@ -213,9 +279,8 @@ bot.on('text',async (ctx,next)=>{
                     await ctx.reply(_l(ctx.l,'telegraph_iv'))
                 }
             } catch (error) {
-
+                console.warn(error)
             }
-            // 然后就是是不是打包成文件发送
         }else{
             if(ctx.flag.album){
                 ctx.temp_data.mediagroup_o = mg_albumize(ctx.temp_data.mediagroup_o)
@@ -253,11 +318,15 @@ bot.on('inline_query',async (ctx)=>{
             if(d.type == 2 && !d.td.tg_file_id){
                 // 这个时候就偷偷开始处理了 所以不加 await
                 ugoira_to_mp4(d.id)
-                await ctx.answerInlineQuery([], {
-                    switch_pm_text: _l(ctx.l,'pm_to_generate_ugoira'),
-                    switch_pm_parameter: ids.join('-_-').toString(), // 这里对应 get_illust_ids 的处理
-                    cache_time: 0
-                })
+                try {
+                    await ctx.answerInlineQuery([], {
+                        switch_pm_text: _l(ctx.l,'pm_to_generate_ugoira'),
+                        switch_pm_parameter: ids.join('-_-').toString(), // 这里对应 get_illust_ids 的处理
+                        cache_time: 0
+                    })
+                } catch (error) {
+                    console.warn(error)
+                }
                 return true
             }
             res = d.td.inline.concat(res)
@@ -271,7 +340,11 @@ bot.on('inline_query',async (ctx)=>{
         if(data.next_offset)
             res_options.next_offset = data.next_offset
     }
-    await ctx.answerInlineQuery(res,res_options)
+    try {
+        await ctx.answerInlineQuery(res,res_options)
+    } catch (error) {
+        console.warn(error)
+    }
 })
 bot.catch(async (error,ctx)=>{
     ctx.telegram.sendMessage(config.tg.master_id,'error' + error)

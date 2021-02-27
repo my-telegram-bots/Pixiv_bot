@@ -40,11 +40,11 @@ Report error and manage bot
 see more https://telegra.ph
 ## todolist
     1. subscribe (0%)
-    2. custom format (60%)
+    2. custom format (65%)
     3. error handle (10%)
     4. web version (0%)
-    5. R18 alert (0%)
-    6. bookmarks (0%)
+    5. R18 alert (ok)
+    6. bookmarks (1%)
 # License
 MIT
 

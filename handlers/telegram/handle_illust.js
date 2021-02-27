@@ -37,7 +37,7 @@ async function handle_illust(id,flag){
                 // 图片 size 太大基本发不出去了 用小图凑合
                 photo_url: (size.width > 2000 || size.height > 2000) ? td.regular_urls[pid] : td.original_urls[pid],
                 thumb_url: td.thumb_urls[pid],
-                caption: format(td,flag,'inline',pid),
+                caption: format(td,flag,'inline',pid,flag.setting.format.inline),
                 parse_mode: 'Markdown',
                 photo_width: size.width,
                 photo_height: size.height,
@@ -59,7 +59,7 @@ async function handle_illust(id,flag){
                 type: 'mpeg4_gif',
                 id: 'p' + illust.id,
                 mpeg4_file_id: illust.tg_file_id,
-                caption: format(td,flag,'inline',1),
+                caption: format(td,flag,'inline',1,flag.setting.format.inline),
                 parse_mode: 'Markdown',
                 ...k_os(illust.id,flag)
             }

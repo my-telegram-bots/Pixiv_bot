@@ -15,7 +15,7 @@ async function handle_ranking([...rank],flag){
             photo_url: (p.width > 2000 || p.height > 2000) ? p.murl : p.ourl,
             // 图片太多 加载好慢 先用小图preview
             thumb_url: p.turl,
-            caption: format(p,flag,'inline',1),
+            caption: format(p,flag,'inline',1,flag.setting.format.inline),
             parse_mode: 'Markdown',
             photo_width: p.width,
             photo_height: p.height,

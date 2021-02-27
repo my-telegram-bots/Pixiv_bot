@@ -13,11 +13,34 @@ module.exports = {
     },
     collection: (colame)=>{
         return new Promise(async (resolve, reject) => {
-            MongoClient.connect(config.mongodb.uri,{useUnifiedTopology: true},(err, client) => {
-                if(err)
-                    reject(err)
-                resolve(db.collection(colame))
-            })
+            resolve(db.collection(colame))
+        })
+    },
+    update_setting: (value, chat_id, flag)=>{
+        return new Promise(async (resolve, reject) => {
+            let col = db.collection('chat_setting')
+            if(flag.setting.dbless){
+                await col.insertOne({
+                    id: chat_id,
+                    format: {
+                        message: false,
+                        inline: false
+                    }
+                })
+            }
+            try {
+                await col.updateOne({
+                    id: chat_id,
+                }, {
+                    $set: {
+                        ...value
+                    }
+                })
+                resolve(true)
+            } catch (error) {
+                console.warn(error)
+                reject(false)
+            }
         })
     }
 }

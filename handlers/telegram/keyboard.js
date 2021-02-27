@@ -18,14 +18,26 @@ function k_os(id,flag = false){
     return Markup.inlineKeyboard(inline_keyboard)
 }
 
-function k_setting_index(l = require('../../lang/en.js')){
+function k_set_index(l = require('../../lang/en.js')){
     let inline_keyboard = [[
         Markup.button.callback(l.settings.format,'set_format'),
-        Markup.button.callback(l.settings.bookmarks,'toggle_format')
+        //Markup.button.callback(l.settings.bookmarks,'record_bookmarks')
+    ]]
+    return Markup.inlineKeyboard(inline_keyboard).resize()
+}
+function k_setting_format(l = require('../../lang/en.js')){
+    let inline_keyboard = [[
+        Markup.button.callback('message','set_format|message'),
+        Markup.button.callback('inline(share)','set_format|inline')
+    ],[
+        Markup.button.callback('all','set_format|all')
+    ],[
+        Markup.button.callback('🔙 back','set_index')
     ]]
     return Markup.inlineKeyboard(inline_keyboard).resize()
 }
 module.exports = {
     k_os,
-    k_setting_index
+    k_set_index,
+    k_setting_format
 }

@@ -71,7 +71,7 @@ function format(td, flag, mode = 'message', p, custom_template = false){
 }
 
 /**
- * MarkdownV2 转义
+ * Markdown 转义
  * @param {String} t 
  */
 function escape_strings(t){
@@ -98,10 +98,11 @@ function Treplace(r,name,value){
     if(typeof value == 'boolean')
         value = ''
     return r.replaceAll('\\|','\uffb4').split('|').map(l=>{
-        if(l == name)
+        if(l == name){
             if(name == 'tags')
                 return value
             return escape_strings(value)
+        }
         return l
     }).join('').replaceAll('\uffb4','|')
 }
