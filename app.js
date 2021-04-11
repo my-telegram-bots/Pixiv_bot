@@ -62,13 +62,14 @@ bot.use(async (ctx, next) => {
                 message: false,
                 inline: false
             },
-            dbless: true, // 数据库无当前用户自定义选项的标记,
+            dbless: true, // 数据库无当前用户自定义选项的标记
             status: false // 用户当前状态
         }
     }else {
         ctx.flag.setting.dbless = false
     }
-    await next()
+    console.log(ctx.flag)
+    next()
 })
 bot.command('setting',async (ctx,next)=>{
     //ctx.flag.setting.status = 'set_index'
@@ -142,11 +143,12 @@ bot.use(async (ctx,next)=>{
         }
         await db.update_setting(value,ctx.from.id,ctx.flag)
     }else{
-        next()
+        await next()
     }
 })
 bot.use(async (ctx,next)=>{
     ctx.flag = {
+        ...ctx.flag,
         tags: ctx.rtext.indexOf('+tag') > -1,
         share: ctx.rtext.indexOf('-share') == -1,
         remove_keyboard: ctx.rtext.indexOf('-rm') > -1,
@@ -354,7 +356,7 @@ bot.launch().then(async () => {
     if(!process.env.DEPENDIONLESS){
         try {
             await exec('which ffmpeg')
-            await exec('which mp4fpsmod')
+            //await exec('which mp4fpsmod')
         } catch (error) {
             console.error('You must install ffmpeg and mp4fpsmod to enable ugoira to mp4 function',error)
             console.error('If you want to run but and won\'t install ffmpeg and mp4fpsmod, please exec following command:')

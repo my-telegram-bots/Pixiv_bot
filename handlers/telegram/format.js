@@ -62,10 +62,11 @@ function format(td, flag, mode = 'message', p, custom_template = false){
             })
         })
         template = splited_tamplate.join('').replaceAll('\uff69','%')
-        template.match(/\[.*?\]/).map(r=>{
-            template = template.replace(r,re_escape_strings(r))
-        })
-
+        let temp = template.match(/\[.*?\]/)
+        if(temp)
+            temp.map(r=>{
+                template = template.replace(r,re_escape_strings(r))
+            })
     }
     return template
 }

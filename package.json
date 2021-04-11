@@ -9,7 +9,7 @@
   "dependencies": {
     "axios": "^0.21.1",
     "mongodb": "^3.6.3",
-    "telegraf": "^4.0.2",
-    "telegraf-throttler": "^0.5.0"
+    "telegraf": "^4.3.0",
+    "telegraf-throttler": "^0.6.0"
   }
 }
