@@ -1,8 +1,10 @@
 # https://github.com/tuna/mirrorz/blob/9322a84bd4de97df39e5552f52b92a3eb740a0b7/.github/workflows/deploy.yml
 name: Deploy to cloudflare pages
 on:
+  workflow_dispatch:
   push:
-    branches: [ docs ]
+    branches:
+    - docs
 jobs:
   deploy_docs:
     runs-on: ubuntu-latest
