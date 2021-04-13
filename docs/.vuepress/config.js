@@ -18,8 +18,12 @@ module.exports = {
     },
     '/zh-hans/': {
       lang: 'zh-hans',
-      ariaLabel: '选择语言',
       label: '简体中文',
+      title: 'pixiv_bot'
+    },
+    '/zh-hant/': {
+      lang: 'zh-hant',
+      label: '繁體中文',
       title: 'pixiv_bot'
     }
   },
@@ -51,6 +55,15 @@ module.exports = {
         description: '一个电报机器人',
         lastUpdated: '上次更新',
         editLinkText: '帮助我们改善此页面！'
+      },
+      '/zh-hant/': {
+        lang: 'zh-hans',
+        label: '簡體中文',
+        selectText: '選擇語言',
+        title: 'pixiv bot',
+        description: '一個電報機器人',
+        lastUpdated: '上次更新',
+        editLinkText: '幫助我們改善此頁面！'
       }
     }
   }
