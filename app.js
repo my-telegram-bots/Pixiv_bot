@@ -45,9 +45,9 @@ bot.use(async (ctx, next) => {
     }
     ctx.db = ctx.flag = {}
     ctx.db.s_col = await db.collection('chat_setting')
-    if(!ctx.flag.setting && ctx.chat && ctx.chat.id){
+    if(!ctx.flag.setting && ctx.from && ctx.from.id){
         ctx.flag.setting = await ctx.db.s_col.findOne({
-            id: ctx.chat.id
+            id: ctx.from.id
         })
     }
     if(!ctx.flag.setting){

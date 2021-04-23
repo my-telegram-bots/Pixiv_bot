@@ -18,7 +18,7 @@ module.exports = {
     },
     update_setting: (value, chat_id, flag)=>{
         return new Promise(async (resolve, reject) => {
-            let col = db.collection('chat_setting')
+            let col = await db.collection('chat_setting')
             if(flag.setting.dbless){
                 await col.insertOne({
                     id: chat_id,

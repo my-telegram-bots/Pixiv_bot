@@ -1,7 +1,7 @@
 # Pixiv_bot
 Link: https://t.me/Pixiv_bot
 
-[archived version](https://github.com/my-telegram-bots/Pixiv_bot_archived)
+Document: https://pixiv-bot.pages.dev
 
 ## featrue
 
@@ -26,7 +26,7 @@ Link: https://t.me/Pixiv_bot
 To access R18(g) contents, You must fill the config.json->pixiv->cookie.  
 You can login via your browser and open developer tools to select network tab and get the cookie you logined.  
 ## ua
-get newest chrome useragent: https://t.me/chrome_useragent
+get lastest chrome useragent: https://t.me/chrome_useragent
 ## pximgproxy
 i.pximg.net proxy
 
