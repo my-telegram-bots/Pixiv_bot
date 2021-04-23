@@ -29,7 +29,7 @@ function format(td, flag, mode = 'message', p, custom_template = false){
             template = '%NSFW|#NSFW %[%title%](%url%)% / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
             template += '%tags%'
         }else if(mode == 'inline'){
-            template = '%NSFW|#NSFW %[%title%](%url%) % / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
+            template = '%NSFW|#NSFW %[%title%](%url%)% / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
             template += '%tags%'
         }
     }else{

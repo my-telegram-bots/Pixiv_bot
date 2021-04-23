@@ -45,11 +45,6 @@ bot.use(async (ctx, next) => {
     }
     ctx.db = ctx.flag = {}
     ctx.db.s_col = await db.collection('chat_setting')
-    if((ctx.from && ctx.from.id)){
-        ctx.flag.setting = await ctx.db.s_col.findOne({
-            id: ctx.chat.id
-        })
-    }
     if(!ctx.flag.setting && ctx.chat && ctx.chat.id){
         ctx.flag.setting = await ctx.db.s_col.findOne({
             id: ctx.chat.id
@@ -68,7 +63,6 @@ bot.use(async (ctx, next) => {
     }else {
         ctx.flag.setting.dbless = false
     }
-    console.log(ctx.flag)
     next()
 })
 bot.command('setting',async (ctx,next)=>{
@@ -343,6 +337,7 @@ bot.on('inline_query',async (ctx)=>{
             res_options.next_offset = data.next_offset
     }
     try {
+        console.log(res)
         await ctx.answerInlineQuery(res,res_options)
     } catch (error) {
         console.warn(error)

@@ -5,11 +5,10 @@ const get_illust = require('../pixiv/illust')
 const r_p = require('../pixiv/r_p')
 const { format } = require('./format')
 /**
- * 处理成tg友好型数据
- * 作为 ../pixiv/illust 的tg封装
+ * 处理成 tg 友好型数据
+ * 作为 ../pixiv/illust 的 tg 封装
  * @param {*} id 
  * @param {*} flag 
-
  */
 async function handle_illust(id,flag){
     let illust = await get_illust(id)
@@ -26,8 +25,8 @@ async function handle_illust(id,flag){
         tags: [],
         nsfw: illust.xRestrict == 1
     }
-    asyncForEach(illust.tags.tags, tag => {
-        td.tags.push(tag.tag)
+    illust.tags.tags.forEach(tag => {
+        td.tags.push(tag.tag)  
     })
     if(illust.illustType <= 1){
         await asyncForEach(td.size, (size, pid) => {
