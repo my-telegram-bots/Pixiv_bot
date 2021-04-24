@@ -1,5 +1,5 @@
 module.exports = {
-    start: "欢迎使用 Pixiv bot\n我可以通过链接帮助你快速发送各类插图与动图\n\n维护者: @makeding",
+    start: "欢迎使用 Pixiv bot\n我可以通过链接帮助你快速发送各类插图与动图\n文档： https://pixiv-bot.pages.dev\n维护者: @makeding",
     illust_404: "该作品已被删除，或作品ID不存在。",
     file_too_large: "文件太大，机器人不能直接把文件发给你，请尝试手动下载文件\n{}",
     telegraph_iv: "您需要等一会儿 Telegram 的即时预览才会出现。",

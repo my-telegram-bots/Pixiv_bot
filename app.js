@@ -351,7 +351,7 @@ bot.launch().then(async () => {
     if(!process.env.DEPENDIONLESS){
         try {
             await exec('which ffmpeg')
-            //await exec('which mp4fpsmod')
+            await exec('which mp4fpsmod')
         } catch (error) {
             console.error('You must install ffmpeg and mp4fpsmod to enable ugoira to mp4 function',error)
             console.error('If you want to run but and won\'t install ffmpeg and mp4fpsmod, please exec following command:')
