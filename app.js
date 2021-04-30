@@ -191,6 +191,7 @@ bot.on('text',async (ctx,next)=>{
             }
             ctx.flag.q_id += 1
             if(d.type == 2){
+                ctx.replyWithChatAction('upload_video')
                 await ugoira_to_mp4(d.id)
             }
             let mg = mg_create(d.td,ctx.flag)
@@ -238,13 +239,12 @@ bot.on('text',async (ctx,next)=>{
                         ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,...mg_albumize(mg.mediagroup_r)]
                     }
                 }else if(d.type == 2){
-                    ctx.replyWithChatAction('upload_video')
                     let media = d.td.tg_file_id
                     if(!media){
+                        ctx.replyWithChatAction('upload_video')
                         media = {
                             source: `./tmp/mp4_1/${d.id}.mp4` // 这里还是用文件上传 而不用 url 不会被404错误给干了
                         }
-                        ctx.replyWithChatAction('upload_video')
                     }
                     let data = await ctx.replyWithAnimation(media, {
                         caption: format(d.td,ctx.flag,'message',-1),
@@ -337,7 +337,6 @@ bot.on('inline_query',async (ctx)=>{
             res_options.next_offset = data.next_offset
     }
     try {
-        console.log(res)
         await ctx.answerInlineQuery(res,res_options)
     } catch (error) {
         console.warn(error)

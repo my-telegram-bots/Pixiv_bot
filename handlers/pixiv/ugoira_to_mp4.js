@@ -4,6 +4,12 @@ const exec = require('util').promisify((require('child_process')).exec)
 const fs = require('fs')
 const config = require('../../config.json')
 const { download_file } = require('../common')
+/**
+ * ugoira to mp4
+ * @param {*} id illustId
+ * @param {*} force ignore exist file 
+ * @returns 
+ */
 async function ugoira_to_mp4(id,force = false) {
     if(fs.existsSync(`./tmp/mp4_1/${id}.mp4`) && !force)
         return `${config.pixiv.ugoiraurl}/mp4_1/${id}.mp4`
