@@ -29,7 +29,7 @@ async function handle_illust(id,flag){
         td.tags.push(tag.tag)  
     })
     if(illust.illustType <= 1){
-        await asyncForEach(td.size, (size, pid) => {
+        td.size.forEach((size, pid) => {
             td.inline[pid] = {
                 type: 'photo',
                 id: 'p_' + illust.id + '-' + pid,

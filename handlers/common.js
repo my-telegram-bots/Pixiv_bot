@@ -18,7 +18,7 @@ function download_file(url,id) {
             }
         })).data
         let filename = url.split('/').slice(-1)[0]
-        if(url.indexOf('.zip') > -1)
+        if(url.includes('.zip'))
             filename = id + '.zip'
         let dwfile = fs.createWriteStream(`./tmp/file/${filename}`)
         d.pipe(dwfile)

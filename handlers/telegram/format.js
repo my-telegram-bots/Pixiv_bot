@@ -18,7 +18,9 @@
 */
 function format(td, flag, mode = 'message', p, custom_template = false){
     let template = ''
-    if(!custom_template){
+    if(flag.remove_caption){
+        
+    }else if(!custom_template){
         if(flag.telegraph){
             if(p == 0){
                 template = '%title% / %author_name%\n'

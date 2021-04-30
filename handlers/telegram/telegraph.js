@@ -11,7 +11,7 @@ async function mg2telegraph(mg){
     try {
         mg.forEach(d=>{
             let url = d.media.replace('i-cf.pximg.net',config.pixiv.pximgproxy)
-            // caption 为空 = 多p
+            // caption = '' = -> muilt images
             if(d.caption == ''){
                 t_data[t_data_id].content.push({
                     tag: 'img',
@@ -55,6 +55,7 @@ async function mg2telegraph(mg){
             t_data[t_data_id].ids.push(d.id)
         })
         let res_data = []
+        // remove extra <p> tags
         await asyncForEach(t_data,async (d,id)=>{
             d.content[d.content.length] = {
                 tag: 'p',
@@ -67,8 +68,8 @@ async function mg2telegraph(mg){
                     title: 'Pixiv collection',
                     content: JSON.stringify(d.content),
                     access_token: config.tg.access_token,
-                    author_name: 'Pixiv', // 感觉还是要自定义 等 db.user 搞了后再来把
-                    author_url: 'https://t.me/Pixiv_bot'
+                    author_name: 'Pixiv', // 感觉还是要自定义 等 db.chat_setting 搞了后再来把
+                    author_url: 'https://t.me/Pixiv_bot' // 写死了 后面想想要怎么改
                 }),
                 headers: {
                     'Content-Type': 'application/json'

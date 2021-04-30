@@ -143,13 +143,14 @@ bot.use(async (ctx,next)=>{
 bot.use(async (ctx,next)=>{
     ctx.flag = {
         ...ctx.flag,
-        tags: ctx.rtext.indexOf('+tag') > -1,
-        share: ctx.rtext.indexOf('-share') == -1,
-        remove_keyboard: ctx.rtext.indexOf('-rm') > -1,
-        asfile: ctx.rtext.indexOf('+file') > -1,
-        album: ctx.rtext.indexOf('+album') > -1,
-        telegraph: ctx.rtext.indexOf('+graph') > -1 || ctx.rtext.indexOf('+telegraph') > -1,
-        c_show_id: ctx.rtext.indexOf('-id') == -1,
+        tags: ctx.rtext.includes('+tag'),
+        share: !ctx.rtext.includes('-share'),
+        remove_keyboard: ctx.rtext.includes('-rmk'),
+        remove_caption: ctx.rtext.includes('-rmc'),
+        asfile: ctx.rtext.includes('+file'),
+        album: ctx.rtext.includes('+album'),
+        telegraph: ctx.rtext.includes('+graph') || ctx.rtext.includes('+telegraph'),
+        c_show_id: !ctx.rtext.includes('-id'),
         q_id: 0 // 总查询id 目前用来标记 telegraph
     }
     if(ctx.flag.telegraph){
@@ -161,23 +162,30 @@ bot.use(async (ctx,next)=>{
         mediagroup_r: []
     }
     // replaced text
-    ctx.rtext = ctx.rtext.replaceAll('+tags','').replaceAll('+tag','')
-    .replaceAll('+file','')
+    ctx.rtext = ctx.rtext
+    .replaceAll('+tags','').replaceAll('+tag','')
     .replaceAll('+telegraph','').replaceAll('+graph','')
+    .replaceAll('+file','')
     .replaceAll('+album','')
     .replaceAll('-share','')
-    .replaceAll('-rm','')
+    .replaceAll('-rmc','')
+    .replaceAll('-rmk','')
     .replaceAll('-id','')
-    next()
+
+    if(ctx.rtext.includes('-rm')){
+        ctx.flag.remove_caption = ctx.flag.remove_keyboard = true
+        ctx.rtext = ctx.rtext.replaceAll('-rm','')
+    }
+    await next()
 })
 bot.start(async (ctx,next) => {
-    // 这里的 startPayload 参考 tg api 文档的 deeplink 
+    // startPayload = deeplink 
     if(ctx.startPayload){
-        // callback 到下面处理，这里不再处理
-        next()
+        // callback to bot.on function
+        await next()
     }else{
         // 回复垃圾文（（（
-        ctx.reply(_l(ctx.l,'start',ctx.message.message_id))
+        await ctx.reply(_l(ctx.l,'start',ctx.message.message_id))
     }
 })
 bot.on('text',async (ctx,next)=>{
@@ -185,7 +193,7 @@ bot.on('text',async (ctx,next)=>{
         await asyncForEach(ids,async id=>{
             let d = await handle_illust(id,ctx.flag)
             if(!d && typeof d == 'number'){
-                // 群组就不返回找不到 id 的提示了
+                // chat.id > 0 = user
                 if(ctx.chat.id > 0)
                     await ctx.reply(_l(ctx.l,'illust_404'))
             }
@@ -209,7 +217,7 @@ bot.on('text',async (ctx,next)=>{
                             parse_mode: 'Markdown',
                             caption: format(d.td,ctx.flag,'message',id,ctx.flag.setting.format.message),
                         }).catch(async ()=>{
-                            // 本地下载后再发送
+                            // Download to local and send (url upload only support 5MB)
                             ctx.replyWithChatAction('upload_document')
                             await ctx.replyWithDocument({source: await download_file(imgurl)},{
                                 parse_mode: 'Markdown',
@@ -224,7 +232,7 @@ bot.on('text',async (ctx,next)=>{
             }else{
                 if(d.type <= 1){
                     if(mg.mediagroup_o.length == 1){
-                        // 这里发单图 sendphoto 才有按钮（（
+                        // mediagroup doesn't support inline keyboard.
                         ctx.replyWithChatAction('upload_photo')
                         let extra = {
                             parse_mode: 'Markdown',
@@ -243,7 +251,7 @@ bot.on('text',async (ctx,next)=>{
                     if(!media){
                         ctx.replyWithChatAction('upload_video')
                         media = {
-                            source: `./tmp/mp4_1/${d.id}.mp4` // 这里还是用文件上传 而不用 url 不会被404错误给干了
+                            source: `./tmp/mp4_1/${d.id}.mp4` 
                         }
                     }
                     let data = await ctx.replyWithAnimation(media, {
@@ -251,7 +259,7 @@ bot.on('text',async (ctx,next)=>{
                         parse_mode: 'Markdown',
                         ...k_os(d.id,ctx.flag)
                     })
-                    // 保存动图的 tg file id
+                    // save ugoira file_id
                     if(!d.td.tg_file_id && data.document) {
                         let col = await db.collection('illust')
                         await col.updateOne({
@@ -270,7 +278,7 @@ bot.on('text',async (ctx,next)=>{
                 let res_data = await mg2telegraph(ctx.temp_data.mediagroup_o)
                 if(res_data){
                     await asyncForEach(res_data,async (d)=>{
-                        ctx.reply(d.ids.join('\n') + '\n' + d.url)
+                        await ctx.reply(d.ids.join('\n') + '\n' + d.url)
                     })
                     await ctx.reply(_l(ctx.l,'telegraph_iv'))
                 }
@@ -350,7 +358,7 @@ bot.launch().then(async () => {
     if(!process.env.DEPENDIONLESS){
         try {
             await exec('which ffmpeg')
-            await exec('which mp4fpsmod')
+            // await exec('which mp4fpsmod')
         } catch (error) {
             console.error('You must install ffmpeg and mp4fpsmod to enable ugoira to mp4 function',error)
             console.error('If you want to run but and won\'t install ffmpeg and mp4fpsmod, please exec following command:')
