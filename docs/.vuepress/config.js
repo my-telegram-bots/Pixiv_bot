@@ -56,8 +56,8 @@ module.exports = {
         lastUpdated: '上次更新',
         editLinkText: '帮助我们改善此页面！',
         nav: [
-          { text: '指南', link: '/' },
-          { text: '隐私策略', link: '/privacy' }
+          { text: '指南', link: '/zh-hans/' },
+          { text: '隐私策略', link: '/zh-hans/privacy.html' }
         ],
       },
       '/zh-hant/': {
@@ -69,8 +69,8 @@ module.exports = {
         lastUpdated: '上次更新',
         editLinkText: '幫助我們改善此頁面！',
         nav: [
-          { text: '指南', link: '/' },
-          { text: '隱私策略', link: '/privacy' }
+          { text: '指南', link: '/zh-hant/' },
+          { text: '隱私策略', link: '/zh-hant/privacy.html' }
         ],
       }
     }
