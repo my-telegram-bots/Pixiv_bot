@@ -31,9 +31,13 @@ Just type `+tags` in the message to show the tags of the work
 ### Remove share button -share
 Type `-share` in the message to remove the share button, which means that only the open button remains.
 
-### Remove open and share buttons -rm
+### Remove keyboard and caqption -rm
 
-Type `-rm` in the message and the whole button is gone.
+Type `-rm` in the message and the whole button and caption are gone.  
+
+`-rmc` only caption is gone.  
+
+`-rmk` only keyboard is gone.   
 
 ### Send work using file +file
 
