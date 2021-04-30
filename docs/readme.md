@@ -1,6 +1,6 @@
 ---
-title: Home
----
+title: Guide
+--- 
 <!-- translate by deepl -->
 # Pixiv bot
 A telegram bot that helps you send pixiv illust on telegeam.  

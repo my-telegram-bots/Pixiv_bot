@@ -1,5 +1,5 @@
 ---
-title: 首页
+title: 指南
 ---
 # Pixiv bot
 一个 telegram 机器人，可以帮助您在 telegram 发送来自 pixiv 的作品。  

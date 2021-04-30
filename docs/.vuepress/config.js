@@ -31,11 +31,9 @@ module.exports = {
     sidebar: 'auto',
     search: false,
     repo: 'my-telegram-bots/Pixiv_bot',
-    repoLabel: '',
     docsBranch: 'docs',
     docsDir: 'docs',
     editLinks: true,
-    smoothScroll: true,
     locales: {
       '/': {
         lang: 'en-US',
@@ -45,7 +43,9 @@ module.exports = {
         description: 'A telegram bot',
         lastUpdated: 'Last Updated',
         nav: [
-        ]
+          { text: 'Guide', link: '/' },
+          { text: 'Privacy Policy', link: '/privacy' }
+        ],
       },
       '/zh-hans/': {
         lang: 'zh-hans',
@@ -54,7 +54,11 @@ module.exports = {
         title: 'pixiv bot',
         description: '一个电报机器人',
         lastUpdated: '上次更新',
-        editLinkText: '帮助我们改善此页面！'
+        editLinkText: '帮助我们改善此页面！',
+        nav: [
+          { text: '指南', link: '/' },
+          { text: '隐私策略', link: '/privacy' }
+        ],
       },
       '/zh-hant/': {
         lang: 'zh-hans',
@@ -63,7 +67,11 @@ module.exports = {
         title: 'pixiv bot',
         description: '一個電報機器人',
         lastUpdated: '上次更新',
-        editLinkText: '幫助我們改善此頁面！'
+        editLinkText: '幫助我們改善此頁面！',
+        nav: [
+          { text: '指南', link: '/' },
+          { text: '隱私策略', link: '/privacy' }
+        ],
       }
     }
   }

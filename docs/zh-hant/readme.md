@@ -1,5 +1,5 @@
 ---
-title: 首頁
+title: 指南
 ---
 <!-- translate by zhconvert.org -->
 # Pixiv bot
