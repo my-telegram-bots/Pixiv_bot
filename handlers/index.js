@@ -5,6 +5,9 @@ const get_illust_ids = require('./telegram/get_illust_ids')
 const ugoira_to_mp4 = require('./pixiv/ugoira_to_mp4')
 const keyboards = require('./telegram/keyboard')
 const {_l} = require('./telegram/i18n')
+const format = require('./telegram/format')
+const mediagroup = require('./telegram/mediagroup')
+const { mg2telegraph } = require('./telegram/telegraph')
 module.exports = {
     handle_illust,
     handle_ranking,    
@@ -13,5 +16,8 @@ module.exports = {
     ...keyboards,
     asyncForEach,
     download_file,
-    _l
+    _l,
+    ...format,
+    ...mediagroup,
+    mg2telegraph
 }

@@ -13,7 +13,7 @@ const r_p = require("./r_p")
 async function ranking(page = 1, mode = 'daily', date = false, filter_type = [0, 2]){
     if(page <= 0)
         page = 1
-    if (['daily', 'weekly', 'monthly'].indexOf(mode) == -1)
+    if (!['daily', 'weekly', 'monthly'].includes(mode))
         return false
     let params = {
         mode: mode,

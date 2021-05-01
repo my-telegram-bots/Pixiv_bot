@@ -1,10 +1,10 @@
 const r_p = require('./r_p')
 const db = require('../../db')
 /**
- * 获取 illust
- * 会进行缓存 数据存 MongoDB 里面（暂时不考虑更新这种东西）
+ * get illust data
+ * save illust data to MongoDB
  * @param {number} id illust_id
- * @param {object} flag 键盘的样式
+ * @param {object} flag configure
  */
 async function get_illust(id){
     if(id.toString().length < 6 || id.toString().length > 8)
@@ -18,6 +18,7 @@ async function get_illust(id){
     // 如果数据库没有缓存结果，那么就向 pixiv api 查询
     if(!illust) {
         try {
+            // data example https://paste.huggy.moe/mufupocomo.json
             illust = (await r_p.get('illust/' + id)).data
             // 应该是没有检索到 直接返回 false 得了
             if(illust.error)
@@ -28,13 +29,6 @@ async function get_illust(id){
             console.warn(error)
             return 404
         }
-        // 删除我觉得不需要的 data
-        delete illust.zoneConfig,
-        delete illust.extraData
-        delete illust.userIllusts
-        delete illust.noLoginData
-        delete illust.fanboxPromotion
-        illust.id = illust.illustId
         update_p_flag = false
     }
     if(!illust.imgs_){
@@ -90,8 +84,23 @@ async function get_illust(id){
             }
         })
     }else{
-        col.insertOne(illust)
+        col.insertOne({
+            id: illust.id,
+            title: illust.title,
+            description: illust.description,
+            type: illust.illustType,
+            userName: illust.userName,
+            userId: illust.userId,
+            restrict: illust.restrict,
+            xRestrict: illust.xRestrict,
+            tags: illust.tags,
+            storableTags: illust.storableTags,
+            createDate: illust.createDate,
+            imgs_: illust.imgs_
+        })
     }
+    if(process.env.dev)
+        console.log(illust)
     return illust
 }
 module.exports = get_illust

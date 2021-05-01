@@ -3,11 +3,20 @@ const { Telegraf } = require('telegraf')
 const { telegrafThrottler } = require('telegraf-throttler')
 const exec = require('util').promisify((require('child_process')).exec)
 let config = require('./config.json')
-const { handle_illust, get_illust_ids, ugoira_to_mp4, asyncForEach, handle_ranking, download_file, k_os, k_set_index, k_setting_format, _l} = require('./handlers')
+const {
+    asyncForEach,
+    format,
+    handle_illust,
+    get_illust_ids,
+    ugoira_to_mp4,
+    handle_ranking,
+    download_file,
+    _l,
+    k_os, k_set_index, k_setting_format,
+    mg_create,mg_albumize
+
+} = require('./handlers')
 const db = require('./db')
-const { format } = require('./handlers/telegram/format')
-const { mg_create, mg_albumize } = require('./handlers/telegram/mediagroup')
-const { mg2telegraph } = require('./handlers/telegram/telegraph')
 const throttler = telegrafThrottler({
     group: {
         minTime: 500
@@ -39,10 +48,13 @@ bot.use(async (ctx, next) => {
             text = ctx.message.text
         if(ctx.inlineQuery && ctx.inlineQuery.query)
             text = ctx.inlineQuery.query
+        // remove command[@username] : /start@pixiv_bot -> /start
         ctx.rtext = text.replaceAll('@' + ctx.botInfo.username,'')
     } catch (error) {
-        
+        ctx.rtext = ''
     }
+
+    // db
     ctx.db = ctx.flag = {}
     ctx.db.s_col = await db.collection('chat_setting')
     if(!ctx.flag.setting && ctx.from && ctx.from.id){
@@ -51,24 +63,25 @@ bot.use(async (ctx, next) => {
         })
     }
     if(!ctx.flag.setting){
-        // 默认设置
+        // default user setting
         ctx.flag.setting = {
             format: {
                 message: false,
                 inline: false
             },
-            dbless: true, // 数据库无当前用户自定义选项的标记
-            status: false // 用户当前状态
+            dbless: true, // the user isn't in chat_setting
+            status: false // user's current status
         }
-    }else {
+    } else {
         ctx.flag.setting.dbless = false
     }
-    next()
+    await next()
 })
 bot.command('setting',async (ctx,next)=>{
     //ctx.flag.setting.status = 'set_index'
     //next()
 })
+
 bot.action(/set.*/,async (ctx,next)=>{
     let p = ctx.match[0].split('|')
     console.log(p[0])
@@ -151,7 +164,7 @@ bot.use(async (ctx,next)=>{
         album: ctx.rtext.includes('+album'),
         telegraph: ctx.rtext.includes('+graph') || ctx.rtext.includes('+telegraph'),
         c_show_id: !ctx.rtext.includes('-id'),
-        q_id: 0 // 总查询id 目前用来标记 telegraph
+        q_id: 0 // telegraph albumized value
     }
     if(ctx.flag.telegraph){
         ctx.flag.album = true
@@ -215,7 +228,7 @@ bot.on('text',async (ctx,next)=>{
                         await ctx.replyWithDocument(imgurl,{
                             thumb: d.td.thumb_urls[id],
                             parse_mode: 'Markdown',
-                            caption: format(d.td,ctx.flag,'message',id,ctx.flag.setting.format.message),
+                            caption: format(d.td,ctx.flag,'message',id),
                         }).catch(async ()=>{
                             // Download to local and send (url upload only support 5MB)
                             ctx.replyWithChatAction('upload_document')
@@ -223,6 +236,7 @@ bot.on('text',async (ctx,next)=>{
                                 parse_mode: 'Markdown',
                                 caption: format(d.td,ctx.flag,'message',id),
                             }).catch(async (e)=>{
+                                // visit pximg.net with no referer will respond 403
                                 await ctx.reply(_l(ctx.l,'file_too_large',imgurl.replace('i.pximg.net',config.pixiv.pximgproxy)))
                                 console.warn(e)
                             })
@@ -355,13 +369,13 @@ bot.catch(async (error,ctx)=>{
     console.error('error!',error)
 })
 bot.launch().then(async () => {
-    if(!process.env.DEPENDIONLESS){
+    if(!process.env.DEPENDIONLESS && !process.env.dev){
         try {
             await exec('which ffmpeg')
-            // await exec('which mp4fpsmod')
+            await exec('which mp4fpsmod')
         } catch (error) {
             console.error('You must install ffmpeg and mp4fpsmod to enable ugoira to mp4 function',error)
-            console.error('If you want to run but and won\'t install ffmpeg and mp4fpsmod, please exec following command:')
+            console.error('If you want to run but won\'t install ffmpeg and mp4fpsmod, please exec following command:')
             console.error('DEPENDIONLESS=1 node app.js')
             process.exit()
         }
