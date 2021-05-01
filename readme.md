@@ -3,7 +3,6 @@ Link: https://t.me/Pixiv_bot
 
 Document: https://pixiv-bot.pages.dev
 
-## featrue
 
 ## translate 
     1. clone project
@@ -20,10 +19,11 @@ Document: https://pixiv-bot.pages.dev
     # nano config.json
     pm2 start --name pixiv_bot app.js
     pm2 save
+    pm2 startup
 ## config
 ### pixiv
 ### cookie
-To access R18(g) contents, You must fill the config.json->pixiv->cookie.  
+To access R18(g) contents and subscribe author, You must fill the config.json->pixiv->cookie.  
 You can login via your browser and open developer tools to select network tab and get the cookie you logined.  
 ## ua
 get lastest chrome useragent: https://t.me/chrome_useragent
@@ -40,11 +40,10 @@ Report error and manage bot
 see more https://telegra.ph
 ## todolist
     1. subscribe (0%)
-    2. custom format (65%)
+    2. custom format (66%)
     3. error handle (10%)
     4. web version (0%)
-    5. R18 alert (ok)
-    6. bookmarks (1%)
+    5. bookmarks (1%)
 # License
 MIT
 

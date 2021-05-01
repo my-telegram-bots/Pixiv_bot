@@ -1,10 +1,9 @@
 /**
- * 格式化文字 好像并没有什么模板引擎 只好自己炒冷饭
+ * 格式化文字 好像并没有什么模板引擎 只好自己糊
  * @param {*} td 
  * @param {*} flag 
  * @param {*} mode 
  * @param {*} p 当前 p 数
- * @param {*} custom_template
  */
 /*
 %title%
@@ -16,11 +15,11 @@
 %illust_id% illust_id
 %NSFW% NSFW alert
 */
-function format(td, flag, mode = 'message', p, custom_template = false){
+function format(td, flag, mode = 'message', p){
     let template = ''
     if(flag.remove_caption){
-        
-    }else if(!custom_template){
+
+    }else if(!flag.setting.format[mode]){
         if(flag.telegraph){
             if(p == 0){
                 template = '%title% / %author_name%\n'
@@ -28,14 +27,14 @@ function format(td, flag, mode = 'message', p, custom_template = false){
                 template += '%tags%'
             }
         }else if(mode == 'message'){
-            template = '%NSFW|#NSFW %[%title%](%url%)% / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
-            template += '%tags%'
+            template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%'
+            template += '\n%tags%'
         }else if(mode == 'inline'){
-            template = '%NSFW|#NSFW %[%title%](%url%)% / id=|illust_id% / [%author_name%](%author_url%) %p%\n'
-            template += '%tags%'
+            template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%'
+            template += '\n%tags%'
         }
     }else{
-        template = custom_template
+        template = flag.setting.format[mode]
     }
     if(template == ''){
         return ''
@@ -50,7 +49,7 @@ function format(td, flag, mode = 'message', p, custom_template = false){
         let replace_list = [
             ['tags',flag.tags ? tags : false],
             ['illust_id',flag.c_show_id ? td.id : false],
-            ['url',`https://pixiv.net/i/${td.id}`],
+            ['url',`https://pixiv.net/artworks/${td.id}`],
             ['author_url',`https://www.pixiv.net/users/${td.author_id}`],
             ['author_name',td.author_name],
             ['title',td.title],
