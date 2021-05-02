@@ -44,6 +44,7 @@ module.exports = {
         lastUpdated: 'Last Updated',
         nav: [
           { text: 'Guide', link: '/' },
+          { text: 'Configuration', link: '/s' },
           { text: 'Privacy Policy', link: '/privacy' }
         ],
       },
@@ -57,7 +58,8 @@ module.exports = {
         editLinkText: '帮助我们改善此页面！',
         nav: [
           { text: '指南', link: '/zh-hans/' },
-          { text: '隐私策略', link: '/zh-hans/privacy.html' }
+          { text: '设置', link: '/zh-hans/s' },
+          { text: '隐私策略', link: '/zh-hans/privacy' }
         ],
       },
       '/zh-hant/': {
@@ -70,7 +72,8 @@ module.exports = {
         editLinkText: '幫助我們改善此頁面！',
         nav: [
           { text: '指南', link: '/zh-hant/' },
-          { text: '隱私策略', link: '/zh-hant/privacy.html' }
+          { text: '設置', link: '/zh-hant/s' },
+          { text: '隱私策略', link: '/zh-hant/privacy' }
         ],
       }
     }
