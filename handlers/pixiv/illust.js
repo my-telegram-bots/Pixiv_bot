@@ -11,10 +11,9 @@ async function get_illust(id){
         return false
     let col = await db.collection('illust')
     let illust = await col.findOne({
-        illustId: id.toString()
+        id: id.toString()
     })
     let update_p_flag = true
-    console.log(id)
     // 如果数据库没有缓存结果，那么就向 pixiv api 查询
     if(!illust) {
         try {

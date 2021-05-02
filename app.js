@@ -165,13 +165,15 @@ bot.on('text',async (ctx,next)=>{
                     await ctx.reply(_l(ctx.l,'illust_404'))
             }
             ctx.flag.q_id += 1
-            if(d.type == 2){
+            if(d.type == 2 && !d.tg_file_id){
                 ctx.replyWithChatAction('upload_video')
                 await ugoira_to_mp4(d.id)
             }
             let mg = mg_create(d.td,ctx.flag)
             if(ctx.flag.album){
-                console.log(mg.mediagroup_o)
+                if(process.env.dev){
+                    console.log(mg.mediagroup_o)
+                }
                 ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o,...mg.mediagroup_o]
                 ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,...mg.mediagroup_r]
             }else if(ctx.flag.asfile){

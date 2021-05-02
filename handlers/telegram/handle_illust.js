@@ -18,7 +18,7 @@ async function handle_illust(id,flag){
         ...illust.imgs_,
         id: illust.id,
         title: illust.title,
-        type: illust.illustType,
+        type: illust.type,
         author_name: illust.userName,
         author_id: illust.userId,
         inline: [],
@@ -28,7 +28,7 @@ async function handle_illust(id,flag){
     illust.tags.tags.forEach(tag => {
         td.tags.push(tag.tag)  
     })
-    if(illust.illustType <= 1){
+    if(illust.type <= 1){
         td.size.forEach((size, pid) => {
             td.inline[pid] = {
                 type: 'photo',
@@ -43,7 +43,7 @@ async function handle_illust(id,flag){
                 ...k_os(illust.id,flag)
             }
         })
-    }else if(illust.illustType == 2){
+    }else if(illust.type == 2){
         // inline + ugoira 只有在现存动图的情况下有意义
         if(illust.tg_file_id){
             td = {
@@ -67,7 +67,7 @@ async function handle_illust(id,flag){
     return {
         id: id,
         title: illust.title,
-        type: illust.illustType,
+        type: illust.type,
         td: td
     }
 }
