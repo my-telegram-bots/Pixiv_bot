@@ -4,7 +4,7 @@ module.exports = {
     resolve: {
       alias: {
         '../img/': '../img/',
-        '.../img/': '../img/',
+        '../../img/': '../img/',
         './img/': '../img/'
       }
     }
