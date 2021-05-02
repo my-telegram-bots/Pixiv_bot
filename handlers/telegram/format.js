@@ -20,14 +20,15 @@ function format(td, flag, mode = 'message', p){
     let template = ''
     if(flag.remove_caption){
 
+    }
+    if(flag.telegraph){
+        if(p == 0){
+            template = '%title% / %author_name%\n'
+            template += '%url%\n'
+            template += '%tags%'
+        }
     }else if(!flag.setting.format[mode]){
-        if(flag.telegraph){
-            if(p == 0){
-                template = '%title% / %author_name%\n'
-                template += '%url%\n'
-                template += '%tags%'
-            }
-        }else if(mode == 'message'){
+        if(mode == 'message'){
             template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%'
             template += '\n%tags%'
         }else if(mode == 'inline'){

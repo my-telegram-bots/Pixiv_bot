@@ -12,8 +12,9 @@ const {
     handle_ranking,
     download_file,
     _l,
-    k_os, k_set_index, k_setting_format,
-    mg_create,mg_albumize
+    k_os,
+    mg_create,mg_albumize,
+    mg2telegraph
 
 } = require('./handlers')
 const db = require('./db')
@@ -171,9 +172,6 @@ bot.on('text',async (ctx,next)=>{
             }
             let mg = mg_create(d.td,ctx.flag)
             if(ctx.flag.album){
-                if(process.env.dev){
-                    console.log(mg.mediagroup_o)
-                }
                 ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o,...mg.mediagroup_o]
                 ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,...mg.mediagroup_r]
             }else if(ctx.flag.asfile){
@@ -289,7 +287,7 @@ bot.on('inline_query',async (ctx)=>{
         await asyncForEach(ids.reverse(),async id=>{
             let d = await handle_illust(id,ctx.flag)
             // 动图目前还是要私聊机器人生成
-            if(d.type == 2 && !d.td.tg_file_id){
+            if(d.type == 2 && d.td.inline.length == 0){
                 // 这个时候就偷偷开始处理了 所以不加 await
                 ugoira_to_mp4(d.id)
                 try {

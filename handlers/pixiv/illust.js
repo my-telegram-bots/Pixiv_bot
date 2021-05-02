@@ -9,6 +9,7 @@ const db = require('../../db')
 async function get_illust(id){
     if(id.toString().length < 6 || id.toString().length > 8)
         return false
+    console.log(id)
     let col = await db.collection('illust')
     let illust = await col.findOne({
         id: id.toString()
@@ -29,6 +30,9 @@ async function get_illust(id){
             return 404
         }
         update_p_flag = false
+    }
+    if(illust.type == undefined){
+        illust.type = illust.illustType
     }
     if(!illust.imgs_){
         let urls = {

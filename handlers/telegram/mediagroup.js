@@ -2,7 +2,10 @@ const { format } = require("./format")
 const {ugoiraurl} = require('../../config.json').pixiv
 function mg_create(td,flag){
     let mediagroup_o = mediagroup_r  = []
-    if(td)
+    if(process.env.dev){
+        console.log(td.size,'mg_create')
+    }
+    if(td){
         td.size.forEach((size, pid) => {
             let mediagroup_data = {
                 type: 'photo',
@@ -31,6 +34,7 @@ function mg_create(td,flag){
                 }
             }
         })
+    }
     return {
         mediagroup_o,
         mediagroup_r

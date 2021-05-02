@@ -52,7 +52,8 @@ async function mg2telegraph(mg){
                 }
             }
             t_data[t_data_id].content.push(dd)
-            t_data[t_data_id].ids.push(d.id)
+            if(!t_data[t_data_id].ids.includes(d.id))
+                t_data[t_data_id].ids.push(d.id)
         })
         let res_data = []
         // remove extra <p> tags
