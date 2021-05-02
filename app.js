@@ -93,7 +93,7 @@ bot.use(async (ctx, next) => {
     }
     next()
 })
-bot.command('setting',async (ctx,next)=>{
+bot.command('s',async (ctx,next)=>{
     // only support user
     if(ctx.chat.id > 0){
         // lazy....
