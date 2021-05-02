@@ -5,8 +5,6 @@ module.exports = {
     telegraph_iv: "You need wait for a while and the Telegram instat view will be generated.",
     pm_to_generate_ugoira: "Click me to generate ugoira",
     error: "Something went wrong :(",
-    settings: {
-        format: "format",
-        bookmarks: "bookmarks"
-    }
+    setting_open_link: "Please click the following link to configurate the bot.\n\n{}",
+    setting_saved: "configurate saved."
 }

@@ -5,8 +5,6 @@ module.exports = {
     telegraph_iv: "您需要等一会儿 Telegram 的即时预览才会出现。",
     pm_to_generate_ugoira: "点我生成动图",
     error: "发生了点错误",
-    settings: {
-        format: "格式",
-        bookmarks: "書籤"
-    }
+    setting_open_link: "请点击以下链接到网页配置。",
+    setting_saved: "保存配置成功。"
 }

@@ -13,6 +13,9 @@ fs.readdirSync('./lang/').map(file_name => {
 function _l(lang,item,...value){
     if(!l[lang] || !l[lang][item])
         lang = 'en'
+    if(!item){
+        return lang
+    }
     if(!l[lang][item].includes('{}'))
         return l[lang][item]
     let splite_text = l[lang][item].split('{}')

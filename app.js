@@ -1,5 +1,5 @@
 const fs = require('fs')
-const { Telegraf } = require('telegraf')
+const { Telegraf, Markup } = require('telegraf')
 const { telegrafThrottler } = require('telegraf-throttler')
 const exec = require('util').promisify((require('child_process')).exec)
 let config = require('./config.json')
@@ -75,82 +75,36 @@ bot.use(async (ctx, next) => {
     } else {
         ctx.flag.setting.dbless = false
     }
-    await next()
-})
-bot.command('setting',async (ctx,next)=>{
-    //ctx.flag.setting.status = 'set_index'
-    //next()
-})
-
-bot.action(/set.*/,async (ctx,next)=>{
-    let p = ctx.match[0].split('|')
-    console.log(p[0])
-    if(p.length == 0){
-        await db.update_setting({
-            'status': ctx.match[0]
-        },ctx.from.id,ctx.flag)
-        switch (p[0]) {
-            case 'set_index':
-                await ctx.editMessageText('Choose one item you want to set',{
-                    ...k_set_index()
-                })
-                break
-            case 'set_format':
-                console.log('a')
-                if(p.length == 1){
-                    await ctx.editMessageText('aChoose one item you want to set',{
-                        ...k_setting_format()
-                    })
-                }else {
-                    await ctx.editMessageText('OK, Just send me the format you want.')
+    if(ctx.rtext.substr(0,3) == 'eyJ'){ // JSON base64('{"xx') = EyJ
+        try {
+            let new_setting = JSON.parse(Buffer.from(ctx.rtext,'base64').toString('utf8'))
+            await db.update_setting({
+                format: {
+                    message: new_setting.format.message,
+                    inline: new_setting.format.inline
                 }
-                break
-            default:
-                break
+            },ctx.from.id,ctx.flag)
+            await ctx.reply(_l(ctx.l,'setting_saved'))
+        } catch (error) {
+            await ctx.reply(_l(ctx.l,'error'))
+            console.warn(error)
         }
+        return
     }
     next()
 })
-bot.use(async (ctx,next)=>{
-    if(ctx.flag.setting.status && ctx.message && ctx.message.text){
-        let value = {
-            'status': false
+bot.command('setting',async (ctx,next)=>{
+    // only support user
+    if(ctx.chat.id > 0){
+        // lazy....
+        if(ctx.flag.setting.dbles){
+            ctx.flag.setting = {"format":{"message":"%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%","inline":"%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%"}}
         }
-        let p = ctx.flag.setting.status.split('|')
-        switch (p[0]) {
-            case 'set_index':
-                await ctx.reply('Choose one item you want to set',{
-                    ...k_set_index()
-                })
-                break;
-            case 'set_format':
-                if(p[1] == 'message' || p[1] == 'all'){
-                    value = {
-                        ...value,
-                        'format.message': ctx.message.text
-                    }
-                }
-                if(p[1] == 'inline' || p[1] == 'all'){
-                    value = {
-                        ...value,
-                        'format.inline': ctx.message.text
-                    }
-                }
-                await ctx.reply(p[1] + 'format updated!',{
-                    reply_to_message_id: ctx.message.message_id
-                })
-                break
-            default:
-                break;
-        }
-        // 更新配置
-        ctx.flag.setting = {
-            ...ctx.flag.setting,
-            value
-        }
-        await db.update_setting(value,ctx.from.id,ctx.flag)
-    }else{
-        await next()
+        ctx.reply(_l(ctx.l,'setting_open_link'),{
+            ...Markup.inlineKeyboard([
+                Markup.button.url('Open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s.html#${Buffer.from(JSON.stringify(ctx.flag.setting),'utf8').toString('base64')}`.replace('/en',''))
+            ])
+        })
     }
 })
 bot.use(async (ctx,next)=>{
