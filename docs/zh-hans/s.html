@@ -110,7 +110,7 @@ title: 机器人设置
   let md = new MarkdownIt()
   export default {
     data: () => ({
-      current_template: '1',
+      current_template: '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%',
       raw_config: ''
     }),
     methods: {
@@ -143,8 +143,9 @@ title: 机器人设置
       }
     },
     mounted() {
-      let hash = location.hash.substr(1)
-      //location.hash = ''
+      if(!hash || hash.length < 10)
+        return
+      location.hash = '#'
       try {
         console.log(hash)
         let setting = {}
