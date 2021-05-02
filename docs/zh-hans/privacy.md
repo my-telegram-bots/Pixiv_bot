@@ -22,7 +22,7 @@ sidebar: false
 - 访问 telegraph 页面（非即时预览）
     - Cloudflare 提供原图直链
     - bot 提供动图直链
-
+- 访问本文档
 如果您访问的 telegraph 页面是由 telegram 生成的即时预览页面，那么将不会由任何流量经过本服务。
 
 
