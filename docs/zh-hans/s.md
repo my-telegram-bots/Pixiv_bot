@@ -96,7 +96,7 @@ title: 机器人设置
       <h2>telegraph 生成设置</h2>
     </div> -->
     <div id="save">
-      <a target="_tshare" :href="'https://t.me/share?url=' + encodeURIComponent(raw_config)">保存更改</a>
+      <a target="_tshare" :href="'tg://msg_url?url=' + encodeURIComponent(raw_config)">保存更改</a>
       <p>为了匿名以及静态化页面，保存更改需要您复制命令给 bot，如果上面的按钮无法跳转至 telegram 并且发送消息给 Pixiv_bot 请手动粘贴以下文本至 bot</p>
       <div class="card textareacard">
         <textarea v-model="raw_config" readonly style="resize: none;"></textarea>
