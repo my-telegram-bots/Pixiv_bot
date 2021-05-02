@@ -22,16 +22,14 @@ title: 机器人设置
             </p>
           </div>
           <div class="card container"
-            @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%'">
-            <p>#NSFW <a href="">XX:Me</a> / <a
-                href="">rumikuu</a> 2/4<br>
+            @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / id=|id% / [%author_name%](%author_url%) %p%\n%tags%'">
+            <p>#NSFW <a href="">XX:Me</a> / id=67953985 / <a href="">rumikuu</a> 2/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
           </div>
           <div class="card container"
-            @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / id=|id% / [%author_name%](%author_url%) %p%\n%tags%'">
-            <p>#NSFW <a href="">XX:Me</a> / id=67953985 / <a
-                href="">rumikuu</a> 3/4<br>
+            @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%'">
+            <p>#NSFW <a href="">XX:Me</a> / <a href="">rumikuu</a> 3/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
           </div>
@@ -43,7 +41,7 @@ title: 机器人设置
             <!--selfxss 警告 不过无所谓了 能干啥呢？-->
             <span class="container" v-html="format(current_template)"></span>
           </div>
-          <div class="card textareacard">
+          <div class="textareacard">
             <textarea v-model="current_template"></textarea>
           </div>
           <p>
@@ -97,7 +95,7 @@ title: 机器人设置
     </div> -->
     <div id="save">
       <a target="_tshare" :href="'tg://msg_url?url=' + encodeURIComponent(raw_config)">保存更改</a>
-      <p>为了匿名以及静态化页面，保存更改需要您复制命令给 bot，如果上面的按钮无法跳转至 telegram 并且发送消息给 Pixiv_bot 请手动粘贴以下文本至 bot</p>
+      <p>为了匿名以及静态化页面，保存更改需要您复制命令给 bot，如果上面的按钮无法跳转至 telegram 并且发送消息给 Pixiv_bot 请手动复制以下文本粘贴至 bot</p>
       <div class="card textareacard">
         <textarea v-model="raw_config" readonly style="resize: none;"></textarea>
       </div>
@@ -143,8 +141,11 @@ title: 机器人设置
       }
     },
     mounted() {
-      if(!hash || hash.length < 10)
+      let hash = location.hash.substr(1)
+      if (!hash || hash.length < 10) {
+        this.save()
         return
+      }
       location.hash = '#'
       try {
         console.log(hash)
@@ -154,7 +155,6 @@ title: 机器人设置
           this.save()
         }
       } catch (error) {
-        alert(error)
       }
     }
   }
@@ -259,47 +259,24 @@ title: 机器人设置
     box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
   }
 
-  @media (max-width: 719px) {
-    .cards {
-      flex-direction: column
-    }
-
-    .card {
-      max-width: 100%;
-      padding: 0 1.5rem
-    }
-
-    /* #officialtemplate img {
-      display: none;
-    } */
-    .textareacard {
-      min-width: 100%;
-    }
-  }
-
-  @media (max-width: 419px) {
-    .card {
-      padding-left: 0.5rem;
-      padding-right: 0.5rem
-    }
-  }
-
   #officialtemplate .card {
     min-height: 80px;
   }
 
-  .textareacard {
-    max-width: 550px;
-    margin: auto;
-  }
 
   #customtemplate>.card {
     cursor: unset;
   }
 
+  .textareacard {
+    margin: auto;
+    max-width: 550px;
+  }
+
   .textareacard>textarea {
     width: 100%;
     min-height: 66px;
+    max-width: 550px;
   }
 
   .container p,
@@ -327,5 +304,30 @@ title: 机器人设置
     cursor: pointer;
     margin-top: 40px;
     transition: 0.3s;
+  }
+
+  @media (max-width: 719px) {
+    .cards {
+      flex-direction: column
+    }
+
+    .card {
+      max-width: 100%;
+      margin-top: 20px;
+    }
+
+    /* #officialtemplate img {
+      display: none;
+    } */
+    .textareacard>textarea {
+      max-width: calc(100% - 5px);
+    }
+  }
+
+  @media (max-width: 419px) {
+    .card {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem
+    }
   }
 </style>

@@ -22,16 +22,14 @@ title: Bot configuration
             </p>
           </div>
           <div class="card container"
-            @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%'">
-            <p>#NSFW <a href="">XX:Me</a> / <a
-                href="">rumikuu</a> 2/4<br>
+            @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / id=|id% / [%author_name%](%author_url%) %p%\n%tags%'">
+            <p>#NSFW <a href="">XX:Me</a> / id=67953985 / <a href="">rumikuu</a> 2/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
           </div>
           <div class="card container"
-            @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / id=|id% / [%author_name%](%author_url%) %p%\n%tags%'">
-            <p>#NSFW <a href="">XX:Me</a> / id=67953985 / <a
-                href="">rumikuu</a> 3/4<br>
+            @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%'">
+            <p>#NSFW <a href="">XX:Me</a> / <a href="">rumikuu</a> 3/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
           </div>
@@ -56,7 +54,8 @@ title: Bot configuration
             <code>[title](link)</code> Just follow the Markdown format.
             <br>
             <br>
-            Here we use %% as the variable, where you can add the text you want before and after the variable using | to add it.
+            Here we use %% as the variable, where you can add the text you want before and after the variable using | to
+            add it.
             <br>
             example: <code>%link:|url|?233%</code> -> link: https://www.pixiv.net/artworks/123?233
             <br>
@@ -89,13 +88,15 @@ title: Bot configuration
     </div>
     <div id="save">
       <a target="_tshare" :href="'tg://msg_url?url=' + encodeURIComponent(raw_config)">save changes</a>
-      <p>In order to anonymize, saving the changes requires you to copy the command to bot, if the button above does not jump to telegram and send a message to Pixiv_bot please manually paste the following text to bot.</p>
+      <p>In order to anonymize, saving the changes requires you to copy the command to bot, if the button above does not
+        jump to telegram and send a message to Pixiv_bot please manually copy the following text to bot.</p>
       <div class="card textareacard">
         <textarea v-model="raw_config" readonly style="resize: none;"></textarea>
       </div>
     </div>
   </div>
 </template>
+
 
 <script>
   let MarkdownIt = require('markdown-it')
@@ -136,8 +137,10 @@ title: Bot configuration
     },
     mounted() {
       let hash = location.hash.substr(1)
-      if(!hash || hash.length < 10)
+      if (!hash || hash.length < 10) {
+        this.save()
         return
+      }
       location.hash = '#'
       try {
         console.log(hash)
@@ -251,47 +254,24 @@ title: Bot configuration
     box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
   }
 
-  @media (max-width: 719px) {
-    .cards {
-      flex-direction: column
-    }
-
-    .card {
-      max-width: 100%;
-      padding: 0 1.5rem
-    }
-
-    /* #officialtemplate img {
-      display: none;
-    } */
-    .textareacard {
-      min-width: 100%;
-    }
-  }
-
-  @media (max-width: 419px) {
-    .card {
-      padding-left: 0.5rem;
-      padding-right: 0.5rem
-    }
-  }
-
   #officialtemplate .card {
     min-height: 80px;
   }
 
-  .textareacard {
-    max-width: 550px;
-    margin: auto;
-  }
 
   #customtemplate>.card {
     cursor: unset;
   }
 
+  .textareacard {
+    margin: auto;
+    max-width: 550px;
+  }
+
   .textareacard>textarea {
     width: 100%;
     min-height: 66px;
+    max-width: 550px;
   }
 
   .container p,
@@ -319,5 +299,30 @@ title: Bot configuration
     cursor: pointer;
     margin-top: 40px;
     transition: 0.3s;
+  }
+
+  @media (max-width: 719px) {
+    .cards {
+      flex-direction: column
+    }
+
+    .card {
+      max-width: 100%;
+      margin-top: 20px;
+    }
+
+    /* #officialtemplate img {
+      display: none;
+    } */
+    .textareacard>textarea {
+      max-width: calc(100% - 5px);
+    }
+  }
+
+  @media (max-width: 419px) {
+    .card {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem
+    }
   }
 </style>
