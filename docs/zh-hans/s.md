@@ -15,6 +15,7 @@ title: 机器人设置
         在这里请确保您的回复格式不会很长，太多了的话 bot 是发不出来的。
       </blockquote>
       <div id="officialtemplate">
+        <p style="text-align: center;">默认模板（点击应用）</p>
         <div class="cards">
           <div class="card container" @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%'">
             <p>#NSFW <a href="">XX:Me</a> 1/4<br>
@@ -34,10 +35,12 @@ title: 机器人设置
             </p>
           </div>
         </div>
-        <h3 style="text-align: center;">当前效果</h3>
+        <p style="text-align: center;">当前效果</p>
         <div id="customtemplate">
           <div class="card" style="margin: auto;">
-            <img src="../img/67953985_p0.jpg" style="width:100%">
+            <div style="text-align: center;">
+              <img src="../img/67953985_p0.jpg" style="width:100%">
+            </div>
             <!--selfxss 警告 不过无所谓了 能干啥呢？-->
             <span class="container" v-html="format(current_template)"></span>
           </div>
@@ -127,12 +130,13 @@ title: 机器人设置
         }, 'message', 3).replaceAll('\n', '  \n'))
       },
       save() {
-        this.raw_config = window.btoa(JSON.stringify({
+        sessionStorage.s = encodeUnicode(JSON.stringify({
           format: {
             message: this.current_template,
             inline: this.current_template,
           }
         }))
+        this.raw_config = sessionStorage.s
       }
     },
     watch: {
@@ -142,15 +146,17 @@ title: 机器人设置
     },
     mounted() {
       let hash = location.hash.substr(1)
-      if (!hash || hash.length < 10) {
+      if (sessionStorage.s) {
+        hash = sessionStorage.s
+      }else if (!hash || hash.length < 10) {
         this.save()
         return
-      }
+      } 
       location.hash = '#'
       try {
         console.log(hash)
         let setting = {}
-        if (setting = JSON.parse(window.atob(hash))) {
+        if (setting = JSON.parse(decodeUnicode(hash))) {
           this.current_template = setting.format.message
           this.save()
         }
@@ -230,6 +236,17 @@ title: 机器人设置
       return l
     }).join('').replaceAll('\uffb4', '|')
   }
+  function decodeUnicode(str) {
+    return decodeURIComponent(atob(str).split('').map(function (c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''))
+  }
+  function encodeUnicode(str) {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+      function toSolidBytes(match, p1) {
+        return String.fromCharCode('0x' + p1);
+      }));
+  }
 </script>
 
 <style>
@@ -244,9 +261,6 @@ title: 机器人设置
   }
 
   .cards {
-    border-top: 1px solid #eaecef;
-    padding: 1.2rem 0;
-    margin-top: 2.5rem;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -260,7 +274,7 @@ title: 机器人设置
   }
 
   #officialtemplate .card {
-    min-height: 80px;
+    min-height: 125px;
   }
 
 
@@ -316,9 +330,12 @@ title: 机器人设置
       margin-top: 20px;
     }
 
-    /* #officialtemplate img {
-      display: none;
-    } */
+    .container {
+      margin: auto;
+      margin-top: 10px !important;
+      min-height: 0px !important;
+    }
+
     .textareacard>textarea {
       max-width: calc(100% - 5px);
     }

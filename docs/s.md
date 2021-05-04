@@ -6,7 +6,7 @@ title: Bot configuration
 <template>
   <div id="setting">
     <h1>Pixiv bot configuration</h1>
-    <blockquote>Make sure you have agreed to the bot's privacy policy before proceeding with the settings.</blockquote>
+    <blockquote>Make sure you have agreed to the bot's privacy policy before editing bot's configuration</blockquote>
     <div>
       <h2>Reply / inline message format settings</h2>
       <blockquote>
@@ -15,6 +15,7 @@ title: Bot configuration
         Make sure that your reply format is not too long, as the bot won't be able to send too many content.
       </blockquote>
       <div id="officialtemplate">
+        <p style="text-align: center;">Default templates (click to apply)</p>
         <div class="cards">
           <div class="card container" @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%'">
             <p>#NSFW <a href="">XX:Me</a> 1/4<br>
@@ -37,10 +38,12 @@ title: Bot configuration
         <h3 style="text-align: center;">Current</h3>
         <div id="customtemplate">
           <div class="card" style="margin: auto;">
-            <img src="./img/67953985_p0.jpg" style="width:100%">
+            <div style="text-align: center;">
+              <img src="./img/67953985_p0.jpg" style="width:100%">
+            </div>
             <span class="container" v-html="format(current_template)"></span>
           </div>
-          <div class="card textareacard">
+          <div class="textareacard">
             <textarea v-model="current_template"></textarea>
           </div>
           <p>
@@ -97,7 +100,6 @@ title: Bot configuration
   </div>
 </template>
 
-
 <script>
   let MarkdownIt = require('markdown-it')
   let md = new MarkdownIt()
@@ -122,12 +124,13 @@ title: Bot configuration
         }, 'message', 3).replaceAll('\n', '  \n'))
       },
       save() {
-        this.raw_config = window.btoa(JSON.stringify({
+        sessionStorage.s = encodeUnicode(JSON.stringify({
           format: {
             message: this.current_template,
             inline: this.current_template,
           }
         }))
+        this.raw_config = sessionStorage.s
       }
     },
     watch: {
@@ -137,15 +140,17 @@ title: Bot configuration
     },
     mounted() {
       let hash = location.hash.substr(1)
-      if (!hash || hash.length < 10) {
+      if (sessionStorage.s) {
+        hash = sessionStorage.s
+      }else if (!hash || hash.length < 10) {
         this.save()
         return
-      }
+      } 
       location.hash = '#'
       try {
         console.log(hash)
         let setting = {}
-        if (setting = JSON.parse(window.atob(hash))) {
+        if (setting = JSON.parse(decodeUnicode(hash))) {
           this.current_template = setting.format.message
           this.save()
         }
@@ -225,6 +230,17 @@ title: Bot configuration
       return l
     }).join('').replaceAll('\uffb4', '|')
   }
+  function decodeUnicode(str) {
+    return decodeURIComponent(atob(str).split('').map(function (c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''))
+  }
+  function encodeUnicode(str) {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+      function toSolidBytes(match, p1) {
+        return String.fromCharCode('0x' + p1);
+      }));
+  }
 </script>
 
 <style>
@@ -239,9 +255,6 @@ title: Bot configuration
   }
 
   .cards {
-    border-top: 1px solid #eaecef;
-    padding: 1.2rem 0;
-    margin-top: 2.5rem;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -255,7 +268,7 @@ title: Bot configuration
   }
 
   #officialtemplate .card {
-    min-height: 80px;
+    min-height: 125px;
   }
 
 
@@ -311,9 +324,12 @@ title: Bot configuration
       margin-top: 20px;
     }
 
-    /* #officialtemplate img {
-      display: none;
-    } */
+    .container {
+      margin: auto;
+      margin-top: 10px !important;
+      min-height: 0px !important;
+    }
+
     .textareacard>textarea {
       max-width: calc(100% - 5px);
     }

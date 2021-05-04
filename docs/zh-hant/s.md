@@ -12,9 +12,10 @@ title: 機器人設置
       <blockquote>
         在這裡可以自訂機器人的返回消息格式
         <br>
-        在這裡請確保您的回覆格式不會超過 10位元組，太多了的話 bot 是發不出來的。
+        在這裡請確保您的回覆格式不會很長，太多了的話 bot 是發不出來的。
       </blockquote>
       <div id="officialtemplate">
+        <p style="text-align: center;">默认模板（点击应用）</p>
         <div class="cards">
           <div class="card container" @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%'">
             <p>#NSFW <a href="">XX:Me</a> 1/4<br>
@@ -37,11 +38,12 @@ title: 機器人設置
         <h3 style="text-align: center;">當前效果</h3>
         <div id="customtemplate">
           <div class="card" style="margin: auto;">
-            <img src="../img/67953985_p0.jpg" style="width:100%">
-            <!--selfxss 警告 不過無所謂了 能幹什麼呢？-->
+            <div style="text-align: center;">
+              <img src="../img/67953985_p0.jpg" style="width:100%">
+            </div>
             <span class="container" v-html="format(current_template)"></span>
           </div>
-          <div class="card textareacard">
+          <div class="textareacard">
             <textarea v-model="current_template"></textarea>
           </div>
           <p>
@@ -103,8 +105,6 @@ title: 機器人設置
   </div>
 </template>
 
-
-
 <script>
   let MarkdownIt = require('markdown-it')
   let md = new MarkdownIt()
@@ -129,12 +129,13 @@ title: 機器人設置
         }, 'message', 3).replaceAll('\n', '  \n'))
       },
       save() {
-        this.raw_config = window.btoa(JSON.stringify({
+        sessionStorage.s = encodeUnicode(JSON.stringify({
           format: {
             message: this.current_template,
             inline: this.current_template,
           }
         }))
+        this.raw_config = sessionStorage.s
       }
     },
     watch: {
@@ -144,15 +145,17 @@ title: 機器人設置
     },
     mounted() {
       let hash = location.hash.substr(1)
-      if (!hash || hash.length < 10) {
+      if (sessionStorage.s) {
+        hash = sessionStorage.s
+      }else if (!hash || hash.length < 10) {
         this.save()
         return
-      }
+      } 
       location.hash = '#'
       try {
         console.log(hash)
         let setting = {}
-        if (setting = JSON.parse(window.atob(hash))) {
+        if (setting = JSON.parse(decodeUnicode(hash))) {
           this.current_template = setting.format.message
           this.save()
         }
@@ -232,6 +235,17 @@ title: 機器人設置
       return l
     }).join('').replaceAll('\uffb4', '|')
   }
+  function decodeUnicode(str) {
+    return decodeURIComponent(atob(str).split('').map(function (c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''))
+  }
+  function encodeUnicode(str) {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+      function toSolidBytes(match, p1) {
+        return String.fromCharCode('0x' + p1);
+      }));
+  }
 </script>
 
 <style>
@@ -246,9 +260,6 @@ title: 機器人設置
   }
 
   .cards {
-    border-top: 1px solid #eaecef;
-    padding: 1.2rem 0;
-    margin-top: 2.5rem;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -262,7 +273,7 @@ title: 機器人設置
   }
 
   #officialtemplate .card {
-    min-height: 80px;
+    min-height: 125px;
   }
 
 
@@ -318,9 +329,12 @@ title: 機器人設置
       margin-top: 20px;
     }
 
-    /* #officialtemplate img {
-      display: none;
-    } */
+    .container {
+      margin: auto;
+      margin-top: 10px !important;
+      min-height: 0px !important;
+    }
+
     .textareacard>textarea {
       max-width: calc(100% - 5px);
     }

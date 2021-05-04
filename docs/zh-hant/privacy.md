@@ -23,6 +23,7 @@ sidebar: false
     - Cloudflare 提供原圖直鏈
     - bot 提供動圖直鏈
 - 訪問本文檔
+
 如果您訪問的 telegraph 頁面是由 telegram 生成的即時預覽頁面，那麼將不會由任何流量經過本服務。
 
 
