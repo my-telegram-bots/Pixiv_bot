@@ -14,7 +14,7 @@ title: Bot configuration
         <br>
         Make sure that your reply format is not too long, as the bot won't be able to send too many content.
       </blockquote>
-      <div id="officialtemplate">
+      <div id="template">
         <p style="text-align: center;">Default templates (click to apply)</p>
         <div class="cards">
           <div class="card container" @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%'">
@@ -39,7 +39,7 @@ title: Bot configuration
         <div id="customtemplate">
           <div class="card" style="margin: auto;">
             <div style="text-align: center;">
-              <img src="./img/67953985_p0.jpg" style="width:100%">
+              <img src="./img/67953985_p0.jpg">
             </div>
             <span class="container" v-html="format(current_template)"></span>
           </div>
@@ -267,7 +267,7 @@ title: Bot configuration
     box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
   }
 
-  #officialtemplate .card {
+  #template .card {
     min-height: 125px;
   }
 
@@ -332,6 +332,10 @@ title: Bot configuration
 
     .textareacard>textarea {
       max-width: calc(100% - 5px);
+    }
+    
+    #customtemplate img {
+      width: 40%;
     }
   }
 

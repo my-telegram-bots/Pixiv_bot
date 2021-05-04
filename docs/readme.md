@@ -4,8 +4,7 @@ title: Guide
 <!-- translate by deepl -->
 # Pixiv bot
 A telegram bot that helps you send pixiv illust on telegeam.  
-[link](https://t.me/pixiv_bot)  
-
+[Get started!](tg://resolve?domain=pixiv_bot&start=67953985)
 The following Pixiv links are currently supported:
 - pixiv.net/artworks/:id
 - pixiv.net/artworks/en/:id
@@ -18,7 +17,7 @@ Simply send pixiv's link to bot
 Support multiple links in one message, just send all to me!
 
 ### inline mode
-bot supports telegram's inline usage, click the share button or `@pixiv_bot` in the chat.  
+bot supports telegram's inline usage, click the share button or `@Pixiv_bot` in the chat.  
 At the moment, inline only has the function of daily illusts and id, there is no search function yet.
 
 ## Advanced Usage

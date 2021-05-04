@@ -14,7 +14,7 @@ title: 機器人設置
         <br>
         在這裡請確保您的回覆格式不會很長，太多了的話 bot 是發不出來的。
       </blockquote>
-      <div id="officialtemplate">
+      <div id="template">
         <p style="text-align: center;">默认模板（点击应用）</p>
         <div class="cards">
           <div class="card container" @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%'">
@@ -39,7 +39,7 @@ title: 機器人設置
         <div id="customtemplate">
           <div class="card" style="margin: auto;">
             <div style="text-align: center;">
-              <img src="../img/67953985_p0.jpg" style="width:100%">
+              <img src="../img/67953985_p0.jpg">
             </div>
             <span class="container" v-html="format(current_template)"></span>
           </div>
@@ -258,7 +258,6 @@ title: 機器人設置
     padding-top: 5px;
     cursor: pointer;
   }
-
   .cards {
     display: flex;
     flex-wrap: wrap;
@@ -272,7 +271,7 @@ title: 機器人設置
     box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
   }
 
-  #officialtemplate .card {
+  #template .card {
     min-height: 125px;
   }
 
@@ -337,6 +336,10 @@ title: 機器人設置
 
     .textareacard>textarea {
       max-width: calc(100% - 5px);
+    }
+
+    #customtemplate img {
+      width: 40%;
     }
   }
 

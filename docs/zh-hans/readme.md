@@ -3,7 +3,7 @@ title: 指南
 ---
 # Pixiv bot
 一个 telegram 机器人，可以帮助您在 telegram 发送来自 pixiv 的作品。  
-[link](https://t.me/pixiv_bot)  
+[点我开始体验](tg://resolve?domain=pixiv_bot&start=67953985)
 
 目前支持匹配以下 Pixiv 链接，一般来说只有下面的链接会被匹配 识别到
 - pixiv.net/artworks/:id
@@ -17,7 +17,7 @@ title: 指南
 支持一个消息里面包含多个链接，无脑地全部发送给我就行！
 
 ### inline 模式
-bot 支持 telegram 的 inline 用法，点击 share 按钮或者在聊天窗口 `@pixiv_bot` 即可体验～  
+bot 支持 telegram 的 inline 用法，点击 share 按钮或者在聊天窗口 `@Pixiv_bot` 即可体验～  
 目前 inline 只有每日榜图以及查找id的功能，暂时还没有直接搜索作品功能
 
 > 这个需要填坑！

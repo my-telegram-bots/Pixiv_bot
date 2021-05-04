@@ -4,7 +4,7 @@ title: 指南
 <!-- translate by zhconvert.org -->
 # Pixiv bot
 一個 telegram 機器人，可以幫助您在 telegram 發送來自 pixiv 的作品。  
-[link](https://t.me/pixiv_bot)  
+[點我開始體驗](tg://resolve?domain=pixiv_bot&start=67953985)
 
 目前支持匹配以下 Pixiv 連結，一般來說只有下面的連結會被匹配 識別到
 - pixiv.net/artworks/:id
@@ -18,7 +18,7 @@ title: 指南
 支持一個消息裡面包含多個連結，無腦地全部發送給我就行！
 
 ### inline 模式
-bot 支持 telegram 的 inline 用法，點擊 share 按鈕或者在聊天窗口 `@pixiv_bot` 即可體驗～  
+bot 支持 telegram 的 inline 用法，點擊 share 按鈕或者在聊天窗口 `@Pixiv_bot` 即可體驗～  
 目前 inline 只有每日榜圖以及查找id的功能，暫時還沒有直接搜索作品功能
 
 > 這個需要填坑！

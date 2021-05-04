@@ -14,7 +14,7 @@ title: 机器人设置
         <br>
         在这里请确保您的回复格式不会很长，太多了的话 bot 是发不出来的。
       </blockquote>
-      <div id="officialtemplate">
+      <div id="template">
         <p style="text-align: center;">默认模板（点击应用）</p>
         <div class="cards">
           <div class="card container" @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%'">
@@ -39,7 +39,7 @@ title: 机器人设置
         <div id="customtemplate">
           <div class="card" style="margin: auto;">
             <div style="text-align: center;">
-              <img src="../img/67953985_p0.jpg" style="width:100%">
+              <img src="../img/67953985_p0.jpg">
             </div>
             <!--selfxss 警告 不过无所谓了 能干啥呢？-->
             <span class="container" v-html="format(current_template)"></span>
@@ -273,7 +273,7 @@ title: 机器人设置
     box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
   }
 
-  #officialtemplate .card {
+  #template .card {
     min-height: 125px;
   }
 
@@ -338,6 +338,9 @@ title: 机器人设置
 
     .textareacard>textarea {
       max-width: calc(100% - 5px);
+    }
+    #customtemplate img {
+      width: 40%;
     }
   }
 
