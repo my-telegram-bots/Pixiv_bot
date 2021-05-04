@@ -3,7 +3,8 @@ title: 指南
 ---
 # Pixiv bot
 一个 telegram 机器人，可以帮助您在 telegram 发送来自 pixiv 的作品。  
-[点我开始体验](tg://resolve?domain=pixiv_bot&start=67953985)
+[点我开始体验](tg://resolve?domain=pixiv_bot&start=67953985)  
+
 
 目前支持匹配以下 Pixiv 链接，一般来说只有下面的链接会被匹配 识别到
 - pixiv.net/artworks/:id

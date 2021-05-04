@@ -4,7 +4,9 @@ title: Guide
 <!-- translate by deepl -->
 # Pixiv bot
 A telegram bot that helps you send pixiv illust on telegeam.  
-[Get started!](tg://resolve?domain=pixiv_bot&start=67953985)
+[Get started!](tg://resolve?domain=pixiv_bot&start=67953985)  
+
+
 The following Pixiv links are currently supported:
 - pixiv.net/artworks/:id
 - pixiv.net/artworks/en/:id
