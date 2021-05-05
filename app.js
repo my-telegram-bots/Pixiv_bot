@@ -54,7 +54,6 @@ bot.use(async (ctx, next) => {
     } catch (error) {
         ctx.rtext = ''
     }
-
     // db
     ctx.db = ctx.flag = {}
     ctx.db.s_col = await db.collection('chat_setting')
@@ -70,6 +69,7 @@ bot.use(async (ctx, next) => {
                 message: false,
                 inline: false
             },
+            show_flag: false,
             dbless: true, // the user isn't in chat_setting
             status: false // user's current status
         }
@@ -79,26 +79,35 @@ bot.use(async (ctx, next) => {
     if(ctx.rtext.substr(0,3) == 'eyJ'){ // JSON base64('{"xx') = EyJ
         try {
             let new_setting = JSON.parse(Buffer.from(ctx.rtext,'base64').toString('utf8'))
-            await db.update_setting({
-                format: {
-                    message: new_setting.format.message,
-                    inline: new_setting.format.inline
-                }
-            },ctx.from.id,ctx.flag)
-            await ctx.reply(_l(ctx.l,'setting_saved'))
+            // filter
+            // maybe user's format.* value is object
+            if(typeof new_setting.format.message == 'string' && typeof new_setting.format.inline == 'string'){
+                await db.update_setting({
+                    format: {
+                        message: new_setting.format.message,
+                        inline: new_setting.format.inline
+                    },
+                    show_flag: new_setting.show_flag ? true : false // maybe undefined
+                },ctx.from.id,ctx.flag)
+                await ctx.reply(_l(ctx.l,'setting_saved'))
+            }else {
+                throw 'e'
+            }
         } catch (error) {
+            // doesn't base64
             await ctx.reply(_l(ctx.l,'error'))
             console.warn(error)
         }
-        return
+        // Hmmmm, return maybe useless?
+        // return
     }
     next()
 })
 bot.command('s',async (ctx,next)=>{
-    // only support user
+    // current only support user
     if(ctx.chat.id > 0){
         // lazy....
-        if(ctx.flag.setting.dbles){
+        if(ctx.flag.setting.dbless){
             ctx.flag.setting = {"format":{"message":"%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%","inline":"%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%"}}
         }
         ctx.reply(_l(ctx.l,'setting_open_link'),{
@@ -111,7 +120,7 @@ bot.command('s',async (ctx,next)=>{
 bot.use(async (ctx,next)=>{
     ctx.flag = {
         ...ctx.flag,
-        tags: ctx.rtext.includes('+tag'),
+        tags: (ctx.rtext.includes('+tag')),// && (!ctx.rtext.includes('-tag') && ctx.flag.setting.show_flag)),
         share: !ctx.rtext.includes('-share'),
         remove_keyboard: ctx.rtext.includes('-rmk'),
         remove_caption: ctx.rtext.includes('-rmc'),
@@ -133,12 +142,12 @@ bot.use(async (ctx,next)=>{
     ctx.rtext = ctx.rtext
     .replaceAll('+tags','').replaceAll('+tag','')
     .replaceAll('+telegraph','').replaceAll('+graph','')
+    .replaceAll('-id','')
     .replaceAll('+file','')
     .replaceAll('+album','')
     .replaceAll('-share','')
     .replaceAll('-rmc','')
     .replaceAll('-rmk','')
-    .replaceAll('-id','')
 
     if(ctx.rtext.includes('-rm')){
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = true
@@ -148,11 +157,12 @@ bot.use(async (ctx,next)=>{
 })
 bot.start(async (ctx,next) => {
     // startPayload = deeplink 
+    // see more https://core.telegram.org/bots#deep-linking
     if(ctx.startPayload){
         // callback to bot.on function
         await next()
     }else{
-        // 回复垃圾文（（（
+        // reply start help command
         await ctx.reply(_l(ctx.l,'start',ctx.message.message_id))
     }
 })

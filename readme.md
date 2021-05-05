@@ -3,7 +3,11 @@ Link: https://t.me/Pixiv_bot
 
 Document: https://pixiv-bot.pages.dev
 
+## requirement
 
+- Node.js > 15
+- ffmpeg
+- mp4fpsmod
 ## translate 
     1. clone project
     2. copy lang/en.json -> lang/_lang_code_.json
@@ -34,16 +38,17 @@ i.pximg.net proxy
 #### token
 @botfather
 #### master_id
-Report error and manage bot
+Report error
 #### access_token
 `access_token` is telegraph token you can create it manually  
 see more https://telegra.ph
 ## todolist
     1. subscribe (0%)
-    2. custom format (66%)
+    2. custom format (ok)
     3. error handle (10%)
     4. web version (0%)
     5. bookmarks (1%)
+    6. support Group / Channel
 # License
 MIT
 

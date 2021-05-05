@@ -25,10 +25,12 @@ module.exports = {
                     format: {
                         message: false,
                         inline: false
-                    }
+                    },
+                    show_flag: false
                 })
             }
             try {
+                // Not filter ....
                 await col.updateOne({
                     id: chat_id,
                 }, {
