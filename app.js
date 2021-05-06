@@ -1,4 +1,3 @@
-const fs = require('fs')
 const { Telegraf, Markup } = require('telegraf')
 const { telegrafThrottler } = require('telegraf-throttler')
 const exec = require('util').promisify((require('child_process')).exec)
@@ -112,7 +111,7 @@ bot.command('s',async (ctx,next)=>{
         }
         ctx.reply(_l(ctx.l,'setting_open_link'),{
             ...Markup.inlineKeyboard([
-                Markup.button.url('Open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s.html#${Buffer.from(JSON.stringify(ctx.flag.setting),'utf8').toString('base64')}`.replace('/en',''))
+                Markup.button.url('Open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting),'utf8').toString('base64')}`.replace('/en',''))
             ])
         })
     }
@@ -160,7 +159,7 @@ bot.start(async (ctx,next) => {
     // see more https://core.telegram.org/bots#deep-linking
     if(ctx.startPayload){
         // callback to bot.on function
-        await next()
+        next()
     }else{
         // reply start help command
         await ctx.reply(_l(ctx.l,'start',ctx.message.message_id))
@@ -291,7 +290,8 @@ bot.on('inline_query',async (ctx)=>{
     // 目前暂定 offset 只是页数吧 这样就直接转了，以后有需求再改
     offset = parseInt(offset)
     let res_options = {
-        cache_time: 60
+        cache_time: 20, // maybe update format
+        is_personal: true // personal result
     }
     if(ids = get_illust_ids(query)){
         await asyncForEach(ids.reverse(),async id=>{

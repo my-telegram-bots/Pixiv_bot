@@ -102,8 +102,9 @@ async function get_illust(id){
             imgs_: illust.imgs_
         })
     }
-    if(process.env.dev)
+    if(process.env.dev){
         console.log(illust)
+    }
     return illust
 }
 module.exports = get_illust
