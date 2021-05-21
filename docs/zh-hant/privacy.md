@@ -22,9 +22,8 @@ sidebar: false
 - 訪問 telegraph 頁面（非即時預覽）
     - Cloudflare 提供原圖直鏈
     - bot 提供動圖直鏈
+> (僅在瀏覽器打開 Telegraph 頁面情況，Telegram 即時預覽將沒有任何流量經過本服務)
 - 訪問本文檔
-
-如果您訪問的 telegraph 頁面是由 telegram 生成的即時預覽頁面，那麼將不會由任何流量經過本服務。
 
 
 ## 2. 安全

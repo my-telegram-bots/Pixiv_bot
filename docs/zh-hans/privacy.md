@@ -23,7 +23,7 @@ sidebar: false
     - Cloudflare 提供原图直链
     - bot 提供动图直链
 
-(仅在浏览器打开 Telegraph 页面情况，Telegram 即时预览将没有任何流量经过本服务)
+> (仅在浏览器打开 Telegraph 页面情况，Telegram 即时预览将没有任何流量经过本服务)
 - 访问本文档
 
 

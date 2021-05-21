@@ -40,7 +40,7 @@ module.exports = {
         label: 'English',
         selectText: 'Languages',
         title: 'pixiv bot',
-        description: 'A telegram bot',
+        description: 'A Telegram bot',
         lastUpdated: 'Last Updated',
         nav: [
           { text: 'Guide', link: '/' },

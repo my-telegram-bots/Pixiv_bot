@@ -97,10 +97,10 @@ title: Bot configuration
         </div>
       </div>
     </div>
-    <div id="save">
+    <div id="save" v-if="raw_config !== ''">
       <a target="_tshare" :href="'tg://msg_url?url=' + encodeURIComponent(raw_config)">save changes</a>
       <p>In order to anonymize, saving the changes requires you to copy the command to bot, if the button above does not
-        jump to telegram and send a message to Pixiv_bot please manually copy the following text to bot.</p>
+        jump to Telegram and send a message to Pixiv_bot please manually copy the following text to bot.</p>
       <div class="card textareacard">
         <textarea v-model="raw_config" readonly style="resize: none;"></textarea>
       </div>
