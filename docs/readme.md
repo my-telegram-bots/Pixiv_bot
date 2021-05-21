@@ -1,5 +1,6 @@
 ---
 title: Guide
+pageClass: guide
 --- 
 <!-- translate by deepl -->
 # Pixiv bot

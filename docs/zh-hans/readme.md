@@ -1,5 +1,6 @@
 ---
 title: 指南
+pageClass: guide
 ---
 # Pixiv bot
 一个 Telegram 机器人，可以帮助您在 Telegram 发送来自 pixiv 的作品。  

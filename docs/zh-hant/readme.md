@@ -1,5 +1,6 @@
 ---
 title: 指南
+pageClass: guide
 ---
 <!-- translate by zhconvert.org -->
 # Pixiv bot
