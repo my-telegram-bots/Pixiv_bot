@@ -68,12 +68,14 @@ bot.use(async (ctx, next) => {
                 message: false,
                 inline: false
             },
-            show_flag: false,
+            show_tag: false,
             dbless: true, // the user isn't in chat_setting
             status: false // user's current status
         }
     } else {
         ctx.flag.setting.dbless = false
+        delete ctx.flag.setting._id
+        delete ctx.flag.setting.id
     }
     if(ctx.rtext.substr(0,3) == 'eyJ'){ // JSON base64('{"xx') = EyJ
         try {
@@ -86,7 +88,7 @@ bot.use(async (ctx, next) => {
                         message: new_setting.format.message,
                         inline: new_setting.format.inline
                     },
-                    show_flag: new_setting.show_flag ? true : false // maybe undefined
+                    show_tag: new_setting.show_tag ? true : false // maybe undefined
                 },ctx.from.id,ctx.flag)
                 await ctx.reply(_l(ctx.l,'setting_saved'))
             }else {
@@ -109,9 +111,12 @@ bot.command('s',async (ctx,next)=>{
         if(ctx.flag.setting.dbless){
             ctx.flag.setting = {"format":{"message":"%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%","inline":"%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%"}}
         }
+        // to alert the configure who open is too old (based on send time)
+        ctx.flag.setting.time = +new Date()
+        delete ctx.flag.setting.dbless
         ctx.reply(_l(ctx.l,'setting_open_link'),{
             ...Markup.inlineKeyboard([
-                Markup.button.url('Open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting),'utf8').toString('base64')}`.replace('/en',''))
+                Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting),'utf8').toString('base64')}`.replace('/en',''))
             ])
         })
     }
@@ -119,7 +124,7 @@ bot.command('s',async (ctx,next)=>{
 bot.use(async (ctx,next)=>{
     ctx.flag = {
         ...ctx.flag,
-        tags: (ctx.rtext.includes('+tag')),// && (!ctx.rtext.includes('-tag') && ctx.flag.setting.show_flag)),
+        tags: ctx.rtext.includes('+tag') || (!ctx.rtext.includes('-tag') && ctx.flag.setting.show_tag),
         share: !ctx.rtext.includes('-share'),
         remove_keyboard: ctx.rtext.includes('-rmk'),
         remove_caption: ctx.rtext.includes('-rmc'),
@@ -139,7 +144,7 @@ bot.use(async (ctx,next)=>{
     }
     // replaced text
     ctx.rtext = ctx.rtext
-    .replaceAll('+tags','').replaceAll('+tag','')
+    .replaceAll('+tags','').replaceAll('+tag','').replaceAll('-tags','').replaceAll('-tag','')
     .replaceAll('+telegraph','').replaceAll('+graph','')
     .replaceAll('-id','')
     .replaceAll('+file','')
@@ -236,7 +241,7 @@ bot.on('text',async (ctx,next)=>{
                         parse_mode: 'Markdown',
                         ...k_os(d.id,ctx.flag)
                     })
-                    // save ugoira file_id
+                    // save ugoira file_id and next time bot can reply without send file
                     if(!d.td.tg_file_id && data.document) {
                         let col = await db.collection('illust')
                         await col.updateOne({
@@ -272,7 +277,9 @@ bot.on('text',async (ctx,next)=>{
                     ctx.replyWithChatAction('upload_photo')
                     await ctx.replyWithMediaGroup(mediagroup_o).catch(async () => {
                         ctx.replyWithChatAction('upload_photo')
-                        await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_r[id])
+                        await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_r[id]).catch(async ()=>{
+                            await ctx.reply(_l(ctx.l,'error'))
+                        })
                     })
                 })
             }

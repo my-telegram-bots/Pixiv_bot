@@ -8,47 +8,45 @@ Document: https://pixiv-bot.pages.dev
 - Node.js > 15
 - ffmpeg
 - mp4fpsmod
-## translate 
-    1. clone project
-    2. copy lang/en.json -> lang/_lang_code_.json
-    3. create pull request
 ## install (ArchLinux)
-    pacman -S yarn pm2 ffmpeg unzip
+    sudo pacman -S yarn pm2 ffmpeg unzip
     yay -S mongodb-bin mp4fpsmod
     git clone https://github.com/my-telegram-bots/Pixiv_bot.git
-    systemctl enable pm2 mongodb --now
+    sudo systemctl enable pm2 mongodb --now
     cp config_sample.json config.json
     # edit
     # vim config.json
     # nano config.json
     pm2 start --name pixiv_bot app.js
     pm2 save
-    pm2 startup
+    sudo pm2 startup
 ## config
-### pixiv
 ### cookie
-To access R18(g) contents and subscribe author, You must fill the config.json->pixiv->cookie.  
+To access R18(guro) contents and subscribe the author, You must fill the cookie field.  
 You can login via your browser and open developer tools to select network tab and get the cookie you logined.  
 ## ua
 get lastest chrome useragent: https://t.me/chrome_useragent
 ## pximgproxy
-i.pximg.net proxy
-
-### tg
+i.pximg.net proxy, telegraph and send file maybe use it
 #### token
-@botfather
+https://t.me/botfather
 #### master_id
-Report error
+Report error and no management function
 #### access_token
-`access_token` is telegraph token you can create it manually  
+`access_token` is telegraph token can help you create telegra.ph pages.  
 see more https://telegra.ph
+
+## translate (i18n)
+    1. clone project
+    2. copy lang/en.json -> lang/_lang_code_.json
+    3. create pull request
+
 ## todolist
     1. subscribe (0%)
-    2. custom format (ok)
-    3. error handle (10%)
-    4. web version (0%)
-    5. bookmarks (1%)
-    6. support Group / Channel
+    2. error handle (10%)
+    3. web version (0%)
+    4. bookmarks (1%)
+    5. Group / Channel support
 # License
 MIT
 

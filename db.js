@@ -26,7 +26,7 @@ module.exports = {
                         message: false,
                         inline: false
                     },
-                    show_flag: false
+                    show_tag: false
                 })
             }
             try {
