@@ -3,10 +3,10 @@ title: Privacy Policy
 sidebar: false
 ---
 
-## 1. We collect the following content
+## 1. We collect the following contents
 
-### userid
-When you use this bot, your telegram userid may be recorded by the bot.  
+### Telegram user id
+When you are using this bot, your Telegram user id may be recorded and associated with the bot.    
 The actions that trigger the recording of user ids are currently the following.  
 
 - Customize the reply format

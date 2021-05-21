@@ -1,46 +1,55 @@
 ---
 sidebar: false
 editLink: false
-title: 機器人設置
+title: 機器人配置
 ---
 <template>
   <div id="setting">
-    <h1>機器人設置</h1>
-    <blockquote>在進行設置之前，確保您已經同意了 bot 的隱私策略。</blockquote>
-    <div>
-      <h2>回覆消息設置</h2>
+    <h1>機器人配置</h1>
+    <blockquote>在進行配置之前，確保您已經同意了 bot 的隱私策略。</blockquote>
+    <div class="custom-block tip" v-if="alert == 1">
+      <p class="custom-block-title">無配置載入！</p>
+      <p>建議通過 bot 的 <code>/s</code> 命令來打開本頁面</p>
+    </div>
+    <div class="custom-block danger" v-else-if="alert == 2">
+      <p class="custom-block-title">您的配置文件可能不是最新的（生成時間為 {{ new Date(bot_confiuration_time).toString().split(' (')[0] }})</p>
+      <p>請給 bot 發送 <code>/s</code> 命令打開本配置頁面。</p>
+    </div>
+    <div id="replyformat">
+      <h2>回覆消息配置</h2>
       <blockquote>
         在這裡可以自訂機器人的返回消息格式
         <br>
         在這裡請確保您的回覆格式不會很長，太多了的話 bot 是發不出來的。
       </blockquote>
       <div id="template">
-        <p style="text-align: center;">默认模板（点击应用）</p>
+        <p style="text-align: center;">默認模板（點擊應用）</p>
         <div class="cards">
           <div class="card container" @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%'">
-            <p>#NSFW <a href="">XX:Me</a> 1/4<br>
+            <p>#NSFW <a>XX:Me</a> 1/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
           </div>
           <div class="card container"
             @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / id=|id% / [%author_name%](%author_url%) %p%\n%tags%'">
-            <p>#NSFW <a href="">XX:Me</a> / id=67953985 / <a href="">rumikuu</a> 2/4<br>
+            <p>#NSFW <a>XX:Me</a> / id=67953985 / <a>rumikuu</a> 2/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
           </div>
           <div class="card container"
             @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%'">
-            <p>#NSFW <a href="">XX:Me</a> / <a href="">rumikuu</a> 3/4<br>
+            <p>#NSFW <a>XX:Me</a> / <a>rumikuu</a> 3/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
           </div>
         </div>
-        <h3 style="text-align: center;">當前效果</h3>
+        <p style="text-align: center;">當前效果</p>
         <div id="customtemplate">
           <div class="card" style="margin: auto;">
             <div style="text-align: center;">
               <img src="../img/67953985_p0.jpg">
             </div>
+            <!-- self xss warning-->
             <span class="container" v-html="format(current_template)"></span>
           </div>
           <div class="textareacard">
@@ -89,16 +98,10 @@ title: 機器人設置
         </div>
       </div>
     </div>
-    <!-- <div id="follow">
-      <h2>關注推送設置</h2>
-    </div>
-    <div id="telegraph">
-      <h2>telegraph 生成設置</h2>
-    </div> -->
-    <div id="save">
+    <div id="save" v-if="raw_config !== ''">
       <a target="_tshare" :href="'tg://msg_url?url=' + encodeURIComponent(raw_config)">保存更改</a>
-      <p>為了匿名以及靜態化頁面，保存更改需要您複製命令給 bot，如果上面的按鈕無法跳轉至 telegram 並且發送消息給 Pixiv_bot 請手動複製以下文本黏貼至 bot</p>
-      <div class="card textareacard">
+      <p>為了匿名以及靜態化頁面，保存更改需要您複製命令給 bot，如果上面的按鈕無法跳轉至 Telegram 並且發送消息給 Pixiv_bot 請手動複製以下文本黏貼至 bot</p>
+      <div class="textareacard">
         <textarea v-model="raw_config" readonly style="resize: none;"></textarea>
       </div>
     </div>
@@ -106,10 +109,11 @@ title: 機器人設置
 </template>
 
 <script>
-  let MarkdownIt = require('markdown-it')
-  let md = new MarkdownIt()
+  let md = new require('markdown-it')()
   export default {
     data: () => ({
+      alert: 1,
+      bot_confiuration_time: 0,
       current_template: '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%',
       raw_config: ''
     }),
@@ -129,13 +133,15 @@ title: 機器人設置
         }, 'message', 3).replaceAll('\n', '  \n'))
       },
       save() {
-        sessionStorage.s = encodeUnicode(JSON.stringify({
+        let d = {
           format: {
             message: this.current_template,
             inline: this.current_template,
-          }
-        }))
-        this.raw_config = sessionStorage.s
+          },
+          time: this.bot_confiuration_time
+        }
+        sessionStorage.s = encodeUnicode(JSON.stringify(d))
+        this.raw_config = encodeUnicode(JSON.stringify(d))
       }
     },
     watch: {
@@ -144,209 +150,27 @@ title: 機器人設置
       }
     },
     mounted() {
+      // load configure from hash
       let hash = location.hash.substr(1)
-      if (sessionStorage.s) {
+      if (sessionStorage.s && (!hash || hash.length < 10)) {
         hash = sessionStorage.s
-      }else if (!hash || hash.length < 10) {
-        this.save()
-        return
-      } 
+      }
       location.hash = '#'
       try {
-        console.log(hash)
         let setting = {}
         if (setting = JSON.parse(decodeUnicode(hash))) {
+          // I don't wanna design the tabs to hold message / inline reply format.....
           this.current_template = setting.format.message
-          this.save()
+          this.bot_confiuration_time = setting.time
+          if(+new Date() - setting.time > 120000 && setting.time !== undefined && setting.time !== 0){ // time - bot generator time > 120s
+            this.alert = 2
+          }
         }
       } catch (error) {
+        this.alert = 1
+        console.warn(hash)
       }
     }
   }
-
-  function format(td, flag, mode = 'message', p) {
-    console.log(JSON.stringify(td))
-    let template = flag.setting.format[mode]
-    if (td.original_urls && td.original_urls.length > 1 && p !== -1)
-      template = template.replaceAll('%p%', `${(p + 1)}/${td.original_urls.length}`)
-    else
-      template = template.replaceAll('%p%', '')
-    let tags = '#' + td.tags.join(' #')
-    tags = tags.substr(0, tags.length - 1)
-    let splited_tamplate = template.replaceAll('\\%', '\uff69').split('%')  // 迫真转义 这个符号不会有人打出来把！！！
-    let replace_list = [
-      ['tags', flag.tags ? tags : false],
-      ['id', flag.c_show_id ? td.id : false],
-      ['url', `https://pixiv.net/artworks/${td.id}`],
-      ['author_url', `https://www.pixiv.net/users/${td.author_id}`],
-      ['author_name', td.author_name],
-      ['title', td.title],
-      ['NSFW', td.nsfw]
-    ]
-    splited_tamplate.map((r, id) => {
-      replace_list.forEach(x => {
-        if (x && r.includes(x[0])) {
-          splited_tamplate[id] = Treplace(r, ...x)
-        }
-      })
-    })
-    template = splited_tamplate.join('').replaceAll('\uff69', '%')
-    let temp = template.match(/\[.*?\]/)
-    if (temp)
-      temp.map(r => {
-        template = template.replace(r, re_escape_strings(r))
-      })
-    return template
-  }
-
-  /**
-   * Markdown 转义
-   * @param {String} t 
-   */
-  function escape_strings(t) {
-    '[]()*_`~'.split('').forEach(x => {
-      t = t.toString().replaceAll(x, `\\${x}`)
-    })
-    return t
-  }
-  /**
-   * ta 又转义回来了
-   * @param {} t 
-   */
-  function re_escape_strings(t) {
-    '()*_`~'.split('').forEach(x => {
-      t = t.toString().replaceAll('\\' + x, x)
-    })
-    return t
-  }
-  function Treplace(r, name, value) {
-    if (!r.includes(name))
-      return r
-    if (!value)
-      return ''
-    if (typeof value == 'boolean')
-      value = ''
-    return r.replaceAll('\\|', '\uffb4').split('|').map(l => {
-      if (l == name) {
-        if (name == 'tags')
-          return value
-        return escape_strings(value)
-      }
-      return l
-    }).join('').replaceAll('\uffb4', '|')
-  }
-  function decodeUnicode(str) {
-    return decodeURIComponent(atob(str).split('').map(function (c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''))
-  }
-  function encodeUnicode(str) {
-    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
-      function toSolidBytes(match, p1) {
-        return String.fromCharCode('0x' + p1);
-      }));
-  }
+  function format(td, flag, mode = 'message', p) { console.log(JSON.stringify(td)); let template = flag.setting.format[mode]; if (td.original_urls && td.original_urls.length > 1 && p !== -1) { template = template.replaceAll('%p%', `${(p + 1)}/${td.original_urls.length}`) } else { template = template.replaceAll('%p%', '') } let tags = '#' + td.tags.join(' #'); tags = tags.substr(0, tags.length - 1); let splited_tamplate = template.replaceAll('\\%', '\uff69').split('%'); let replace_list = [['tags', flag.tags ? tags : false], ['id', flag.c_show_id ? td.id : false], ['url', `https://pixiv.net/artworks/${td.id}`], ['author_url', `https://www.pixiv.net/users/${td.author_id}`], ['author_name', td.author_name], ['title', td.title], ['NSFW', td.nsfw]]; splited_tamplate.map((r, id) => { replace_list.forEach(x => { if (x && r.includes(x[0])) { splited_tamplate[id] = Treplace(r, ...x) } }) }); template = splited_tamplate.join('').replaceAll('\uff69', '%'); let temp = template.match(/\[.*?\]/); if (temp) { temp.map(r => { template = template.replace(r, re_escape_strings(r)) }) } return template } function escape_strings(t) { '[]()*_`~'.split('').forEach(x => { t = t.toString().replaceAll(x, `\\${x}`) }); return t } function re_escape_strings(t) { '()*_`~'.split('').forEach(x => { t = t.toString().replaceAll('\\' + x, x) }); return t } function Treplace(r, name, value) { if (!r.includes(name)) { return r } if (!value) { return '' } if (typeof value == 'boolean') { value = '' } return r.replaceAll('\\|', '\uffb4').split('|').map(l => { if (l == name) { if (name == 'tags') { return value } return escape_strings(value) } return l }).join('').replaceAll('\uffb4', '|') } function decodeUnicode(str) { return decodeURIComponent(atob(str).split('').map(function (c) { return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2) }).join('')) } function encodeUnicode(str) { return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function toSolidBytes(match, p1) { return String.fromCharCode('0x' + p1) })) }
 </script>
-
-<style>
-  .card {
-    flex-grow: 1;
-    flex-basis: 30%;
-    max-width: 30%;
-    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-    transition: 0.3s;
-    padding-top: 5px;
-    cursor: pointer;
-  }
-  .cards {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    align-content: stretch;
-    justify-content: space-between;
-  }
-
-  .card:hover,
-  #save a:hover {
-    box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
-  }
-
-  #template .card {
-    min-height: 125px;
-  }
-
-
-  #customtemplate>.card {
-    cursor: unset;
-  }
-
-  .textareacard {
-    margin: auto;
-    max-width: 550px;
-  }
-
-  .textareacard>textarea {
-    width: 100%;
-    min-height: 66px;
-    max-width: 550px;
-  }
-
-  .container p,
-  .container a {
-    font-size: 13px;
-    margin-top: 0;
-    padding-left: 3px;
-    padding-right: 3px;
-  }
-
-  #save {
-    text-align: center;
-  }
-
-  #save>a {
-    display: inline-block;
-    font-size: 1.2rem;
-    color: #fff;
-    background-color: #ff69b4;
-    padding: .8rem 1.6rem;
-    border-radius: 4px;
-    box-sizing: border-box;
-    border-bottom: 1px solid #ff69b4;
-    text-decoration: none;
-    cursor: pointer;
-    margin-top: 40px;
-    transition: 0.3s;
-  }
-
-  @media (max-width: 719px) {
-    .cards {
-      flex-direction: column
-    }
-
-    .card {
-      max-width: 100%;
-      margin-top: 20px;
-    }
-
-    .container {
-      margin: auto;
-      margin-top: 10px !important;
-      min-height: 0px !important;
-    }
-
-    .textareacard>textarea {
-      max-width: calc(100% - 5px);
-    }
-
-    #customtemplate img {
-      width: 40%;
-    }
-  }
-
-  @media (max-width: 419px) {
-    .card {
-      padding-left: 0.5rem;
-      padding-right: 0.5rem
-    }
-  }
-</style>
