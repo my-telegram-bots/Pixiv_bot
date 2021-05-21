@@ -113,7 +113,7 @@ title: 机器人配置
   let md = new require('markdown-it')()
   export default {
     data: () => ({
-      alert: 1,
+      alert: 0,
       bot_confiuration_time: 0,
       current_template: '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%',
       raw_config: ''
@@ -163,13 +163,13 @@ title: 机器人配置
           // I don't wanna design the tabs to hold message / inline reply format.....
           this.current_template = setting.format.message
           this.bot_confiuration_time = setting.time
-          if(+new Date() - setting.time > 120000 && setting.time !== undefined && setting.time !== 0){ // time - bot generator time > 120s
+          if(+new Date() - setting.time > 120000 && setting.time !== undefined && setting.time !== 0){ // time - bot generate time > 120s
             this.alert = 2
           }
         }
       } catch (error) {
         this.alert = 1
-        console.warn(hash)
+        console.warn(error, hash)
       }
     }
   }

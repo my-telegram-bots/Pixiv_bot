@@ -12,7 +12,7 @@ title: Bot configuration
       <p>We suggest send <code>/s</code> command to reopen this page to get your latest bot's configuration.</p>
     </div>
     <div class="custom-block danger" v-else-if="alert == 2">
-      <p class="custom-block-title">Your bot's configuration maybe not a latest version (generate time: {{ new Date(bot_confiuration_time).toString().split(' (')[0] }})</p>
+      <p class="custom-block-title">Your bot's configuration maybe not a latest version (configuration generate time: {{ new Date(bot_confiuration_time).toString().split(' (')[0] }})</p>
       <p>We suggest send <code>/s</code> command to reopen this page to get your latest bot's configuration.</p>
     </div>
     <div>
@@ -23,7 +23,7 @@ title: Bot configuration
         Make sure that your reply format is not too long, as the bot won't be able to send too many content.
       </blockquote>
       <div id="template">
-        <p style="text-align: center;">Default templates (click to apply)</p>
+        <p style="text-align: center;">Default template (click to apply)</p>
         <div class="cards">
           <div class="card container" @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%'">
             <p>#NSFW <a>XX:Me</a> 1/4<br>
@@ -113,7 +113,7 @@ title: Bot configuration
   let md = new require('markdown-it')()
   export default {
     data: () => ({
-      alert: 1,
+      alert: 0,
       bot_confiuration_time: 0,
       current_template: '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%',
       raw_config: ''
@@ -163,7 +163,7 @@ title: Bot configuration
           // I don't wanna design the tabs to hold message / inline reply format.....
           this.current_template = setting.format.message
           this.bot_confiuration_time = setting.time
-          if(+new Date() - setting.time > 120000 && setting.time !== undefined && setting.time !== 0){ // time - bot generator time > 120s
+          if(+new Date() - setting.time > 120000 && setting.time !== undefined && setting.time !== 0){ // time - bot generate time > 120s
             this.alert = 2
           }
         }
