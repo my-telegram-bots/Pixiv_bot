@@ -6,19 +6,19 @@ async function handle(){
     (await collection('illust')).createIndex({
         id: 1
     },{
-        unique: true, // 懒得解释了
+        unique: true,
     })
     (await collection('ranking')).createIndex({
         id: 1
     },{
         unique: true,
     })
-    (await collection('tg_user')).createIndex({
+    (await collection('chat_setting')).createIndex({
         id: 1
     },{
         unique: true,
     })
-    // 新建文件夹
+    
     fs.mkdirSync('./tmp')
     fs.mkdirSync('./tmp/file')
     fs.mkdirSync('./tmp/timecode')

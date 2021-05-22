@@ -37,6 +37,7 @@ const throttler = telegrafThrottler({
 const bot = new Telegraf(config.tg.token)
 bot.use(throttler)
 bot.use(async (ctx, next) => {
+    // simple i18n
     // 本来是 .lang 的 后面简单点还是 .l
     // 然后在想 这边直接 ctx.l = l[ctx.from.language_code] 好还是按需好
     // 语言库里面没有的 会 fallback 到 en
@@ -101,6 +102,9 @@ bot.use(async (ctx, next) => {
         }
         // Hmmmm, return maybe useless?
         // return
+    }
+    if(process.env.dev){
+        console.log('user',ctx.from,ctx.rtext)
     }
     next()
 })
@@ -292,13 +296,13 @@ bot.on('inline_query',async (ctx)=>{
     let res = []
     let { offset } = ctx.inlineQuery
     if(!offset)
-        offset = 0 // 这里 offset 空的话 就定义 = 0，因为下面还有分页模块 所以就不定义为1了
+        offset = 0 // offset == empty -> offset = 0
     let query = ctx.rtext
     // 目前暂定 offset 只是页数吧 这样就直接转了，以后有需求再改
     offset = parseInt(offset)
     let res_options = {
         cache_time: 20, // maybe update format
-        is_personal: true // personal result
+        is_personal: ctx.flag.setting.dbless ? false : true // personal result
     }
     if(ids = get_illust_ids(query)){
         await asyncForEach(ids.reverse(),async id=>{

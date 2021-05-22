@@ -17,6 +17,7 @@ Document: https://pixiv-bot.pages.dev
     # edit
     # vim config.json
     # nano config.json
+    node initial.js # first run
     pm2 start --name pixiv_bot app.js
     pm2 save
     sudo pm2 startup
@@ -47,6 +48,7 @@ see more https://telegra.ph
     3. web version (0%)
     4. bookmarks (1%)
     5. Group / Channel support
+    6. Download author's all illusts
 # License
 MIT
 
