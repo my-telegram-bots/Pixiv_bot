@@ -40,14 +40,24 @@ function mg_create(td,flag){
         mediagroup_r
     }
 }
-function mg_albumize(mg){
-    // 10个一组
+function mg_albumize(mg,single_caption = true){
+    // 10 item to a group
     let t = []
-    mg.forEach((m,pid) => {  
-        let gid = Math.floor(pid / 10)
+    mg.forEach((m,mid) => {  
+        let gid = Math.floor(mid / 10)
         if(!t[gid])
             t[gid] = []
-        t[gid][pid % 10] = m
+                                        // So It's doesn't support | prefix
+        m.caption = m.caption.replaceAll('%mid%',mid % 10 + 1)
+        t[gid][mid % 10] = m
+        if(single_caption){
+            if(mid == 0){
+                m.caption += '\n'
+            }else{
+                t[gid][0].caption += m.caption + '\n' // telegram will show the caption when only [0] have caption
+                t[gid][mid % 10].caption = ''
+            }
+        }
     })
     return t
 }

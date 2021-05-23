@@ -18,22 +18,28 @@
 */
 function format(td, flag, mode = 'message', p){
     let template = ''
-    if(flag.remove_caption){
-
+    if(flag.single_caption){
+        mode = 'mediagroup_message'    
     }
-    if(flag.telegraph){
+    if(flag.remove_caption){
+        return ''
+    }else if(flag.telegraph){
         if(p == 0){
             template = '%title% / %author_name%\n'
-            template += '%url%\n'
-            template += '%tags%'
+            template += '%url%'
+            template += '%\n|tags%'
         }
     }else if(!flag.setting.format[mode]){
-        if(mode == 'message'){
-            template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%'
-            template += '\n%tags%'
-        }else if(mode == 'inline'){
-            template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%'
-            template += '\n%tags%'
+        switch (mode) {
+            case 'message':
+            case 'inline':
+                template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%'
+                template += '%\n|tags%'
+                break
+            case 'mediagroup_message':
+                template = '%mid%: %[%title%](%url%)% %p%'
+                template += '%\n|tags%'
+                break
         }
     }else{
         template = flag.setting.format[mode]
@@ -41,23 +47,38 @@ function format(td, flag, mode = 'message', p){
     if(template == ''){
         return ''
     }else{
-        if(td.original_urls && td.original_urls.length > 1 && p !== -1)
-            template = template.replaceAll('%p%',`${(p + 1)}/${td.original_urls.length}`)
-        else
-            template = template.replaceAll('%p%','')
-        let tags = '#' + td.tags.join(' #')
-        tags = tags.substr(0,tags.length - 1)
         let splited_tamplate = template.replaceAll('\\%','\uff69').split('%')  // 迫真转义 这个符号不会有人打出来把！！！
         let replace_list = [
             ['title',td.title],
             ['id',flag.c_show_id ? td.id : false],
             ['url',`https://pixiv.net/artworks/${td.id}`],
-            ['tags',flag.tags ? tags : false],
             ['NSFW',td.nsfw],
             ['author_id',td.author_id],
             ['author_url',`https://www.pixiv.net/users/${td.author_id}`],
             ['author_name',td.author_name]
         ]
+        if(td){
+            if(td.original_urls && td.original_urls.length > 1 && p !== -1){
+                replace_list.push(['p',`${(p + 1)}/${td.original_urls.length}`])
+            }else{
+                replace_list.push(['p',''])
+            }
+            if(flag.tags){
+                let tags = '#' + td.tags.join(' #')
+                replace_list.push(['tags',tags.substr(0,tags.length - 1)])
+            }else{
+                replace_list.push(['tags',''])
+            }
+        }
+        // hmmm, I dont want handle %mid% in different function
+        // So It's useless
+        if(flag.single_caption){
+            if(!td){
+                replace_list.push(['mid',flag.mid])
+            }else{
+                replace_list.push(['mid','%mid%'])
+            }
+        }
         splited_tamplate.map((r,id)=>{
             replace_list.forEach(x=>{
                 if(x && r.includes(x[0])){
@@ -67,10 +88,11 @@ function format(td, flag, mode = 'message', p){
         })
         template = splited_tamplate.join('').replaceAll('\uff69','%')
         let temp = template.match(/\[.*?\]/)
-        if(temp)
+        if(temp){
             temp.map(r=>{
                 template = template.replace(r,re_escape_strings(r))
             })
+        }
     }
     return template
 }
