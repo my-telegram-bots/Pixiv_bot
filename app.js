@@ -133,7 +133,7 @@ bot.use(async (ctx,next)=>{
         remove_keyboard: ctx.rtext.includes('-rmk'),
         remove_caption: ctx.rtext.includes('-rmc'),
         asfile: ctx.rtext.includes('+file'),
-        album: ctx.rtext.includes('+album'),
+        album: ctx.rtext.includes('+sc') || ctx.rtext.includes('+album'),
         telegraph: ctx.rtext.includes('+graph') || ctx.rtext.includes('+telegraph'),
         c_show_id: !ctx.rtext.includes('-id'),
         single_caption: ctx.rtext.includes('+sc'),
@@ -230,8 +230,8 @@ bot.on('text',async (ctx,next)=>{
                             await ctx.replyWithPhoto(mg.mediagroup_r[0].media,extra)
                         })
                     }else{
-                        ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o,...mg_albumize(mg.mediagroup_o,ctx.flag.single_caption)]
-                        ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,...mg_albumize(mg.mediagroup_r,ctx.flag.single_caption)]
+                        ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o,...mg_albumize(mg.mediagroup_o)]
+                        ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r,...mg_albumize(mg.mediagroup_r)]
                     }
                 }else if(d.type == 2){
                     let media = d.td.tg_file_id

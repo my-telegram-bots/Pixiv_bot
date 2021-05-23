@@ -23,7 +23,8 @@ function format(td, flag, mode = 'message', p){
     }
     if(flag.remove_caption){
         return ''
-    }else if(flag.telegraph){
+    }
+    if(flag.telegraph){
         if(p == 0){
             template = '%title% / %author_name%\n'
             template += '%url%'
@@ -33,11 +34,11 @@ function format(td, flag, mode = 'message', p){
         switch (mode) {
             case 'message':
             case 'inline':
-                template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%'
+                template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%'
                 template += '%\n|tags%'
                 break
             case 'mediagroup_message':
-                template = '%mid%: %[%title%](%url%)% %p%'
+                template = '%mid%: %[%title%](%url%)%% |p%'
                 template += '%\n|tags%'
                 break
         }

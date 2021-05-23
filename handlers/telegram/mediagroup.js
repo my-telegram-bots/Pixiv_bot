@@ -40,7 +40,7 @@ function mg_create(td,flag){
         mediagroup_r
     }
 }
-function mg_albumize(mg,single_caption = true){
+function mg_albumize(mg,single_caption = false){
     // 10 item to a group
     let t = []
     mg.forEach((m,mid) => {  
@@ -51,11 +51,12 @@ function mg_albumize(mg,single_caption = true){
         m.caption = m.caption.replaceAll('%mid%',mid % 10 + 1)
         t[gid][mid % 10] = m
         if(single_caption){
-            if(mid == 0){
+            if(mid % 10 == 0){
                 m.caption += '\n'
             }else{
                 t[gid][0].caption += m.caption + '\n' // telegram will show the caption when only [0] have caption
                 t[gid][mid % 10].caption = ''
+                delete t[gid][mid % 10].parse_mode
             }
         }
     })
