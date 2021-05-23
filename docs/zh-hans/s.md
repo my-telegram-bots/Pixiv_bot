@@ -25,19 +25,19 @@ title: 机器人配置
       <div id="template">
         <p style="text-align: center;">默认模板（点击应用）</p>
         <div class="cards">
-          <div class="card container" @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%'">
+          <div class="card container" @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% %p%%\n|tags%'">
             <p>#NSFW <a>XX:Me</a> 1/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
           </div>
           <div class="card container"
-            @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / id=|id% / [%author_name%](%author_url%) %p%\n%tags%'">
+            @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / id=|id% / [%author_name%](%author_url%) %p%%\n|tags%'">
             <p>#NSFW <a>XX:Me</a> / id=67953985 / <a>rumikuu</a> 2/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
           </div>
           <div class="card container"
-            @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%'">
+            @click="current_template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%%\n|tags%'">
             <p>#NSFW <a>XX:Me</a> / <a>rumikuu</a> 3/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
@@ -115,11 +115,11 @@ title: 机器人配置
     data: () => ({
       alert: 0,
       bot_confiuration_time: 0,
-      current_template: '%NSFW|#NSFW %[%title%](%url%)% %p%\n%tags%',
+      current_template: '%NSFW|#NSFW %[%title%](%url%)% %p%%\n|tags%',
       raw_config: ''
     }),
     methods: {
-      format(template = false) {
+      format(template = false, mode = 'message') {
         return md.render(format({ "original_urls": [1, 2, 3, 4], "id": "67953985", "title": "XX:Me", "author_name": "rumikuu", "author_id": "3654183", "inline": [], "tags": ["DARLINGintheFRANXX", "ゼロツー", "ココロ", "ミク", "イクノ", "xx:me", "トリカゴ"], "nsfw": true }, {
           remove_caption: false,
           telegraph: false,
@@ -156,8 +156,8 @@ title: 机器人配置
       if (sessionStorage.s && (!hash || hash.length < 10)) {
         hash = sessionStorage.s
       }
-      location.hash = '#'
       try {
+        location.hash = '#'
         let setting = {}
         if (setting = JSON.parse(decodeUnicode(hash))) {
           // I don't wanna design the tabs to hold message / inline reply format.....
@@ -173,5 +173,5 @@ title: 机器人配置
       }
     }
   }
-  function format(td, flag, mode = 'message', p) { console.log(JSON.stringify(td)); let template = flag.setting.format[mode]; if (td.original_urls && td.original_urls.length > 1 && p !== -1) { template = template.replaceAll('%p%', `${(p + 1)}/${td.original_urls.length}`) } else { template = template.replaceAll('%p%', '') } let tags = '#' + td.tags.join(' #'); tags = tags.substr(0, tags.length - 1); let splited_tamplate = template.replaceAll('\\%', '\uff69').split('%'); let replace_list = [['tags', flag.tags ? tags : false], ['id', flag.c_show_id ? td.id : false], ['url', `https://pixiv.net/artworks/${td.id}`], ['author_url', `https://www.pixiv.net/users/${td.author_id}`], ['author_name', td.author_name], ['title', td.title], ['NSFW', td.nsfw]]; splited_tamplate.map((r, id) => { replace_list.forEach(x => { if (x && r.includes(x[0])) { splited_tamplate[id] = Treplace(r, ...x) } }) }); template = splited_tamplate.join('').replaceAll('\uff69', '%'); let temp = template.match(/\[.*?\]/); if (temp) { temp.map(r => { template = template.replace(r, re_escape_strings(r)) }) } return template } function escape_strings(t) { '[]()*_`~'.split('').forEach(x => { t = t.toString().replaceAll(x, `\\${x}`) }); return t } function re_escape_strings(t) { '()*_`~'.split('').forEach(x => { t = t.toString().replaceAll('\\' + x, x) }); return t } function Treplace(r, name, value) { if (!r.includes(name)) { return r } if (!value) { return '' } if (typeof value == 'boolean') { value = '' } return r.replaceAll('\\|', '\uffb4').split('|').map(l => { if (l == name) { if (name == 'tags') { return value } return escape_strings(value) } return l }).join('').replaceAll('\uffb4', '|') } function decodeUnicode(str) { return decodeURIComponent(atob(str).split('').map(function (c) { return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2) }).join('')) } function encodeUnicode(str) { return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function toSolidBytes(match, p1) { return String.fromCharCode('0x' + p1) })) }
+  function format(td,flag,mode='message',p){let template=flag.setting.format[mode];if(template==''){return ''}else{let splited_tamplate=template.replaceAll('\\%','\uff69').split('%');let replace_list=[['title',td.title],['id',flag.c_show_id?td.id:false],['url',`https://pixiv.net/artworks/${td.id }`],['NSFW',td.nsfw],['author_id',td.author_id],['author_url',`https://www.pixiv.net/users/${td.author_id }`],['author_name',td.author_name]];if(td){if(td.original_urls&&td.original_urls.length>1&&p!==-1){replace_list.push(['p',`${(p+1)}/${td.original_urls.length }`])}else{replace_list.push(['p',''])}if(flag.tags){let tags='#'+td.tags.join(' #');replace_list.push(['tags',tags.substr(0,tags.length-1)])}else{replace_list.push(['tags',''])}}if(flag.single_caption){if(!td){replace_list.push(['mid',flag.mid])}else{replace_list.push(['mid','%mid%'])}}splited_tamplate.map((r,id)=>{replace_list.forEach(x=>{if(x&&r.includes(x[0])){splited_tamplate[id]=Treplace(r,...x)}})});template=splited_tamplate.join('').replaceAll('\uff69','%');let temp=template.match(/\[.*?\]/);if(temp){temp.map(r=>{template=template.replace(r,re_escape_strings(r))})}}return template} function escape_strings(t) { '[]()*_`~'.split('').forEach(x => { t = t.toString().replaceAll(x, `\\${x}`) }); return t } function re_escape_strings(t) { '()*_`~'.split('').forEach(x => { t = t.toString().replaceAll('\\' + x, x) }); return t } function Treplace(r, name, value) { if (!r.includes(name)) { return r } if (!value) { return '' } if (typeof value == 'boolean') { value = '' } return r.replaceAll('\\|', '\uffb4').split('|').map(l => { if (l == name) { if (name == 'tags') { return value } return escape_strings(value) } return l }).join('').replaceAll('\uffb4', '|') } function decodeUnicode(str) { return decodeURIComponent(atob(str).split('').map(function (c) { return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2) }).join('')) } function encodeUnicode(str) { return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function toSolidBytes(match, p1) { return String.fromCharCode('0x' + p1) })) }
 </script>
