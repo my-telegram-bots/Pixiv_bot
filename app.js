@@ -133,7 +133,7 @@ bot.use(async (ctx,next)=>{
         remove_keyboard: ctx.rtext.includes('-rmk'),
         remove_caption: ctx.rtext.includes('-rmc'),
         asfile: ctx.rtext.includes('+file'),
-        album: ctx.rtext.includes('+sc') || ctx.rtext.includes('+album'),
+        album: ctx.rtext.includes('+album'),
         telegraph: ctx.rtext.includes('+graph') || ctx.rtext.includes('+telegraph'),
         c_show_id: !ctx.rtext.includes('-id'),
         single_caption: ctx.rtext.includes('+sc'),
@@ -142,6 +142,9 @@ bot.use(async (ctx,next)=>{
     if(ctx.flag.telegraph){
         ctx.flag.album = true
         ctx.flag.tags = true
+    }
+    if(ctx.flag.single_caption){
+        ctx.flag.album = true
     }
     ctx.temp_data = {
         mediagroup_o: [],
@@ -157,6 +160,7 @@ bot.use(async (ctx,next)=>{
     .replaceAll('-share','')
     .replaceAll('-rmc','')
     .replaceAll('-rmk','')
+    .replaceAll('+sc','')
 
     if(ctx.rtext.includes('-rm')){
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = true
