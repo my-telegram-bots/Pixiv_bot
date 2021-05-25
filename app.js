@@ -6,7 +6,7 @@ const {
     asyncForEach,
     format,
     handle_illust,
-    get_illust_ids,
+    get_pixiv_ids,
     ugoira_to_mp4,
     handle_ranking,
     download_file,
@@ -180,7 +180,7 @@ bot.start(async (ctx,next) => {
     }
 })
 bot.on('text',async (ctx,next)=>{
-    if(ids = get_illust_ids(ctx.rtext)){
+    if(ids = get_pixiv_ids(ctx.rtext)){
         await asyncForEach(ids,async id=>{
             let d = await handle_illust(id,ctx.flag)
             if(!d && typeof d == 'number'){
@@ -309,7 +309,7 @@ bot.on('inline_query',async (ctx)=>{
         cache_time: 20, // maybe update format
         is_personal: ctx.flag.setting.dbless ? false : true // personal result
     }
-    if(ids = get_illust_ids(query)){
+    if(ids = get_pixiv_ids(query)){
         await asyncForEach(ids.reverse(),async id=>{
             let d = await handle_illust(id,ctx.flag)
             // 动图目前还是要私聊机器人生成
@@ -319,7 +319,7 @@ bot.on('inline_query',async (ctx)=>{
                 try {
                     await ctx.answerInlineQuery([], {
                         switch_pm_text: _l(ctx.l,'pm_to_generate_ugoira'),
-                        switch_pm_parameter: ids.join('-_-').toString(), // 这里对应 get_illust_ids 的处理
+                        switch_pm_parameter: ids.join('-_-').toString(), // 这里对应 get_pixiv_ids 的处理
                         cache_time: 0
                     })
                 } catch (error) {

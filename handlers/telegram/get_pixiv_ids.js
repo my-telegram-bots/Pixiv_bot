@@ -3,7 +3,7 @@
  * 从文本消息里面获取可能有的 Pixiv illust_id 们
  * @param {*} text 文本
  */
-function get_illust_ids(text) {
+function get_pixiv_ids(text) {
     if(!text)
         return false
     let ids = []
@@ -41,4 +41,4 @@ function get_illust_ids(text) {
     })
     return ids
 }
-module.exports = get_illust_ids
+module.exports = get_pixiv_ids

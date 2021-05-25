@@ -3,7 +3,7 @@ const {ugoiraurl} = require('../../config.json').pixiv
 function mg_create(td,flag){
     let mediagroup_o = mediagroup_r  = []
     if(process.env.dev){
-        console.log(td,'mg_create')
+        console.log('mg_create',td)
     }
     if(td){
         td.size.forEach((size, pid) => {

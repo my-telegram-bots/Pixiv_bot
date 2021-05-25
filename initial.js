@@ -7,17 +7,22 @@ async function handle(){
         id: 1
     },{
         unique: true,
-    })
+    });
+    (await collection('novel')).createIndex({
+        id: 1
+    },{
+        unique: true,
+    });
     (await collection('ranking')).createIndex({
         id: 1
     },{
         unique: true,
-    })
+    });
     (await collection('chat_setting')).createIndex({
         id: 1
     },{
         unique: true,
-    })
+    });
     
     fs.mkdirSync('./tmp')
     fs.mkdirSync('./tmp/file')
@@ -26,4 +31,6 @@ async function handle(){
     fs.mkdirSync('./tmp/mp4_1')
     fs.mkdirSync('./tmp/ugoira')
 }
-handle()
+setTimeout(() => {
+    handle()
+}, 1000);
