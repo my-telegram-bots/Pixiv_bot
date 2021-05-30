@@ -206,7 +206,7 @@ bot.on('text',async (ctx,next)=>{
                             thumb: d.td.thumb_urls[id],
                             parse_mode: 'Markdown',
                             caption: format(d.td,ctx.flag,'message',id),
-                        }).catch(async ()=>{
+                        }).catch(async (e)=>{
                             // Download to local and send (url upload only support 5MB)
                             ctx.replyWithChatAction('upload_document')
                             await ctx.replyWithDocument({source: await download_file(imgurl)},{
@@ -217,6 +217,7 @@ bot.on('text',async (ctx,next)=>{
                                 await ctx.reply(_l(ctx.l,'file_too_large',imgurl.replace('i.pximg.net',config.pixiv.pximgproxy)))
                                 console.warn(e)
                             })
+                            console.warn(e)
                         })
                     })
                 }
@@ -230,7 +231,8 @@ bot.on('text',async (ctx,next)=>{
                             caption: format(d.td,ctx.flag,'message',-1),
                             ...k_os(d.id,ctx.flag)
                         }
-                        await ctx.replyWithPhoto(mg.mediagroup_o[0].media,extra).catch(async ()=>{
+                        await ctx.replyWithPhoto(mg.mediagroup_o[0].media,extra).catch(async (e)=>{
+                            console.warn(e)
                             await ctx.replyWithPhoto(mg.mediagroup_r[0].media,extra)
                         })
                     }else{
@@ -284,9 +286,11 @@ bot.on('text',async (ctx,next)=>{
             if(ctx.temp_data.mediagroup_o.length > 0){
                 await asyncForEach(ctx.temp_data.mediagroup_o, async (mediagroup_o,id) => {
                     ctx.replyWithChatAction('upload_photo')
-                    await ctx.replyWithMediaGroup(mediagroup_o).catch(async () => {
+                    await ctx.replyWithMediaGroup(mediagroup_o).catch(async (e) => {
                         ctx.replyWithChatAction('upload_photo')
-                        await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_r[id]).catch(async ()=>{
+                        console.warn(e)
+                        await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_r[id]).catch(async (e)=>{
+                            console.warn(e)
                             await ctx.reply(_l(ctx.l,'error'))
                         })
                     })

@@ -91,6 +91,9 @@ async function mg2telegraph(mg){
         console.warn(error)
     }
 }
+async function novel2telegraph(novel){
+
+}
 module.exports = {
     mg2telegraph
 }
