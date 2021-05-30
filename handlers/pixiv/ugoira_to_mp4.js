@@ -46,10 +46,11 @@ async function ugoira_to_mp4(id,force = false) {
                 return `./tmp/mp4_1/${id}.mp4`
         }
         await exec(`unzip -n './tmp/file/${id}.zip' -d './tmp/ugoira/${id}'`)
-        // 处理开始！
-        // 先用 ffmpeg 转成图片
+        // copy last frame
+        fs.copyFileSync(`./tmp/ugoira/${id}/${(ud.frames.length - 1).toString().padStart(6,0)}.jpg`,`./tmp/ugoira/${id}/${(ud.frames.length).toString().padStart(6,0)}.jpg`)
+        // jpg -> mp4 (no fps metadata)
         await exec(`ffmpeg -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
-        // 然后用 mp4fpsmod 添加时间轴
+        // add time metadata via mp4fpsmod
         await exec(`mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         return `${config.pixiv.ugoiraurl}/mp4_1/${id}.mp4`
     } catch (error) {

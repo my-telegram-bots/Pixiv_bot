@@ -189,8 +189,12 @@ bot.on('text',async (ctx,next)=>{
                     await ctx.reply(_l(ctx.l,'illust_404'))
             }
             ctx.flag.q_id += 1
+            let uv_timer = ''
             if(d.type == 2 && !d.tg_file_id){
                 ctx.replyWithChatAction('upload_video')
+                uv_timer = setInterval(() => {
+                    ctx.replyWithChatAction('upload_video')
+                }, 3000)
                 await ugoira_to_mp4(d.id)
             }
             let mg = mg_create(d.td,ctx.flag)
@@ -242,7 +246,6 @@ bot.on('text',async (ctx,next)=>{
                 }else if(d.type == 2){
                     let media = d.td.tg_file_id
                     if(!media){
-                        ctx.replyWithChatAction('upload_video')
                         media = {
                             source: `./tmp/mp4_1/${d.id}.mp4` 
                         }
@@ -251,7 +254,12 @@ bot.on('text',async (ctx,next)=>{
                         caption: format(d.td,ctx.flag,'message',-1),
                         parse_mode: 'Markdown',
                         ...k_os(d.id,ctx.flag)
+                    }).catch((e)=>{
+                        ctx.reply(_l(ctx.l,'error'))
+                        console.warn(e)
+                        clearInterval(uv_timer)
                     })
+                    clearInterval(uv_timer)
                     // save ugoira file_id and next time bot can reply without send file
                     if(!d.td.tg_file_id && data.document) {
                         let col = await db.collection('illust')
