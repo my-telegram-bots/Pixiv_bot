@@ -23,7 +23,7 @@ async function handle_illust(id,flag){
         author_id: illust.userId,
         inline: [],
         tags: [],
-        nsfw: illust.xRestrict == 1
+        nsfw: illust.xRestrict > 0
     }
     illust.tags.tags.forEach(tag => {
         td.tags.push(tag.tag)  

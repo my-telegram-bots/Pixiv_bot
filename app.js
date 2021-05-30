@@ -366,6 +366,6 @@ bot.launch().then(async () => {
     }
     console.log(new Date(),'started!')
 }).catch(e=>{
-    console.error('offline or bad bot token')
+    console.error('offline or bad bot token',e)
     process.exit()
 })
