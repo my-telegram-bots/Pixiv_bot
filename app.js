@@ -6,15 +6,15 @@ const {
     asyncForEach,
     format,
     handle_illust,
+    handle_ranking,
+    handle_novel,
     get_pixiv_ids,
     ugoira_to_mp4,
-    handle_ranking,
     download_file,
     _l,
     k_os,
     mg_create,mg_albumize,
-    mg2telegraph
-
+    mg2telegraph,
 } = require('./handlers')
 const db = require('./db')
 const throttler = telegrafThrottler({
@@ -183,19 +183,22 @@ bot.on('text',async (ctx,next)=>{
     if(ids = get_pixiv_ids(ctx.rtext)){
         await asyncForEach(ids,async id=>{
             let d = await handle_illust(id,ctx.flag)
-            if(!d && typeof d == 'number'){
+            console.log('d',d,typeof d)
+            if(!d || d == 404){
                 // chat.id > 0 = user
                 if(ctx.chat.id > 0)
                     await ctx.reply(_l(ctx.l,'illust_404'))
             }
             ctx.flag.q_id += 1
             let uv_timer = ''
-            if(d.type == 2 && !d.tg_file_id){
+            if(d.type == 2){
                 ctx.replyWithChatAction('upload_video')
-                uv_timer = setInterval(() => {
-                    ctx.replyWithChatAction('upload_video')
-                }, 3000)
-                await ugoira_to_mp4(d.id)
+                if(!d.tg_file_id){
+                    uv_timer = setInterval(() => {
+                        ctx.replyWithChatAction('upload_video')
+                    }, 4000)
+                    await ugoira_to_mp4(d.id)
+                }
             }
             let mg = mg_create(d.td,ctx.flag)
             if(ctx.flag.album){
@@ -255,16 +258,16 @@ bot.on('text',async (ctx,next)=>{
                         parse_mode: 'Markdown',
                         ...k_os(d.id,ctx.flag)
                     }).catch((e)=>{
-                        ctx.reply(_l(ctx.l,'error'))
                         console.warn(e)
+                        ctx.reply(_l(ctx.l,'error'))
                         clearInterval(uv_timer)
                     })
                     clearInterval(uv_timer)
                     // save ugoira file_id and next time bot can reply without send file
                     if(!d.td.tg_file_id && data.document) {
                         let col = await db.collection('illust')
-                        await col.updateOne({
-                            id: d.id.toString(),
+                        col.updateOne({
+                            id: d.id.toString()
                         }, {
                             $set: {
                                 tg_file_id: data.document.file_id
@@ -305,6 +308,18 @@ bot.on('text',async (ctx,next)=>{
                 })
             }
         }
+    }
+    if(ids = get_pixiv_ids(ctx.rtext,'novel')){
+        try {
+            await asyncForEach(ids,async id=>{
+                let d = await handle_novel(id)
+                if(d){
+                    await ctx.reply(`${d.telegraph_url}`)
+                }
+            })
+        } catch (error) {
+            console.warn(error)
+        }
     }else{
         next()
     }
@@ -331,7 +346,7 @@ bot.on('inline_query',async (ctx)=>{
                 try {
                     await ctx.answerInlineQuery([], {
                         switch_pm_text: _l(ctx.l,'pm_to_generate_ugoira'),
-                        switch_pm_parameter: ids.join('-_-').toString(), // 这里对应 get_pixiv_ids 的处理
+                        switch_pm_parameter: ids.join('-_-').toString(), // ref to handlers/telegram/get_pixiv_ids.js#L12
                         cache_time: 0
                     })
                 } catch (error) {

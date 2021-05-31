@@ -16,15 +16,12 @@ async function get_novel(id){
     let novel = await col.findOne({
         id: id.toString()
     })
-    if(novel) {
-        delete novel._id
-    }else{
+    if(!novel) {
         try {
-            // data example https://paste.huggy.moe/mufupocomo.json
             novel = (await r_p.get('novel/' + id)).data.body
-            // 应该是没有检索到 直接返回 false 得了
-            if(novel.error)
+            if(novel.error){
                 return 404
+            }
             novel = {
                 id: novel.id,
                 title: novel.title,
@@ -37,7 +34,7 @@ async function get_novel(id){
                 tags: novel.tags,
                 createDate: novel.createDate,
                 coverUrl: novel.coverUrl,
-                content: novel.content
+                content: novel.content.replaceAll('\r\n','\n').replaceAll('[newpage]\n','')
             }
             col.insertOne(novel)
         } catch (error) {

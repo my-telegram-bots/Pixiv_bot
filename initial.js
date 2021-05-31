@@ -23,7 +23,11 @@ async function handle(){
     },{
         unique: true,
     });
-    
+    (await collection('telegraph')).createIndex({
+        id: 1
+    },{
+        unique: true,
+    });
     fs.mkdirSync('./tmp')
     fs.mkdirSync('./tmp/file')
     fs.mkdirSync('./tmp/timecode')

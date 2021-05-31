@@ -8,9 +8,11 @@ const {_l} = require('./telegram/i18n')
 const format = require('./telegram/format')
 const mediagroup = require('./telegram/mediagroup')
 const { mg2telegraph } = require('./telegram/telegraph')
+const { handle_novel } = require('./telegram/handle_novel')
 module.exports = {
     handle_illust,
-    handle_ranking,    
+    handle_ranking,
+    handle_novel,
     get_pixiv_ids,
     ugoira_to_mp4,
     ...keyboards,

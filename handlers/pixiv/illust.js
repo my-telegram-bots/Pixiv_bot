@@ -15,17 +15,18 @@ async function get_illust(id){
         id: id.toString()
     })
     let update_p_flag = true
-    // 如果数据库没有缓存结果，那么就向 pixiv api 查询
     if(!illust) {
         try {
             // data example https://paste.huggy.moe/mufupocomo.json
             illust = (await r_p.get('illust/' + id)).data
             // 应该是没有检索到 直接返回 false 得了
-            if(illust.error)
+            if(illust.error){
                 return 404
+            }
             illust = illust.body
         } catch (error) {
-            // 一般是网路 还有登录问题
+            // network or session
+            // to prevent cache attack the 404 illust will not in database.
             console.warn(error)
             return 404
         }
@@ -80,7 +81,7 @@ async function get_illust(id){
     }
     if(update_p_flag){
         col.updateOne({
-            id: illust.id.toString(),
+            id: illust.id.toString()
         }, {
             $set: {
                 imgs_: illust.imgs_
