@@ -183,7 +183,6 @@ bot.on('text',async (ctx,next)=>{
     if(ids = get_pixiv_ids(ctx.rtext)){
         await asyncForEach(ids,async id=>{
             let d = await handle_illust(id,ctx.flag)
-            console.log('d',d,typeof d)
             if(!d || d == 404){
                 // chat.id > 0 = user
                 if(ctx.chat.id > 0)

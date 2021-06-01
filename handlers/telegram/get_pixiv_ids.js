@@ -10,13 +10,11 @@ function get_pixiv_ids(text,type = 'illust') {
     // A-Z, a-z, 0-9, _ and - are allowed. We recommend using base64url to encode parameters with binary and other types of content.
     // http://www.pixiv.net -> https://pixiv.net
     text.replaceAll('-_-', ' ').replaceAll('www.', '').replaceAll('http://', 'https://').replaceAll('  ', ' ').replaceAll(' ','\n').split('\n').forEach(u => {
-        console.log(u,u.includes('novel'),type,type == 'novel')
         try {
             if(!u || u.length < 6){
                 return []
             // Match url(s)
             }else if(u.includes('novel') && type == 'novel'){
-                console.log(u)
                 if(!isNaN(parseInt(u.replace('https://pixiv.net/novel/show.php?id=','')))){
                     ids.push(parseInt(u.replace('https://pixiv.net/novel/show.php?id=','')))
                 }

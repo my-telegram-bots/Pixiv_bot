@@ -102,7 +102,6 @@ async function novel2telegraph(novel){
  */
 async function publish2telegraph(title = 'Pixiv collection', content, type) {
     try {
-        console.log(content)
         //let data = await (await fetch('https://api.telegra.ph/editPage',{
         let data = await (await fetch('https://api.telegra.ph/createPage', {
             method: 'post',
