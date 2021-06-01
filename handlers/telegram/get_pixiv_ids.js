@@ -15,8 +15,8 @@ function get_pixiv_ids(text,type = 'illust') {
                 return []
             // Match url(s)
             }else if(u.includes('novel') && type == 'novel'){
-                if(!isNaN(parseInt(u.replace('https://pixiv.net/novel/show.php?id=','')))){
-                    ids.push(parseInt(u.replace('https://pixiv.net/novel/show.php?id=','')))
+                if(!isNaN(parseInt(u.replace('https://pixiv.net/novel/show.php?id=','').split('&')[0]))){
+                    ids.push(parseInt(u.replace('https://pixiv.net/novel/show.php?id=','').split('&')[0]))
                 }
             }else if(type == 'illust' && !u.includes('novel')){
                 try {

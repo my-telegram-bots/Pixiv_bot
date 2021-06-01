@@ -3,7 +3,10 @@ const { default: axios } = require('axios')
 const exec = require('util').promisify((require('child_process')).exec)
 const fs = require('fs')
 const config = require('../../config.json')
-const { download_file } = require('../common')
+const { download_file, sleep } = require('../common')
+// queue
+let queue_list = []
+
 /**
  * ugoira to mp4
  * @param {*} id illustId
@@ -11,8 +14,14 @@ const { download_file } = require('../common')
  * @returns 
  */
 async function ugoira_to_mp4(id,force = false) {
-    if(fs.existsSync(`./tmp/mp4_1/${id}.mp4`) && !force)
+    if(queue_list.includes(id)){
+        await sleep(1000)
+        return await ugoira_to_mp4(id,false)
+    }
+    if(fs.existsSync(`./tmp/mp4_1/${id}.mp4`) && !force){
         return `${config.pixiv.ugoiraurl}/mp4_1/${id}.mp4`
+    }
+    queue_list.push(id)
     try {
         id = parseInt(id).toString()
         let ud = (await r_p(`/illust/${id}/ugoira_meta`)).data
@@ -33,17 +42,18 @@ async function ugoira_to_mp4(id,force = false) {
         // 解压没有现成好用的轮子
         // 所以干脆直接 exec 了 以后有好办法再改咯
         // force 为强制更新
-        if (fs.existsSync(`./tmp/mp4_0/${id}.mp4`)){
-            if (!force)
-                fs.unlinkSync(`./tmp/mp4_0/${id}.mp4`)
-            else
-                return `./tmp/mp4_1/${id}.mp4`
-        }
         if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`)){
-            if(!force)
+            if(!force){
                 fs.unlinkSync(`./tmp/mp4_1/${id}.mp4`)
-            else
-                return `./tmp/mp4_1/${id}.mp4`
+            }else{
+                return `${config.pixiv.ugoiraurl}/mp4_1/${id}.mp4`
+            }
+        }
+        if(fs.existsSync(`./tmp/ugoira/${id}`)){
+            fs.unlinkSync(`./tmp/ugoira/${id}`)   
+        }
+        if(fs.existsSync(`./tmp/mp4_0/${id}.mp4`)){
+            fs.unlinkSync(`./tmp/mp4_0/${id}.mp4`)
         }
         await exec(`unzip -n './tmp/file/${id}.zip' -d './tmp/ugoira/${id}'`)
         // copy last frame
@@ -52,9 +62,11 @@ async function ugoira_to_mp4(id,force = false) {
         await exec(`ffmpeg -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         // add time metadata via mp4fpsmod
         await exec(`mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
+        queue_list.splice(queue_list.indexOf(id),1)
         return `${config.pixiv.ugoiraurl}/mp4_1/${id}.mp4`
     } catch (error) {
-        console.error(error)
+        console.warn(error)
+        queue_list.splice(queue_list.indexOf(id),1)
         return false
     }
 }
