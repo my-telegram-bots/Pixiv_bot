@@ -28,7 +28,11 @@ function download_file(url,id) {
         dwfile.on('finish', r)
     })
 }
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 module.exports = {
     asyncForEach,
-    download_file
+    download_file,
+    sleep
 }

@@ -113,7 +113,11 @@ bot.command('s',async (ctx,next)=>{
     if(ctx.chat.id > 0){
         // lazy....
         if(ctx.flag.setting.dbless){
-            ctx.flag.setting = {"format":{"message":"%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%","inline":"%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%\n%tags%"}}
+            ctx.flag.setting = {
+                "format":{
+                    "message": "%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%",
+                    "inline": "%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%"
+                }}
         }
         // to alert the configure who open is too old (based on send time)
         ctx.flag.setting.time = +new Date()
@@ -321,6 +325,9 @@ bot.on('text',async (ctx,next)=>{
         }
     }else{
         next()
+    }
+    if(rtext.includes('fanbox.cc/') && ctx.chat.id > 0){
+        await ctx.reply(_l(ctx.l,'fan_box_not_support'))
     }
 })
 bot.on('inline_query',async (ctx)=>{

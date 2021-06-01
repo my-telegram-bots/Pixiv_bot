@@ -10,5 +10,6 @@ module.exports = {
     pm_to_generate_ugoira: "Click me to generate ugoira",
     error: "Something went wrong :(",
     setting_open_link: "Please click the following link to configurate the bot.",
-    setting_saved: "configurate saved."
+    setting_saved: "Configurate saved.",
+    fan_box_not_support: "Bot isn't support pixiv fanbox"
 }
