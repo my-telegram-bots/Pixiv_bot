@@ -9,7 +9,9 @@ const db = require('../../db')
 async function get_illust(id){
     if(id.toString().length < 6 || id.toString().length > 8)
         return false
-    console.log('i',id)
+    if(process.env.dev){
+        console.log('i',id)
+    }
     let col = await db.collection('illust')
     let illust = await col.findOne({
         id: id.toString()

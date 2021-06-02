@@ -6,26 +6,40 @@ async function asyncForEach(array, callback) {
         await callback(array[index], index, array)
     }
 }
-function download_file(url,id) {
-    // s t r e a m 没 有 a s y n c
+/**
+ * download file
+ * @param {*} url 
+ * @param {*} id 
+ * @param {*} try_time 
+ * @returns 
+ */
+function download_file(url,id,try_time = 0) {
+    if(try_time > 5)
+        return false
     url = url.replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
     return new Promise(async (resolve, reject) => {
-        let d = (await axios.get(url, {
-            responseType: 'stream',
-            headers: {
-                'User-Agent': config.pixiv.ua,
-                'Referer': 'https://www.pixiv.net'
-            }
-        })).data
-        let filename = url.split('/').slice(-1)[0]
-        if(url.includes('.zip'))
-            filename = id + '.zip'
-        let dwfile = fs.createWriteStream(`./tmp/file/${filename}`)
-        d.pipe(dwfile)
-        function r(){
-            resolve(`./tmp/file/${filename}`)
+        try {
+            let d = (await axios.get(url, {
+                responseType: 'stream',
+                headers: {
+                    'User-Agent': config.pixiv.ua,
+                    'Referer': 'https://www.pixiv.net'
+                }
+            })).data
+            let filename = url.split('/').slice(-1)[0]
+            if(url.includes('.zip'))
+                filename = id + '.zip'
+            let dwfile = fs.createWriteStream(`./tmp/file/${filename}`)
+            d.pipe(dwfile)
+            dwfile.on('finish', function(){
+                resolve(`./tmp/file/${filename}`)
+            })
+        } catch (error) {
+            console.warn(error)
+            await sleep(1000)
+            resolve(download_file(url,id,try_time++))
+            
         }
-        dwfile.on('finish', r)
     })
 }
 function sleep(ms) {

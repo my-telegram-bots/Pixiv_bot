@@ -11,5 +11,5 @@ module.exports = {
     error: "Something went wrong :(",
     setting_open_link: "Please click the following link to configurate the bot.",
     setting_saved: "Configurate saved.",
-    fan_box_not_support: "Bot isn't support pixiv fanbox"
+    fanbox_not_support: "Bot isn't support pixiv fanbox"
 }

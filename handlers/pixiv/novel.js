@@ -11,7 +11,9 @@ const db = require('../../db')
 async function get_novel(id){
     if(id.toString().length < 6 || id.toString().length > 8)
         return false
-    console.log('n',id)
+    if(process.env.dev){
+        console.log('n',id)
+    }
     let col = await db.collection('novel')
     let novel = await col.findOne({
         id: id.toString()

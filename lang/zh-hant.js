@@ -11,5 +11,5 @@ module.exports = {
     error: "發生了點錯誤",
     setting_open_link: "請點擊以下連結到網頁配置。",
     setting_saved: "保存配置成功。",
-    fan_box_not_support: "機器人不支持生成 fanbox 作品。"
+    fanbox_not_support: "機器人不支持 fanbox 作品。"
 }

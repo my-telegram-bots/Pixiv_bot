@@ -7,9 +7,9 @@ function get_pixiv_ids(text,type = 'illust') {
     if(!text)
         return false
     let ids = []
-    // http://www.pixiv.net -> https://pixiv.net
+    // http://www.pixiv.net/en -> https://pixiv.net
     // A-Z, a-z, 0-9, _ and - are allowed. We recommend using base64url to encode parameters with binary and other types of content.
-    text.replaceAll('-_-', ' ').replaceAll('www.', '').replaceAll('http://', 'https://').replaceAll('  ', ' ').replaceAll(' ','\n').split('\n').forEach(u => {
+    text.replaceAll('-_-', ' ').replaceAll('www.', '').replaceAll('http://', 'https://').replaceAll('https://', '\nhttps://').replaceAll('  ', ' ').replaceAll(' ','\n').replaceAll('/en/', '/').split('\n').forEach(u => {
         try {
             if(!u || u.length < 6){
                 return []
@@ -25,6 +25,7 @@ function get_pixiv_ids(text,type = 'illust') {
                         ids.push(uu.get('illust_id'))
                     }
                 } catch (error) {
+                    
                 }
                 if(u.length > 7 && !isNaN(parseInt(u.replace('#','').replace('id=','').replace('id','')))){
                     // match #idxxxxxxx #xxxxxxx
@@ -41,7 +42,7 @@ function get_pixiv_ids(text,type = 'illust') {
             // pixiv.net/i/87466156
             // 87466156
             // match text only have id (may resulted spam)
-            let t = u.replace('pixiv.net','').replace('artworks','').replace('i','').replace('en','').replaceAll('/', '').split('?')[0]
+            let t = u.replaceAll('https://', '').replace('pixiv.net','').replace('artworks','').replace('i','').replaceAll('/', '').split('?')[0]
             if(!isNaN(t) && t && t.length == 8){
                 ids.push(t)
             }

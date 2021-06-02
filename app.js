@@ -55,12 +55,13 @@ bot.use(async (ctx, next) => {
         ctx.rtext = ''
     }
     // db
-    ctx.db = ctx.flag = {}
+    ctx.db = {}
+    ctx.flag = {}
     ctx.db.s_col = await db.collection('chat_setting')
     if(!ctx.flag.setting && ctx.from && ctx.from.id){
-        ctx.flag.setting = await ctx.db.s_col.findOne({
+        ctx.flag.setting = (await ctx.db.s_col.findOne({
             id: ctx.from.id
-        })
+        }))
     }
     if(!ctx.flag.setting){
         // default user setting
@@ -104,7 +105,7 @@ bot.use(async (ctx, next) => {
         // return
     }
     if(process.env.dev){
-        console.log('user',ctx.from,ctx.rtext)
+        console.log('input ->',ctx.rtext)
     }
     next()
 })
@@ -200,6 +201,9 @@ bot.on('text',async (ctx,next)=>{
                     uv_timer = setInterval(() => {
                         ctx.replyWithChatAction('upload_video')
                     }, 4000)
+                    setTimeout(() => {
+                        clearInterval(uv_timer)
+                    }, 120000) // send 'sendvideo' max time is 120s
                     await ugoira_to_mp4(d.id)
                 }
             }
@@ -326,8 +330,8 @@ bot.on('text',async (ctx,next)=>{
     }else{
         next()
     }
-    if(rtext.includes('fanbox.cc/') && ctx.chat.id > 0){
-        await ctx.reply(_l(ctx.l,'fan_box_not_support'))
+    if(ctx.rtext.includes('fanbox.cc/') && ctx.chat.id > 0){
+        await ctx.reply(_l(ctx.l,'fanbox_not_support'))
     }
 })
 bot.on('inline_query',async (ctx)=>{
