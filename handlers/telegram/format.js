@@ -19,7 +19,7 @@
 function format(td, flag, mode = 'message', p){
     let template = ''
     if(flag.single_caption){
-        mode = 'mediagroup_message'    
+        mode = 'mediagroup_message'
     }
     if(flag.remove_caption){
         return ''
@@ -29,6 +29,7 @@ function format(td, flag, mode = 'message', p){
             template = '%title% / %author_name%\n'
             template += '%url%'
             template += '%\n|tags%'
+            mode = 'telegraph'
         }
     }else if(!flag.setting.format[mode]){
         switch (mode) {
@@ -80,58 +81,46 @@ function format(td, flag, mode = 'message', p){
                 replace_list.push(['mid','%mid%'])
             }
         }
-        splited_tamplate.map((r,id)=>{
+        splited_tamplate.forEach((r,id)=>{
             replace_list.forEach(x=>{
                 if(x && r.includes(x[0])){
-                    splited_tamplate[id] = Treplace(r,...x)
+                    splited_tamplate[id] = Treplace(mode,r,...x)
                 }
             })
         })
         template = splited_tamplate.join('').replaceAll('\uff69','%')
-        let temp = template.match(/\(.*?\)|\[.*?\]/gm)
-        if(temp){
-            temp.map(r=>{
-                template = template.replace(r,re_escape_strings(r))
-            })
-        }
     }
     return template
 }
 
 /**
- * Markdown 转义
+ * MarkdownV2 转义
  * @param {String} t 
  */
-function escape_strings(t){
-    '[]()*_`~'.split('').forEach(x=>{
-        t = t.toString().replaceAll(x,`\\${x}`)
+function escape_strings(t,mode = 'strict'){
+    ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'].forEach(x=>{
+        t = t.replaceAll(x,`\\${x}`)
     })
     return t
 }
-/**
- * ta 又转义回来了
- * @param {} t 
- */
-function re_escape_strings(t){
-    '()*_`~'.split('').forEach(x=>{
-        t = t.toString().replaceAll('\\' + x,x)
-    })
-    return t
-}
-function Treplace(r,name,value){
+function Treplace(mode,r,name,value){
     if(!r.includes(name))
         return r
     if(!value)
         return ''
     if(typeof value == 'boolean')
         value = ''
-    return r.replaceAll('\\|','\uffb4').split('|').map(l=>{
+    return r.replaceAll('\\|','\uffb4').split('|').map((l,id)=>{
         if(l == name){
-            if(name == 'tags')
+            if(mode == 'telegraph'){
                 return value
+            }
             return escape_strings(value)
+        }else if(l.includes('author_') || mode == 'telegraph'){
+            return l
+        }else{
+            return escape_strings(l)
         }
-        return l
     }).join('').replaceAll('\uffb4','|')
 }
 function format_group(td, flag, mode = 'message', p, custom_template = false){

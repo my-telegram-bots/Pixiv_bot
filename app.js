@@ -196,15 +196,17 @@ bot.on('text',async (ctx,next)=>{
             ctx.flag.q_id += 1
             let uv_timer = ''
             if(d.type == 2){
-                ctx.replyWithChatAction('upload_video')
-                if(!d.tg_file_id){
-                    uv_timer = setInterval(() => {
-                        ctx.replyWithChatAction('upload_video')
-                    }, 4000)
-                    setTimeout(() => {
-                        clearInterval(uv_timer)
-                    }, 120000) // send 'sendvideo' max time is 120s
-                    await ugoira_to_mp4(d.id)
+                await ugoira_to_mp4(d.id)
+                if(!ctx.flag.telegraph){
+                    ctx.replyWithChatAction('upload_video')
+                    if(!d.tg_file_id){
+                        uv_timer = setInterval(() => {
+                            ctx.replyWithChatAction('upload_video')
+                        }, 4000)
+                        setTimeout(() => {
+                            clearInterval(uv_timer)
+                        }, 120000) // send 'sendvideo' max time is 120s
+                    }
                 }
             }
             let mg = mg_create(d.td,ctx.flag)
@@ -218,13 +220,13 @@ bot.on('text',async (ctx,next)=>{
                         // Post the file using multipart/form-data in the usual way that files are uploaded via the browser. 10 MB max size for photos, 50 MB for other files.
                         await ctx.replyWithDocument(imgurl,{
                             thumb: d.td.thumb_urls[id],
-                            parse_mode: 'Markdown',
+                            parse_mode: 'MarkdownV2',
                             caption: format(d.td,ctx.flag,'message',id),
                         }).catch(async (e)=>{
                             // Download to local and send (url upload only support 5MB)
                             ctx.replyWithChatAction('upload_document')
                             await ctx.replyWithDocument({source: await download_file(imgurl)},{
-                                parse_mode: 'Markdown',
+                                parse_mode: 'MarkdownV2',
                                 caption: format(d.td,ctx.flag,'message',id),
                             }).catch(async (e)=>{
                                 // visit pximg.net with no referer will respond 403
@@ -241,7 +243,7 @@ bot.on('text',async (ctx,next)=>{
                         // mediagroup doesn't support inline keyboard.
                         ctx.replyWithChatAction('upload_photo')
                         let extra = {
-                            parse_mode: 'Markdown',
+                            parse_mode: 'MarkdownV2',
                             caption: format(d.td,ctx.flag,'message',-1),
                             ...k_os(d.id,ctx.flag)
                         }
@@ -262,7 +264,7 @@ bot.on('text',async (ctx,next)=>{
                     }
                     let data = await ctx.replyWithAnimation(media, {
                         caption: format(d.td,ctx.flag,'message',-1),
-                        parse_mode: 'Markdown',
+                        parse_mode: 'MarkdownV2',
                         ...k_os(d.id,ctx.flag)
                     }).catch((e)=>{
                         console.warn(e)

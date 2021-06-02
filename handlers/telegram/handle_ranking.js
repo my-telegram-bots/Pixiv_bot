@@ -16,7 +16,7 @@ async function handle_ranking([...rank],flag){
             // 图片太多 加载好慢 先用小图preview
             thumb_url: p.turl,
             caption: format(p,flag,'inline',1,flag.setting.format.inline),
-            parse_mode: 'Markdown',
+            parse_mode: 'MarkdownV2',
             photo_width: p.width,
             photo_height: p.height,
             ...k_os(p.id,flag)

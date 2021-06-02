@@ -37,7 +37,7 @@ async function handle_illust(id,flag){
                 photo_url: (size.width > 2000 || size.height > 2000) ? td.regular_urls[pid] : td.original_urls[pid],
                 thumb_url: td.thumb_urls[pid],
                 caption: format(td,flag,'inline',pid,flag.setting.format.inline),
-                parse_mode: 'Markdown',
+                parse_mode: 'MarkdownV2',
                 photo_width: size.width,
                 photo_height: size.height,
                 ...k_os(illust.id,flag)
@@ -59,7 +59,7 @@ async function handle_illust(id,flag){
                 id: 'p' + illust.id,
                 mpeg4_file_id: illust.tg_file_id,
                 caption: format(td,flag,'inline',1,flag.setting.format.inline),
-                parse_mode: 'Markdown',
+                parse_mode: 'MarkdownV2',
                 ...k_os(illust.id,flag)
             }
         }

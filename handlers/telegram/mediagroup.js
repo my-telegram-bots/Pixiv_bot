@@ -10,7 +10,7 @@ function mg_create(td,flag){
             let mediagroup_data = {
                 type: 'photo',
                 caption: format(td,flag,'message',pid),
-                parse_mode: 'Markdown'
+                parse_mode: 'MarkdownV2'
             }
             // mg2telegraph 还需要作品的 id
             if(flag.telegraph){
