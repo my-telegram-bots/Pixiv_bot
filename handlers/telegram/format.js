@@ -97,7 +97,7 @@ function format(td, flag, mode = 'message', p){
  * MarkdownV2 转义
  * @param {String} t 
  */
-function escape_strings(t,mode = 'strict'){
+function escape_strings(t){
     ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'].forEach(x=>{
         t = t.replaceAll(x,`\\${x}`)
     })

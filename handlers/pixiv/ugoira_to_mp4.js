@@ -19,7 +19,7 @@ async function ugoira_to_mp4(id,force = false) {
         return await ugoira_to_mp4(id,false)
     }
     if(fs.existsSync(`./tmp/mp4_1/${id}.mp4`) && !force){
-        return `${config.pixiv.ugoiraurl}/mp4_1/${id}.mp4`
+        return `${config.pixiv.ugoiraurl}/${id}.mp4`
     }
     queue_list.push(id)
     try {
@@ -63,7 +63,7 @@ async function ugoira_to_mp4(id,force = false) {
         // add time metadata via mp4fpsmod
         await exec(`mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         queue_list.splice(queue_list.indexOf(id),1)
-        return `${config.pixiv.ugoiraurl}/mp4_1/${id}.mp4`
+        return `${config.pixiv.ugoiraurl}/${id}.mp4`
     } catch (error) {
         console.warn(error)
         queue_list.splice(queue_list.indexOf(id),1)

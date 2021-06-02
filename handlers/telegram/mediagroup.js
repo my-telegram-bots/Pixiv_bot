@@ -1,7 +1,8 @@
 const { format } = require("./format")
 const {ugoiraurl} = require('../../config.json').pixiv
 function mg_create(td,flag){
-    let mediagroup_o = mediagroup_r  = []
+    let mediagroup_o = []
+    let mediagroup_r  = []
     if(process.env.dev){
         console.log('mg_create',td)
     }
@@ -30,7 +31,9 @@ function mg_create(td,flag){
                 mediagroup_o[pid] = mediagroup_r[pid] = {
                     ...mediagroup_data,
                     type: 'video',
-                    media: ugoiraurl + td.id + '.mp4'
+                    media: td.tg_file_id ? td.tg_file_id : {
+                        url: ugoiraurl + td.id + '.mp4'
+                    }
                 }
             }
         })

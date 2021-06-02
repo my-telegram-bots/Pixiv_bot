@@ -306,12 +306,25 @@ bot.on('text',async (ctx,next)=>{
             if(ctx.temp_data.mediagroup_o.length > 0){
                 await asyncForEach(ctx.temp_data.mediagroup_o, async (mediagroup_o,id) => {
                     ctx.replyWithChatAction('upload_photo')
+                    // first try (direct link -> original_urls)
                     await ctx.replyWithMediaGroup(mediagroup_o).catch(async (e) => {
+                        // second try (upload in local)
                         ctx.replyWithChatAction('upload_photo')
                         console.warn(e)
-                        await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_r[id]).catch(async (e)=>{
+                        await asyncForEach(mediagroup_o,async (mg,pid)=>{
+                            if(mg.type == 'photo'){
+                                ctx.temp_data.mediagroup_o[id][pid].media = {
+                                    source: await download_file(mg.media)
+                                }
+                            }
+                        })
+                        await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_o[id]).catch(async (e)=>{
                             console.warn(e)
-                            await ctx.reply(_l(ctx.l,'error'))
+                            // third try (direct link -> regular_urls)
+                            await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_r[id]).catch(async (e)=>{
+                                console.warn(e)
+                                await ctx.reply(_l(ctx.l,'error'))
+                            })
                         })
                     })
                 })
