@@ -2,30 +2,35 @@ const fs = require('fs')
 
 const { collection } = require('./db')
 
-async function handle(){
+async function handle() {
     (await collection('illust')).createIndex({
         id: 1
-    },{
+    }, {
         unique: true,
     });
     (await collection('novel')).createIndex({
         id: 1
-    },{
+    }, {
         unique: true,
     });
     (await collection('ranking')).createIndex({
         id: 1
-    },{
+    }, {
         unique: true,
     });
     (await collection('chat_setting')).createIndex({
         id: 1
-    },{
+    }, {
+        unique: true,
+    });
+    (await collection('chat_bookmark')).createIndex({
+        id: 1
+    }, {
         unique: true,
     });
     (await collection('telegraph')).createIndex({
         id: 1
-    },{
+    }, {
         unique: true,
     });
     fs.mkdirSync('./tmp')

@@ -82,12 +82,12 @@ async function mg2telegraph(mg) {
         console.warn(error)
     }
 }
-async function novel2telegraph(novel){
+async function novel2telegraph(novel) {
     let content = novel.content.split('\n')
     for (let i = content.length; i > 0; i--) {
         content.splice(i, 0, br)
     }
-    return await publish2telegraph(novel.title,[{
+    return await publish2telegraph(novel.title, [{
         "tag": "p",
         "children": content
     }])

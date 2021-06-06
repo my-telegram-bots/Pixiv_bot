@@ -1,6 +1,6 @@
 const db = require("../../db")
 const get_novel = require("../pixiv/novel")
-const {novel2telegraph} = require('./telegraph')
+const { novel2telegraph } = require('./telegraph')
 
 /**
  * handle novel data to Telegram
@@ -8,10 +8,10 @@ const {novel2telegraph} = require('./telegraph')
  */
 async function handle_novel(id) {
     let novel = await get_novel(id)
-    if(novel){
-        if(!novel.telegraph_url){
+    if (novel) {
+        if (!novel.telegraph_url) {
             let data = await novel2telegraph(novel)
-            if(data.ok){
+            if (data.ok) {
                 novel.telegraph_url = data.result.url
                 let col = await db.collection('novel')
                 col.updateOne({

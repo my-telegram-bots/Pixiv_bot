@@ -1,25 +1,25 @@
 const config = require('./config.json')
 const { MongoClient } = require("mongodb")
 let db = null
-MongoClient.connect(config.mongodb.uri,{useUnifiedTopology: true},(err, client) => {
+MongoClient.connect(config.mongodb.uri, { useUnifiedTopology: true }, (err, client) => {
     db = client.db(config.mongodb.dbname)
 })
 
 module.exports = {
-    db: ()=>{
+    db: () => {
         return new Promise(async (resolve, reject) => {
             resolve(db)
         })
     },
-    collection: (colame)=>{
+    collection: (colame) => {
         return new Promise(async (resolve, reject) => {
             resolve(db.collection(colame))
         })
     },
-    update_setting: (value, chat_id, flag)=>{
+    update_setting: (value, chat_id, flag) => {
         return new Promise(async (resolve, reject) => {
             let col = await db.collection('chat_setting')
-            if(flag.setting.dbless){
+            if (flag.setting.dbless) {
                 await col.insertOne({
                     id: chat_id,
                     format: {

@@ -10,9 +10,9 @@ const { format } = require('./format')
  * @param {*} id 
  * @param {*} flag 
  */
-async function handle_illust(id,flag){
+async function handle_illust(id, flag) {
     let illust = await get_illust(id)
-    if(typeof illust == 'number' || !illust)
+    if (typeof illust == 'number' || !illust)
         return illust
     let td = {
         ...illust.imgs_,
@@ -26,9 +26,9 @@ async function handle_illust(id,flag){
         nsfw: illust.xRestrict > 0
     }
     illust.tags.tags.forEach(tag => {
-        td.tags.push(tag.tag)  
+        td.tags.push(tag.tag)
     })
-    if(illust.type <= 1){
+    if (illust.type <= 1) {
         td.size.forEach((size, pid) => {
             td.inline[pid] = {
                 type: 'photo',
@@ -36,16 +36,16 @@ async function handle_illust(id,flag){
                 // 图片 size 太大基本发不出去了 用小图凑合
                 photo_url: (size.width > 2000 || size.height > 2000) ? td.regular_urls[pid] : td.original_urls[pid],
                 thumb_url: td.thumb_urls[pid],
-                caption: format(td,flag,'inline',pid,flag.setting.format.inline),
+                caption: format(td, flag, 'inline', pid, flag.setting.format.inline),
                 parse_mode: 'MarkdownV2',
                 photo_width: size.width,
                 photo_height: size.height,
-                ...k_os(illust.id,flag)
+                ...k_os(illust.id, flag)
             }
         })
-    }else if(illust.type == 2){
+    } else if (illust.type == 2) {
         // inline + ugoira 只有在现存动图的情况下有意义
-        if(illust.tg_file_id){
+        if (illust.tg_file_id) {
             td = {
                 ...td,
                 size: [{
@@ -58,9 +58,9 @@ async function handle_illust(id,flag){
                 type: 'mpeg4_gif',
                 id: 'p' + illust.id,
                 mpeg4_file_id: illust.tg_file_id,
-                caption: format(td,flag,'inline',1,flag.setting.format.inline),
+                caption: format(td, flag, 'inline', 1, flag.setting.format.inline),
                 parse_mode: 'MarkdownV2',
-                ...k_os(illust.id,flag)
+                ...k_os(illust.id, flag)
             }
         }
     }

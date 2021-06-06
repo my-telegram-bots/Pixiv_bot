@@ -6,23 +6,23 @@ const db = require('../../db')
  * @param {number} id illust_id
  * @param {object} flag configure
  */
-async function get_illust(id){
-    if(id.toString().length < 6 || id.toString().length > 8)
+async function get_illust(id) {
+    if (id.toString().length < 6 || id.toString().length > 8)
         return false
-    if(process.env.dev){
-        console.log('i',id)
+    if (process.env.dev) {
+        console.log('i', id)
     }
     let col = await db.collection('illust')
     let illust = await col.findOne({
         id: id.toString()
     })
     let update_p_flag = true
-    if(!illust) {
+    if (!illust) {
         try {
             // data example https://paste.huggy.moe/mufupocomo.json
             illust = (await r_p.get('illust/' + id)).data
             // 应该是没有检索到 直接返回 false 得了
-            if(illust.error){
+            if (illust.error) {
                 return 404
             }
             illust = illust.body
@@ -34,17 +34,17 @@ async function get_illust(id){
         }
         update_p_flag = false
     }
-    if(illust.type == undefined){
+    if (illust.type == undefined) {
         illust.type = illust.illustType
     }
-    if(!illust.imgs_){
+    if (!illust.imgs_) {
         let urls = {
             thumb_urls: [],
             regular_urls: [],
             original_urls: [],
             size: []
         }
-        if(illust.pageCount == 1) {
+        if (illust.pageCount == 1) {
             urls = {
                 thumb_urls: [illust.urls.thumb.replace('i.pximg.net', 'i-cf.pximg.net')],
                 regular_urls: [illust.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net')],
@@ -54,7 +54,7 @@ async function get_illust(id){
                     height: illust.height
                 }]
             }
-        } else if(illust.pageCount > 1) {
+        } else if (illust.pageCount > 1) {
             // 多p处理
             //     for (let i = 0; i < illust.pageCount; i++) {
             //     // 通过观察url规律 图片链接只是 p0 -> p1 这样的
@@ -66,7 +66,7 @@ async function get_illust(id){
             try {
                 let pages = (await r_p('illust/' + id + '/pages')).data.body
                 // 应该不会有 error 就不做错误处理了
-                pages.forEach(p =>{
+                pages.forEach(p => {
                     urls.thumb_urls.push(p.urls.thumb_mini.replace('i.pximg.net', 'i-cf.pximg.net'))
                     urls.regular_urls.push(p.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net'))
                     urls.original_urls.push(p.urls.original.replace('i.pximg.net', 'i-cf.pximg.net'))
@@ -81,7 +81,7 @@ async function get_illust(id){
         }
         illust.imgs_ = urls
     }
-    if(update_p_flag){
+    if (update_p_flag) {
         col.updateOne({
             id: illust.id.toString()
         }, {
@@ -89,7 +89,7 @@ async function get_illust(id){
                 imgs_: illust.imgs_
             }
         })
-    }else{
+    } else {
         col.insertOne({
             id: illust.id,
             title: illust.title,
@@ -105,8 +105,8 @@ async function get_illust(id){
             imgs_: illust.imgs_
         })
     }
-    if(process.env.dev){
-        console.log('illust',illust)
+    if (process.env.dev) {
+        console.log('illust', illust)
     }
     return illust
 }

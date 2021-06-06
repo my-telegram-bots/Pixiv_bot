@@ -13,12 +13,12 @@ async function asyncForEach(array, callback) {
  * @param {*} try_time 
  * @returns 
  */
-function download_file(url,id,force = false,try_time = 0) {
-    if(try_time > 5)
+function download_file(url, id, force = false, try_time = 0) {
+    if (try_time > 5)
         return false
     url = url.replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
     let filename = url.split('/').slice(-1)[0]
-    if(url.includes('.zip')){
+    if (url.includes('.zip')) {
         filename = id + '.zip'
     }
     return new Promise(async (resolve, reject) => {
@@ -32,14 +32,14 @@ function download_file(url,id,force = false,try_time = 0) {
             })).data
             let dwfile = fs.createWriteStream(`./tmp/file/${filename}`)
             d.pipe(dwfile)
-            dwfile.on('finish', function(){
+            dwfile.on('finish', function () {
                 resolve(`./tmp/file/${filename}`)
             })
         } catch (error) {
             console.warn(error)
             await sleep(1000)
-            resolve(download_file(url,id,try_time++))
-            
+            resolve(download_file(url, id, try_time++))
+
         }
     })
 }

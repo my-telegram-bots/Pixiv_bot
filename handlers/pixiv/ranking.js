@@ -10,8 +10,8 @@ const r_p = require("./r_p")
  */
 // 本来 date 写了一大坨 后面发现不带参数就是当天的
 // 这里默认会过滤 illust_type == 1 （manga） 的结果，
-async function ranking(page = 1, mode = 'daily', date = false, filter_type = [0, 2]){
-    if(page <= 0)
+async function ranking(page = 1, mode = 'daily', date = false, filter_type = [0, 2]) {
+    if (page <= 0)
         page = 1
     if (!['daily', 'weekly', 'monthly'].includes(mode))
         return false
@@ -28,7 +28,7 @@ async function ranking(page = 1, mode = 'daily', date = false, filter_type = [0,
     let data = await col.findOne({
         id: mode + date + '_' + page
     })
-    if(!data){
+    if (!data) {
         data = (await r_p({
             baseURL: "https://www.pixiv.net/ranking.php",
             params: params
@@ -39,7 +39,7 @@ async function ranking(page = 1, mode = 'daily', date = false, filter_type = [0,
                 ...data,
             })
         } catch (error) {
-            console.warn('insert error',error)
+            console.warn('insert error', error)
         }
     }
     return {

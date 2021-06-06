@@ -8,20 +8,20 @@
 const r_p = require('./r_p')
 const db = require('../../db')
 
-async function get_novel(id){
-    if(id.toString().length < 6 || id.toString().length > 8)
+async function get_novel(id) {
+    if (id.toString().length < 6 || id.toString().length > 8)
         return false
-    if(process.env.dev){
-        console.log('n',id)
+    if (process.env.dev) {
+        console.log('n', id)
     }
     let col = await db.collection('novel')
     let novel = await col.findOne({
         id: id.toString()
     })
-    if(!novel) {
+    if (!novel) {
         try {
             novel = (await r_p.get('novel/' + id)).data.body
-            if(novel.error){
+            if (novel.error) {
                 return 404
             }
             novel = {
@@ -36,7 +36,7 @@ async function get_novel(id){
                 tags: novel.tags,
                 createDate: novel.createDate,
                 coverUrl: novel.coverUrl,
-                content: novel.content.replaceAll('\r\n','\n').replaceAll('[newpage]\n','')
+                content: novel.content.replaceAll('\r\n', '\n').replaceAll('[newpage]\n', '')
             }
             col.insertOne(novel)
         } catch (error) {
@@ -44,8 +44,8 @@ async function get_novel(id){
             return 404
         }
     }
-    if(process.env.dev){
-        console.log('novel',novel)
+    if (process.env.dev) {
+        console.log('novel', novel)
     }
     return novel
 }
