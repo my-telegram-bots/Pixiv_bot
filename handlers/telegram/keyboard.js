@@ -12,7 +12,7 @@ function k_os(id, flag = false) {
             Markup.button.url('open', 'https://www.pixiv.net/artworks/' + id),
         ]]
         if (flag.share) {
-            inline_keyboard[0].push(Markup.button.switchToChat('share', `https://pixiv.net/artworks/${id}${flag.tags ? ' +tags' : ''}${!flag.c_show_id ? ' -id' : ''}`))
+            inline_keyboard[0].push(Markup.button.switchToChat('share', `https://pixiv.net/artworks/${id}${flag.tags ? ' +tags' : ''}${!flag.show_id ? ' -id' : ''}`))
         }
     }
     return Markup.inlineKeyboard(inline_keyboard)

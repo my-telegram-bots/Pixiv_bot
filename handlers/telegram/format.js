@@ -52,7 +52,7 @@ function format(td, flag, mode = 'message', p) {
         let splited_tamplate = template.replaceAll('\\%', '\uff69').split('%')  // 迫真转义 这个符号不会有人打出来把！！！
         let replace_list = [
             ['title', td.title],
-            ['id', flag.c_show_id ? td.id : false],
+            ['id', flag.show_id ? td.id : false],
             ['url', `https://pixiv.net/artworks/${td.id}`],
             ['NSFW', td.nsfw],
             ['author_id', td.author_id],

@@ -59,20 +59,23 @@ bot.use(async (ctx, next) => {
     ctx.flag = {}
     ctx.db.s_col = await db.collection('chat_setting')
     if (!ctx.flag.setting && ctx.from && ctx.from.id) {
-        ctx.flag.setting = (await ctx.db.s_col.findOne({
+        ctx.flag.setting = await ctx.db.s_col.findOne({
             id: ctx.from.id
-        }))
+        })
     }
     if (!ctx.flag.setting) {
         // default user setting
         ctx.flag.setting = {
             format: {
                 message: false,
+                mediagroup_message: false,
                 inline: false
             },
-            show_tag: false,
+            default: {
+                share: true,
+                album: true
+            },
             dbless: true, // the user isn't in chat_setting
-            status: false // user's current status
         }
     } else {
         ctx.flag.setting.dbless = false
@@ -82,30 +85,19 @@ bot.use(async (ctx, next) => {
     if (ctx.rtext.substr(0, 3) == 'eyJ') { // JSON base64('{"xx') = EyJ
         try {
             let new_setting = JSON.parse(Buffer.from(ctx.rtext, 'base64').toString('utf8'))
-            // filter
-            // maybe user's format.* value is object
-            if (typeof new_setting.format.message == 'string' && typeof new_setting.format.inline == 'string') {
-                await db.update_setting({
-                    format: {
-                        message: new_setting.format.message,
-                        inline: new_setting.format.inline
-                    },
-                    show_tag: new_setting.show_tag ? true : false // maybe undefined
-                }, ctx.from.id, ctx.flag)
+            if(await db.update_setting(new_setting, ctx.from.id, ctx.flag)){
                 await ctx.reply(_l(ctx.l, 'setting_saved'))
             } else {
                 throw 'e'
             }
         } catch (error) {
-            // doesn't base64
+            // message type is doesn't base64
             await ctx.reply(_l(ctx.l, 'error'))
             console.warn(error)
         }
-        // Hmmmm, return maybe useless?
-        // return
     }
     if (process.env.dev) {
-        console.log('input ->', ctx.rtext)
+        console.log('input ->', ctx.rtext,ctx.flag)
     }
     next()
 })
@@ -115,13 +107,15 @@ bot.command('s', async (ctx, next) => {
         // lazy....
         if (ctx.flag.setting.dbless) {
             ctx.flag.setting = {
-                "format": {
-                    "message": "%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%",
-                    "inline": "%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%"
-                }
+                format:{
+                    message: '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%',
+                    mediagroup_message: '%[%mid% %title%](%url%)%% |p%%\n|tags%',
+                    inline:  '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%'
+                },
+                default: ctx.flag.setting.default
             }
         }
-        // to alert the configure who open is too old (based on send time)
+        // alert who open old config (based on configuration generate time)
         ctx.flag.setting.time = +new Date()
         delete ctx.flag.setting.dbless
         ctx.reply(_l(ctx.l, 'setting_open_link'), {
@@ -132,17 +126,27 @@ bot.command('s', async (ctx, next) => {
     }
 })
 bot.use(async (ctx, next) => {
+    // default flag -> d_f
+    let d_f = ctx.flag.setting.default ? ctx.flag.setting.default : {}
     ctx.flag = {
         ...ctx.flag,
-        tags: ctx.rtext.includes('+tag') || (!ctx.rtext.includes('-tag') && ctx.flag.setting.show_tag),
-        share: !ctx.rtext.includes('-share'),
-        remove_keyboard: ctx.rtext.includes('-rmk'),
-        remove_caption: ctx.rtext.includes('-rmc'),
-        asfile: ctx.rtext.includes('+file'),
-        album: !ctx.rtext.includes('-album'),
+        // caption start
+        tags: (d_f.tags && !ctx.rtext.includes('-tag')) || ctx.rtext.includes('+tag'),
+        share: (d_f.share && !ctx.rtext.includes('-share')) || ctx.rtext.includes('+share'),
+        remove_keyboard: (d_f.remove_keyboard && !ctx.rtext.includes('+rmk')) || ctx.rtext.includes('-rmk'),
+        remove_caption: (d_f.remove_caption && !ctx.rtext.includes('+rmc')) || ctx.rtext.includes('-rmc'),
+        single_caption: (d_f.single_caption && !ctx.rtext.includes('-sc')) || ctx.rtext.includes('+sc'),
+
+        show_id: !ctx.rtext.includes('-id'),
+        // caption end
+        // send all illusts as mediagroup
+        album: (d_f.album && !ctx.rtext.includes('-album')) || ctx.rtext.includes('+album'),
+
+
+        // send as telegraph
         telegraph: ctx.rtext.includes('+graph') || ctx.rtext.includes('+telegraph'),
-        c_show_id: !ctx.rtext.includes('-id'),
-        single_caption: ctx.rtext.includes('+sc'),
+        // send as file
+        asfile: ctx.rtext.includes('+file'),
         q_id: 0 // telegraph albumized value
     }
     if (ctx.flag.telegraph) {
@@ -152,6 +156,9 @@ bot.use(async (ctx, next) => {
     if (ctx.flag.single_caption) {
         ctx.flag.album = true
     }
+    if(ctx.flag.asfile){
+        ctx.flag.album = false
+    }
     ctx.temp_data = {
         mediagroup_o: [],
         mediagroup_r: []
@@ -160,13 +167,13 @@ bot.use(async (ctx, next) => {
     ctx.rtext = ctx.rtext
         .replaceAll('+tags', '').replaceAll('+tag', '').replaceAll('-tags', '').replaceAll('-tag', '')
         .replaceAll('+telegraph', '').replaceAll('+graph', '')
+        .replaceAll('+album', '').replaceAll('-album', '')
+        .replaceAll('+share', '').replaceAll('-share', '')
+        .replaceAll('+rmc', '').replaceAll('-rmc', '')
+        .replaceAll('+rmk', '').replaceAll('-rmk', '')
+        .replaceAll('+sc', '').replaceAll('-sc', '')
         .replaceAll('-id', '')
         .replaceAll('+file', '')
-        .replaceAll('-album', '')
-        .replaceAll('-share', '')
-        .replaceAll('-rmc', '')
-        .replaceAll('-rmk', '')
-        .replaceAll('+sc', '')
 
     if (ctx.rtext.includes('-rm')) {
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = true
@@ -206,15 +213,12 @@ bot.on('text', async (ctx, next) => {
                         }, 4000)
                         setTimeout(() => {
                             clearInterval(uv_timer)
-                        }, 120000) // send 'sendvideo' max time is 120s
+                        }, 60000) // send 'sendvideo' max time is 60s
                     }
                 }
             }
             let mg = mg_create(d.td, ctx.flag)
-            if (ctx.flag.album) {
-                ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o, ...mg.mediagroup_o]
-                ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r, ...mg.mediagroup_r]
-            } else if (ctx.flag.asfile) {
+            if (ctx.flag.asfile) {
                 if (d.type <= 1) {
                     await asyncForEach(d.td.original_urls, async (imgurl, id) => {
                         ctx.replyWithChatAction('upload_document')
@@ -238,6 +242,9 @@ bot.on('text', async (ctx, next) => {
                         })
                     })
                 }
+            } else if (ctx.flag.album && ids.length > 1) {
+                ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o, ...mg.mediagroup_o]
+                ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r, ...mg.mediagroup_r]
             } else {
                 if (d.type <= 1) {
                     if (mg.mediagroup_o.length == 1) {
@@ -356,7 +363,7 @@ bot.on('inline_query', async (ctx) => {
     if (!offset)
         offset = 0 // offset == empty -> offset = 0
     let query = ctx.rtext
-    // 目前暂定 offset 只是页数吧 这样就直接转了，以后有需求再改
+    // offset = page
     offset = parseInt(offset)
     let res_options = {
         cache_time: 20, // maybe update format

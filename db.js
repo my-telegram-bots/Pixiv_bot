@@ -19,29 +19,50 @@ module.exports = {
     update_setting: (value, chat_id, flag) => {
         return new Promise(async (resolve, reject) => {
             let col = await db.collection('chat_setting')
-            if (flag.setting.dbless) {
-                await col.insertOne({
-                    id: chat_id,
-                    format: {
-                        message: false,
-                        inline: false
-                    },
-                    show_tag: false
-                })
-            }
             try {
-                // Not filter ....
-                await col.updateOne({
-                    id: chat_id,
-                }, {
-                    $set: {
-                        ...value
+                let s = {
+                    format: {},
+                    default: {}
+                }
+                if (value.format) {
+                    for (const i in value.format) {
+                        if (['message', 'mediagroup_message', 'inline'].includes(i)) {
+                            if (typeof value.format[i] == 'string') {
+                                s.format[i] = value.format[i]
+                            } else {
+                                throw 'e'
+                            }
+                        }
                     }
-                })
+                }
+                if (value.default) {
+                    for (const i in value.default) {
+                        if (['tags', 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album'].includes(i)) {
+                            if(typeof value.default[i] == 'boolean'){
+                                s.default[i] = value.default[i]
+                            } else {
+                                throw 'e'
+                            }
+                        }
+                    }
+                }
+                if (flag.setting.dbless) {
+                    await col.insertOne({
+                        id: chat_id,
+                        format: flag.setting.format,
+                        default: flag.setting.default
+                    })
+                } else {
+                    await col.updateOne({
+                        id: chat_id,
+                    }, {
+                        $set: s
+                    })
+                }
                 resolve(true)
             } catch (error) {
                 console.warn(error)
-                reject(false)
+                resolve(false)
             }
         })
     }
