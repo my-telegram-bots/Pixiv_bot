@@ -139,7 +139,7 @@ bot.use(async (ctx, next) => {
         remove_keyboard: ctx.rtext.includes('-rmk'),
         remove_caption: ctx.rtext.includes('-rmc'),
         asfile: ctx.rtext.includes('+file'),
-        album: ctx.rtext.includes('+album'),
+        album: !ctx.rtext.includes('-album'),
         telegraph: ctx.rtext.includes('+graph') || ctx.rtext.includes('+telegraph'),
         c_show_id: !ctx.rtext.includes('-id'),
         single_caption: ctx.rtext.includes('+sc'),
@@ -162,7 +162,7 @@ bot.use(async (ctx, next) => {
         .replaceAll('+telegraph', '').replaceAll('+graph', '')
         .replaceAll('-id', '')
         .replaceAll('+file', '')
-        .replaceAll('+album', '')
+        .replaceAll('-album', '')
         .replaceAll('-share', '')
         .replaceAll('-rmc', '')
         .replaceAll('-rmk', '')
@@ -189,7 +189,7 @@ bot.on('text', async (ctx, next) => {
     if (ids = get_pixiv_ids(ctx.rtext)) {
         await asyncForEach(ids, async id => {
             let d = await handle_illust(id, ctx.flag)
-            if (!d || d == 404) {
+            if (d == 404) {
                 // chat.id > 0 = user
                 if (ctx.chat.id > 0)
                     await ctx.reply(_l(ctx.l, 'illust_404'))
