@@ -72,14 +72,17 @@ bot.use(async (ctx, next) => {
             dbless: true, // the user isn't in chat_setting
         }
     }
-    ctx.db.s_col = await db.collection('chat_setting')
+    let s_col = await db.collection('chat_setting')
     if (ctx.from) {
-        ctx.flag.setting = await ctx.db.s_col.findOne({
+        let setting = await s_col.findOne({
             id: ctx.from.id
         })
-        ctx.flag.setting.dbless = false
-        delete ctx.flag.setting._id
-        delete ctx.flag.setting.id
+        if(setting){
+            ctx.flag.setting = setting
+            ctx.flag.setting.dbless = false
+            delete ctx.flag.setting._id
+            delete ctx.flag.setting.id
+        }
     }
     if (process.env.dev) {
         console.log('input ->', ctx.rtext,ctx.flag)
@@ -178,7 +181,10 @@ bot.use(async (ctx, next) => {
             }
             if(JSON.stringify(new_setting).length > 2){
                 if(await db.update_setting(new_setting, ctx.from.id, ctx.flag)){
-                    await ctx.reply(_l(ctx.l, 'setting_saved'))
+                    await ctx.reply(_l(ctx.l, 'setting_saved'),{
+                        reply_to_message_id: ctx.message.message_id,
+                        allow_sending_without_reply: true
+                    })
                 } else {
                     await ctx.reply(_l(ctx.l, 'error'))
                 }
@@ -209,9 +215,11 @@ bot.on('text', async (ctx, next) => {
                     await ctx.reply(_l(ctx.l, 'illust_404'))
             }
             ctx.flag.q_id += 1
+            let mg = mg_create(d.td, ctx.flag)
             let uv_timer = ''
+            // check ugoira and handle
             if (d.type == 2) {
-                await ugoira_to_mp4(d.id)
+                ugoira_to_mp4(d.id)
                 if (!ctx.flag.telegraph) {
                     ctx.replyWithChatAction('upload_video')
                     if (!d.tg_file_id) {
@@ -224,7 +232,6 @@ bot.on('text', async (ctx, next) => {
                     }
                 }
             }
-            let mg = mg_create(d.td, ctx.flag)
             if (ctx.flag.asfile) {
                 if (d.type <= 1) {
                     await asyncForEach(d.td.original_urls, async (imgurl, id) => {
@@ -234,7 +241,7 @@ bot.on('text', async (ctx, next) => {
                             thumb: d.td.thumb_urls[id],
                             parse_mode: 'MarkdownV2',
                             caption: format(d.td, ctx.flag, 'message', id),
-                        }).catch(async (e) => {
+                        }).catch(async e => {
                             console.warn(e)
                             if(e.response && e.response.description.includes('MEDIA_CAPTION_TOO_LONG')){
                                 await ctx.reply(_l(ctx.l, 'error_text_too_long'))
@@ -245,7 +252,7 @@ bot.on('text', async (ctx, next) => {
                             await ctx.replyWithDocument({ source: await download_file(imgurl) }, {
                                 parse_mode: 'MarkdownV2',
                                 caption: format(d.td, ctx.flag, 'message', id),
-                            }).catch(async (e) => {
+                            }).catch(async e => {
                                 console.warn(e)
                                 // visit pximg.net with no referer will respond 403
                                 await ctx.reply(_l(ctx.l, 'file_too_large', imgurl.replace('i.pximg.net', config.pixiv.pximgproxy)))
@@ -253,7 +260,7 @@ bot.on('text', async (ctx, next) => {
                         })
                     })
                 }
-            } else if (ctx.flag.album && mg.mediagroup_o.length > 1) {
+            } else if (ctx.flag.album && (mg.mediagroup_o.length > 1 || (mg.mediagroup_o.length == 1 && ids.length > 1))) {
                 ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o, ...mg.mediagroup_o]
                 ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r, ...mg.mediagroup_r]
             } else {
@@ -264,22 +271,46 @@ bot.on('text', async (ctx, next) => {
                         let extra = {
                             parse_mode: 'MarkdownV2',
                             caption: format(d.td, ctx.flag, 'message', -1),
+                            reply_to_message_id: ctx.message.message_id,
+                            allow_sending_without_reply: true,
                             ...k_os(d.id, ctx.flag)
                         }
-                        await ctx.replyWithPhoto(mg.mediagroup_o[0].media, extra).catch(async (e) => {
+                        await ctx.replyWithPhoto(mg.mediagroup_o[0].media, extra).catch(async e => {
                             console.warn(e)
+                            ctx.replyWithChatAction('upload_photo')
                             if(e.response && e.response.description.includes('MEDIA_CAPTION_TOO_LONG')){
                                 await ctx.reply(_l(ctx.l, 'error_text_too_long'))
                                 return
                             }
-                            await ctx.replyWithPhoto(mg.mediagroup_r[0].media, extra)
-                        })
+                            await ctx.replyWithPhoto({
+                                source: await download_file(mg.mediagroup_r[0].media)
+                            }, extra).catch(async e=>{
+                                ctx.replyWithChatAction('upload_photo')
+                                console.warn(e)
+                                await ctx.replyWithPhoto(mg.mediagroup_r[0].media, extra).catch(async e=>{
+                                    console.warn(e)
+                                    ctx.reply(_l(ctx.l, 'error'))
+                                })
+                            })
+                        })/*.then(async x=>{
+                            if (!d.td.tg_file_id) {
+                                let col = await db.collection('illust')
+                                col.updateOne({
+                                    id: d.id.toString()
+                                }, {
+                                    $set: {
+                                        tg_file_id: x.photo.pop().file_id
+                                    }
+                                })
+                            }
+                        })*/
                     } else {
                         ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o, ...mg_albumize(mg.mediagroup_o)]
                         ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r, ...mg_albumize(mg.mediagroup_r)]
                     }
                 } else if (d.type == 2) {
                     let media = d.td.tg_file_id
+                    await ugoira_to_mp4(d.id)
                     if (!media) {
                         media = {
                             source: `./tmp/mp4_1/${d.id}.mp4`
@@ -289,7 +320,7 @@ bot.on('text', async (ctx, next) => {
                         caption: format(d.td, ctx.flag, 'message', -1),
                         parse_mode: 'MarkdownV2',
                         ...k_os(d.id, ctx.flag)
-                    }).catch((e) => {
+                    }).catch(e => {
                         console.warn(e)
                         ctx.reply(_l(ctx.l, 'error'))
                         clearInterval(uv_timer)
@@ -330,7 +361,7 @@ bot.on('text', async (ctx, next) => {
                 await asyncForEach(ctx.temp_data.mediagroup_o, async (mediagroup_o, id) => {
                     ctx.replyWithChatAction('upload_photo')
                     // first try (direct link -> original_urls)
-                    await ctx.replyWithMediaGroup(mediagroup_o).catch(async (e) => {
+                    await ctx.replyWithMediaGroup(mediagroup_o).catch(async e => {
                         // second try (upload in local)
                         ctx.replyWithChatAction('upload_photo')
                         console.warn(e)
@@ -345,16 +376,17 @@ bot.on('text', async (ctx, next) => {
                                 }
                             }
                         })
-                        await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_o[id]).catch(async (e) => {
+                        await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_o[id]).catch(async e => {
                             console.warn(e)
                             // third try (direct link -> regular_urls)
-                            await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_r[id]).catch(async (e) => {
+                            await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_r[id]).catch(async e => {
                                 console.warn(e)
                                 await ctx.reply(_l(ctx.l, 'error'))
                             })
                         })
                     })
-                })
+                }) //.then
+                // mediagroup isn't have save tg_file_id function
             }
         }
     }
@@ -440,6 +472,7 @@ bot.launch().then(async () => {
         }
     }
     console.log(new Date(), 'started!')
+    bot.telegram.sendMessage(config.tg.master_id,`${new Date().toString()} started!`)
 }).catch(e => {
     console.error('You are offline or bad bot token', e)
     process.exit()

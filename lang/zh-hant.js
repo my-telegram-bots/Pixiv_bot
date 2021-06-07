@@ -1,7 +1,7 @@
 module.exports = {
     start: "歡迎使用 Pixiv bot\n" +
         "我可以通過連結幫助你快速發送各類插圖與動圖\n" +
-        "文件： https://pixiv-bot.pages.dev\n" +
+        "文檔: https://pixiv-bot.pages.dev\n" +
         "維護者: @makeding\n\n" +
         "輸入 /s 可對 bot 進行一些配置",
     illust_404: "該作品已被刪除，或作品 ID 不存在。",

@@ -23,7 +23,8 @@ async function handle_illust(id, flag) {
         author_id: illust.userId,
         inline: [],
         tags: [],
-        nsfw: illust.xRestrict > 0
+        nsfw: illust.xRestrict > 0,
+        tg_file_id: illust.tg_file_id
     }
     illust.tags.tags.forEach(tag => {
         td.tags.push(tag.tag)
@@ -53,7 +54,6 @@ async function handle_illust(id, flag) {
                     height: illust.height
                 }]
             }
-            td.tg_file_id = illust.tg_file_id
             td.inline[0] = {
                 type: 'mpeg4_gif',
                 id: 'p' + illust.id,

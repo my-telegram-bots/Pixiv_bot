@@ -39,7 +39,7 @@ function format(td, flag, mode = 'message', p) {
                 template += '%\n|tags%'
                 break
             case 'mediagroup_message':
-                template = '%[%mid% %title%% |p%%](%url%)%\n|tags%'
+                template = '%[%mid% %title%% |p%%](%url%)%'
                 template += '%\n|tags%'
                 break
         }
