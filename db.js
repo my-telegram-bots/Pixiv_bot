@@ -30,7 +30,7 @@ module.exports = {
                             if (typeof value.format[i] == 'string') {
                                 s.format[i] = value.format[i]
                             } else {
-                                throw 'e'
+                                // throw 'e'
                             }
                         }
                     }
@@ -41,7 +41,7 @@ module.exports = {
                             if(typeof value.default[i] == 'boolean'){
                                 s.default[i] = value.default[i]
                             } else {
-                                throw 'e'
+                                // throw 'e'
                             }
                         }
                     }
@@ -49,8 +49,7 @@ module.exports = {
                 if (flag.setting.dbless) {
                     await col.insertOne({
                         id: chat_id,
-                        format: flag.setting.format,
-                        default: flag.setting.default
+                        ...s
                     })
                 } else {
                     await col.updateOne({

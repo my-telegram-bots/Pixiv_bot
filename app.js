@@ -56,16 +56,10 @@ bot.use(async (ctx, next) => {
     }
     // db
     ctx.db = {}
-    ctx.flag = {}
-    ctx.db.s_col = await db.collection('chat_setting')
-    if (!ctx.flag.setting && ctx.from && ctx.from.id) {
-        ctx.flag.setting = await ctx.db.s_col.findOne({
-            id: ctx.from.id
-        })
-    }
-    if (!ctx.flag.setting) {
-        // default user setting
-        ctx.flag.setting = {
+    ctx.flag = {
+        setting: {
+            // I don't wanna save the 'string' data in default (maybe the format will be changed in the future)
+            // see telegram/fotmat.js to get real data
             format: {
                 message: false,
                 mediagroup_message: false,
@@ -77,53 +71,20 @@ bot.use(async (ctx, next) => {
             },
             dbless: true, // the user isn't in chat_setting
         }
-    } else {
+    }
+    ctx.db.s_col = await db.collection('chat_setting')
+    if (ctx.from) {
+        ctx.flag.setting = await ctx.db.s_col.findOne({
+            id: ctx.from.id
+        })
         ctx.flag.setting.dbless = false
         delete ctx.flag.setting._id
         delete ctx.flag.setting.id
-    }
-    if (ctx.rtext.substr(0, 3) == 'eyJ') { // JSON base64('{"xx') = EyJ
-        try {
-            let new_setting = JSON.parse(Buffer.from(ctx.rtext, 'base64').toString('utf8'))
-            if(await db.update_setting(new_setting, ctx.from.id, ctx.flag)){
-                await ctx.reply(_l(ctx.l, 'setting_saved'))
-            } else {
-                throw 'e'
-            }
-        } catch (error) {
-            // message type is doesn't base64
-            await ctx.reply(_l(ctx.l, 'error'))
-            console.warn(error)
-        }
     }
     if (process.env.dev) {
         console.log('input ->', ctx.rtext,ctx.flag)
     }
     next()
-})
-bot.command('s', async (ctx, next) => {
-    // current only support user
-    if (ctx.chat.id > 0) {
-        // lazy....
-        if (ctx.flag.setting.dbless) {
-            ctx.flag.setting = {
-                format:{
-                    message: '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%',
-                    mediagroup_message: '%[%mid% %title%](%url%)%% |p%%\n|tags%',
-                    inline:  '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%'
-                },
-                default: ctx.flag.setting.default
-            }
-        }
-        // alert who open old config (based on configuration generate time)
-        ctx.flag.setting.time = +new Date()
-        delete ctx.flag.setting.dbless
-        ctx.reply(_l(ctx.l, 'setting_open_link'), {
-            ...Markup.inlineKeyboard([
-                Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', ''))
-            ])
-        })
-    }
 })
 bot.use(async (ctx, next) => {
     // default flag -> d_f
@@ -163,7 +124,8 @@ bot.use(async (ctx, next) => {
         mediagroup_o: [],
         mediagroup_r: []
     }
-    // replaced text
+    let otext = ctx.rtext
+    // replace text
     ctx.rtext = ctx.rtext
         .replaceAll('+tags', '').replaceAll('+tag', '').replaceAll('-tags', '').replaceAll('-tag', '')
         .replaceAll('+telegraph', '').replaceAll('+graph', '')
@@ -178,6 +140,52 @@ bot.use(async (ctx, next) => {
     if (ctx.rtext.includes('-rm')) {
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = true
         ctx.rtext = ctx.rtext.replaceAll('-rm', '')
+    }
+    // only support user
+    if((otext.substr(0,2) == '/s' || ctx.rtext.substr(0, 3) == 'eyJ') && ctx.chat.id > 0){
+        if(otext== '/s'){
+            // lazy....
+            if (ctx.flag.setting.dbless) {
+                ctx.flag.setting = {
+                    format:{
+                        message: '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%',
+                        mediagroup_message: '%[%mid% %title%](%url%)%% |p%%\n|tags%',
+                        inline:  '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%'
+                    },
+                    default: ctx.flag.setting.default
+                }
+            }
+            // alert who open old config (based on configuration generate time)
+            ctx.flag.setting.time = +new Date()
+            delete ctx.flag.setting.dbless
+            await ctx.reply(_l(ctx.l, 'setting_open_link'), {
+                ...Markup.inlineKeyboard([
+                    Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', ''))
+                ])
+            })
+        }else{
+            let new_setting = {}
+            if(otext.length > 2 && (otext.includes('+') || otext.includes('-'))){
+                new_setting = {
+                    default: ctx.flag
+                }
+            }else if(ctx.rtext.substr(0, 3) == 'eyJ'){
+                try {
+                    new_setting = JSON.parse(Buffer.from(ctx.rtext, 'base64').toString('utf8'))
+                } catch (error) {
+                    // message type is doesn't base64
+                    await ctx.reply(_l(ctx.l, 'error'))
+                    console.warn(ctx,rtext,error)
+                }
+            }
+            if(JSON.stringify(new_setting).length > 2){
+                if(await db.update_setting(new_setting, ctx.from.id, ctx.flag)){
+                    await ctx.reply(_l(ctx.l, 'setting_saved'))
+                } else {
+                    await ctx.reply(_l(ctx.l, 'error'))
+                }
+            }
+        }
     }
     await next()
 })
@@ -242,7 +250,7 @@ bot.on('text', async (ctx, next) => {
                         })
                     })
                 }
-            } else if (ctx.flag.album && ids.length > 1) {
+            } else if (ctx.flag.album && mg.mediagroup_o.length > 1) {
                 ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o, ...mg.mediagroup_o]
                 ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r, ...mg.mediagroup_r]
             } else {
