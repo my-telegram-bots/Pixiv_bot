@@ -11,5 +11,9 @@ module.exports = {
     error: "Something went wrong :(",
     setting_open_link: "Please click the following link to configurate the bot.",
     setting_saved: "Configurate saved.",
-    fanbox_not_support: "Bot isn't support pixiv fanbox"
+    fanbox_not_support: "Bot isn't support pixiv fanbox",
+    error_text_too_long: "Sending failed, text is too long, try the following actions to cut the text \n"+
+    "1. cut the reply format in /s (if you customized it) \n"+
+    "2. try -tags (not show in text)\n"+
+    "3. reduce the number of illusts you sent at once"
 }

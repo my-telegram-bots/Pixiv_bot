@@ -145,15 +145,13 @@ bot.use(async (ctx, next) => {
     if((otext.substr(0,2) == '/s' || ctx.rtext.substr(0, 3) == 'eyJ') && ctx.chat.id > 0){
         if(otext== '/s'){
             // lazy....
-            if (ctx.flag.setting.dbless) {
                 ctx.flag.setting = {
-                    format:{
-                        message: '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%',
-                        mediagroup_message: '%[%mid% %title%](%url%)%% |p%%\n|tags%',
-                        inline:  '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%'
+                    format: {
+                        message: ctx.flag.setting.format.message ? ctx.flag.setting.format.message : '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%',
+                        mediagroup_message: ctx.flag.setting.format.mediagroup_message ? ctx.flag.setting.format.mediagroup_message : '%[%mid% %title%% |p%%](%url%)%\n|tags%',
+                        inline: ctx.flag.setting.format.inline ? ctx.flag.setting.format.inline : '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%'
                     },
                     default: ctx.flag.setting.default
-                }
             }
             // alert who open old config (based on configuration generate time)
             ctx.flag.setting.time = +new Date()
@@ -186,6 +184,7 @@ bot.use(async (ctx, next) => {
                 }
             }
         }
+        return
     }
     await next()
 })
@@ -236,17 +235,21 @@ bot.on('text', async (ctx, next) => {
                             parse_mode: 'MarkdownV2',
                             caption: format(d.td, ctx.flag, 'message', id),
                         }).catch(async (e) => {
+                            console.warn(e)
+                            if(e.response && e.response.description.includes('MEDIA_CAPTION_TOO_LONG')){
+                                await ctx.reply(_l(ctx.l, 'error_text_too_long'))
+                                return
+                            }
                             // Download to local and send (url upload only support 5MB)
                             ctx.replyWithChatAction('upload_document')
                             await ctx.replyWithDocument({ source: await download_file(imgurl) }, {
                                 parse_mode: 'MarkdownV2',
                                 caption: format(d.td, ctx.flag, 'message', id),
                             }).catch(async (e) => {
+                                console.warn(e)
                                 // visit pximg.net with no referer will respond 403
                                 await ctx.reply(_l(ctx.l, 'file_too_large', imgurl.replace('i.pximg.net', config.pixiv.pximgproxy)))
-                                console.warn(e)
                             })
-                            console.warn(e)
                         })
                     })
                 }
@@ -265,6 +268,10 @@ bot.on('text', async (ctx, next) => {
                         }
                         await ctx.replyWithPhoto(mg.mediagroup_o[0].media, extra).catch(async (e) => {
                             console.warn(e)
+                            if(e.response && e.response.description.includes('MEDIA_CAPTION_TOO_LONG')){
+                                await ctx.reply(_l(ctx.l, 'error_text_too_long'))
+                                return
+                            }
                             await ctx.replyWithPhoto(mg.mediagroup_r[0].media, extra)
                         })
                     } else {
@@ -327,6 +334,10 @@ bot.on('text', async (ctx, next) => {
                         // second try (upload in local)
                         ctx.replyWithChatAction('upload_photo')
                         console.warn(e)
+                        if(e.response && e.response.description.includes('MEDIA_CAPTION_TOO_LONG')){
+                            await ctx.reply(_l(ctx.l, 'error_text_too_long'))
+                            return
+                        }
                         await asyncForEach(mediagroup_o, async (mg, pid) => {
                             if (mg.type == 'photo') {
                                 ctx.temp_data.mediagroup_o[id][pid].media = {
@@ -430,6 +441,6 @@ bot.launch().then(async () => {
     }
     console.log(new Date(), 'started!')
 }).catch(e => {
-    console.error('offline or bad bot token', e)
+    console.error('You are offline or bad bot token', e)
     process.exit()
 })

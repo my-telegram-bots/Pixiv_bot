@@ -11,5 +11,9 @@ module.exports = {
     error: "エラーが発生しました",
     setting_open_link: "以下のリンクをクリックして、ボットを設定してください。",
     setting_saved: "保存されています。",
-    fanbox_not_support: "Bot は fanbox に対応していません。"
+    fanbox_not_support: "Bot は fanbox に対応していません。",
+    error_text_too_long: "送信に失敗しました。テキストが長すぎます。以下の方法でテキストをカットしてください。\n"+
+    "1. /s 形式のテキスト量を減らす（設定した場合\n"+
+    "2. -tags コマンドの使用\n"+
+    "3. 一度に送イラストの数を減らす"
 }

@@ -11,5 +11,9 @@ module.exports = {
     error: "發生了點錯誤",
     setting_open_link: "請點擊以下連結到網頁配置。",
     setting_saved: "保存配置成功。",
-    fanbox_not_support: "機器人不支持 fanbox 作品。"
+    fanbox_not_support: "機器人不支持 fanbox 作品。",
+    error_text_too_long: "發送失敗，回復文本太長，請嘗試以下操作減少文本量\n"+
+        "1. 在 /s 中減少格式量（如果您自訂了的話）\n"+
+        "2. -tags (不顯示 tags )\n" +
+        "3. 減少一次發送的作品數量"
 }
