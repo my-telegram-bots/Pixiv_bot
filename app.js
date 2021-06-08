@@ -140,6 +140,10 @@ bot.use(async (ctx, next) => {
         .replaceAll('-id', '')
         .replaceAll('+file', '')
 
+    if (ctx.rtext.includes('+rm')) {
+        ctx.flag.remove_caption = ctx.flag.remove_keyboard = false
+        ctx.rtext = ctx.rtext.replaceAll('+rm', '')
+    }
     if (ctx.rtext.includes('-rm')) {
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = true
         ctx.rtext = ctx.rtext.replaceAll('-rm', '')
@@ -270,7 +274,7 @@ bot.on('text', async (ctx, next) => {
                         ctx.replyWithChatAction('upload_photo')
                         let extra = {
                             parse_mode: 'MarkdownV2',
-                            caption: format(d.td, ctx.flag, 'message', -1),
+                            caption: format(d.td, ctx.flag, 'message', -1).replaceAll('%mid%',''),
                             reply_to_message_id: ctx.message.message_id,
                             allow_sending_without_reply: true,
                             ...k_os(d.id, ctx.flag)
