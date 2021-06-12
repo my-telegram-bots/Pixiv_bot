@@ -4,7 +4,6 @@ const exec = require('util').promisify((require('child_process')).exec)
 let config = require('./config.json')
 const {
     asyncForEach,
-    format,
     handle_illust,
     handle_ranking,
     handle_novel,
@@ -14,7 +13,7 @@ const {
     catchily,
     _l,
     k_os,
-    mg_create, mg_albumize,
+    mg_create, mg_albumize,mg_filter,
     mg2telegraph,
 } = require('./handlers')
 const db = require('./db')
@@ -71,9 +70,7 @@ bot.use(async (ctx, next) => {
         }
     }
     ctx.temp_data = {
-        mediagroup_t: [],
-        mediagroup_o: [],
-        mediagroup_r: []
+        mg: []
     }
     let s_col = await db.collection('chat_setting')
     if (ctx.from) {
@@ -103,7 +100,7 @@ bot.use(async (ctx, next) => {
         share: (d_f.share && !ctx.rtext.includes('-share')) || ctx.rtext.includes('+share'),
         remove_keyboard: (d_f.remove_keyboard && !ctx.rtext.includes('+kb')) || ctx.rtext.includes('-kb'),
         remove_caption: (d_f.remove_caption && !ctx.rtext.includes('+cp')) || ctx.rtext.includes('-cp'),
-        single_caption: (d_f.single_caption && !ctx.rtext.includes('-sc')) || ctx.rtext.includes('+sc'),
+        single_caption: !ctx.inlineQuery && (d_f.single_caption && !ctx.rtext.includes('-sc')) || ctx.rtext.includes('+sc'),
 
         show_id: !ctx.rtext.includes('-id'),
         // caption end
@@ -132,8 +129,8 @@ bot.use(async (ctx, next) => {
         .replaceAll('+album', '').replaceAll('-album', '')
         .replaceAll('+open', '').replaceAll('-open', '')
         .replaceAll('+share', '').replaceAll('-share', '')
-        .replaceAll('+cp', '').replaceAll('-cp', '')
-        .replaceAll('+kb', '').replaceAll('-kb', '')
+        .replaceAll('+caption', '').replaceAll('-caption', '').replaceAll('+cp', '').replaceAll('-cp', '')
+        .replaceAll('+keyboard', '').replaceAll('-keyboard', '').replaceAll('+kb', '').replaceAll('-kb', '')
         .replaceAll('+sc', '').replaceAll('-sc', '')
         .replaceAll('-id', '')
         .replaceAll('+file', '')
@@ -262,33 +259,21 @@ bot.on('text', async (ctx, next) => {
             // send as file
             if (ctx.flag.asfile) {
                 timer_type[2] = 'document'
-                let mediagroup_o = mg.mediagroup_o
-                if(d.type == 2){
-                    mediagroup_o = [{
-                        id: d.id,
-                        caption: mediagroup_o[0].caption,
-                        media: d.td.tg_file_id ? d.td.tg_file_id : await ugoira_to_mp4(d.id)
-                    }]
-                }
-                await asyncForEach(mediagroup_o,async (o,id)=>{
-                    timer_type[2] = 'document'
-                    // if(mg.mediagroup_t){
-                    //     o = mg.mediagroup_t[id]
-                    // }
+                await asyncForEach(mg,async (o)=>{
                     let extra = {
                         ...default_extra,
-                        caption: o.caption.replace('%mid%','')
+                        caption: o.caption.replace('%mid%','').trim()
                     }
-                    await ctx.replyWithDocument(o.media,extra).catch(async e=>{
+                    await ctx.replyWithDocument(o.media_o,extra).catch(async e=>{
                         if(catchily(e,ctx)){
                             if(d.type <= 2){
-                                await ctx.replyWithDocument(download_file(o.media),extra).catch(e=>{
+                                await ctx.replyWithDocument({source: await download_file(o.media_o)},extra).catch(e=>{
                                     if(catchily(e,ctx)){
-                                        ctx.reply(_l(ctx.l, 'file_too_large',o.media.replace('i-cf.pximg.net',config.pixiv.pximgproxy)),default_extra)
+                                        ctx.reply(_l(ctx.l, 'file_too_large',o.media_o.replace('i-cf.pximg.net',config.pixiv.pximgproxy)),default_extra)
                                     }
                                 })
                             }else{
-                                ctx.reply(_l(ctx.l, 'error'),default_extra)
+                                ctx.reply(_l(ctx.l, 'error'), default_extra)
                             }
                         }
                     })
@@ -297,29 +282,27 @@ bot.on('text', async (ctx, next) => {
             } else {
                 if(d.type <= 1) timer_type[0] = 'photo'
                 if(d.type == 2) timer_type[1] = 'video'
-                if (ctx.flag.album && (mg.mediagroup_o.length > 1 || (mg.mediagroup_o.length == 1 && ids.length > 1))) {
-                    ctx.temp_data.mediagroup_t = [...ctx.temp_data.mediagroup_t, ...mg.mediagroup_t]
-                    ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o, ...mg.mediagroup_o]
-                    ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r, ...mg.mediagroup_r]
+                if (ctx.flag.album && (mg.length > 1 || (mg.length == 1 && ids.length > 1))) {
+                    ctx.temp_data.mg = [...ctx.temp_data.mg, ...mg]
                 } else {
+                    let extra = {
+                        ...default_extra,
+                        caption: mg[0].caption.replaceAll('%mid%','').trim(),
+                        ...k_os(d.id, ctx.flag)
+                    }
                     if (d.type <= 1) {
-                        if (mg.mediagroup_o.length == 1) {
+                        if (mg.length == 1) {
                             // mediagroup doesn't support inline keyboard.
-                            let extra = {
-                                ...default_extra,
-                                caption: mg.mediagroup_o[0].caption.replaceAll('%mid%',''),
-                                ...k_os(d.id, ctx.flag)
-                            }
-                            if(d.td.tg_file_id){
-                                await ctx.replyWithPhoto(d.td.tg_file_id,extra).catch(async e=>{
+                            if(mg.media_t){
+                                await ctx.replyWithPhoto(mg[0].media_t,extra).catch(async e=>{
                                     await catchily(e,ctx)
                                 })
-                            }else{
-                                await ctx.replyWithPhoto(mg.mediagroup_o[0].media,extra).catch(async e=>{
+                            } else {
+                                await ctx.replyWithPhoto(mg[0].media_o,extra).catch(async e=>{
                                     if(await catchily(e,ctx)){
-                                        await ctx.replyWithPhoto(download_file(mg.mediagroup_o[0].media),extra).catch(async e=>{
-                                            await ctx.replyWithPhoto(mg.mediagroup_r[0].media,extra).catch(async e=>{
-                                                await ctx.replyWithPhoto(download_file(mg.mediagroup_r[0].media),extra).catch(async e=>{
+                                        await ctx.replyWithPhoto(await download_file(mg[0].media_o),extra).catch(async e=>{
+                                            await ctx.replyWithPhoto(mg[0].media_r,extra).catch(async e=>{
+                                                await ctx.replyWithPhoto(await download_file(mg[0].media_r),extra).catch(async e=>{
                                                     if(await catchily(e,ctx)){
                                                         ctx.reply(_l(ctx.l, 'error'),default_extra)
                                                     }
@@ -330,23 +313,17 @@ bot.on('text', async (ctx, next) => {
                                 })
                             }
                         } else {
-                            ctx.temp_data.mediagroup_t = [...ctx.temp_data.mediagroup_t, ...mg_albumize(mg.mediagroup_t)]
-                            ctx.temp_data.mediagroup_o = [...ctx.temp_data.mediagroup_o, ...mg_albumize(mg.mediagroup_o)]
-                            ctx.temp_data.mediagroup_r = [...ctx.temp_data.mediagroup_r, ...mg_albumize(mg.mediagroup_r)]
+                            ctx.temp_data.mg = [...ctx.temp_data.mg, ...mg_albumize(mg)]
                         }
                     } else if (d.type == 2) {
-                        let media = d.td.tg_file_id
+                        let media = mg.media_t
                         if (!media) {
                             await ugoira_to_mp4(d.id)
                             media = {
                                 source: `./tmp/mp4_1/${d.id}.mp4`
                             }
                         }
-                        await ctx.replyWithAnimation(media, {
-                            caption: format(d.td, ctx.flag, 'message', -1),
-                            parse_mode: 'MarkdownV2',
-                            ...k_os(d.id, ctx.flag)
-                        }).then(async data=>{
+                        await ctx.replyWithAnimation(media,extra).then(async data=>{
                             // save ugoira file_id and next time bot can reply without send file
                             if (!d.td.tg_file_id && data.document) {
                                 let col = await db.collection('illust')
@@ -367,9 +344,11 @@ bot.on('text', async (ctx, next) => {
                 }
             }
         })
-        if (ctx.flag.telegraph) {
+        if(ctx.flag.asfile){
+
+        }else if (ctx.flag.telegraph) {
             try {
-                let res_data = await mg2telegraph(ctx.temp_data.mediagroup_o)
+                let res_data = await mg2telegraph(ctx.temp_data.mg)
                 if (res_data) {
                     await asyncForEach(res_data, async (d) => {
                         await ctx.reply(d.ids.join('\n') + '\n' + d.url)
@@ -381,24 +360,18 @@ bot.on('text', async (ctx, next) => {
             }
         } else {
             if (ctx.flag.album) {
-                ctx.temp_data.mediagroup_o = mg_albumize(ctx.temp_data.mediagroup_o, ctx.flag.single_caption)
-                ctx.temp_data.mediagroup_r = mg_albumize(ctx.temp_data.mediagroup_r, ctx.flag.single_caption)
+                ctx.temp_data.mg = mg_albumize(ctx.temp_data.mg, ctx.flag.single_caption)
             }
-            if (ctx.temp_data.mediagroup_o.length > 0) {
-                await asyncForEach(ctx.temp_data.mediagroup_o, async (mediagroup_o, id) => {
-                    await ctx.replyWithMediaGroup(mediagroup_o).catch(async e => {
+            if (ctx.temp_data.mg.length > 0) {
+                await asyncForEach(ctx.temp_data.mg, async (mg, id) => {
+                    await ctx.replyWithMediaGroup(await mg_filter([...mg])).catch(async e => {
                         if(catchily(e,ctx)){
-                            await asyncForEach(mediagroup_o, async (mg, pid) => {
-                                if (mg.type == 'photo') {
-                                    ctx.temp_data.mediagroup_o[id][pid].media = {
-                                        source: await download_file(mg.media)
-                                    }
-                                }
-                            })
-                            await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_o[id]).catch(async e => {
-                                // third try (direct link -> regular_urls)
-                                await ctx.replyWithMediaGroup(ctx.temp_data.mediagroup_r[id]).catch(async e => {
-                                    await ctx.reply(_l(ctx.l, 'error'))
+                            await ctx.replyWithMediaGroup(await mg_filter([...mg],'dlo')).catch(async e => {
+                                await ctx.replyWithMediaGroup(await mg_filter([...mg],'r')).catch(async e => {
+                                    await ctx.replyWithMediaGroup(await mg_filter([...mg],'dlr')).catch(async e => {
+                                        await catchily(e,ctx)
+                                        await ctx.reply(_l(ctx.l, 'error'))
+                                    })
                                 })
                             })
                         }
@@ -420,6 +393,9 @@ bot.on('text', async (ctx, next) => {
         } catch (error) {
             console.warn(error)
         }
+    }
+    if(ids = get_pixiv_ids(ctx.rtext, 'user')){
+        
     }
     if (ctx.rtext.includes('fanbox.cc/') && ctx.chat.id > 0) {
         await ctx.reply(_l(ctx.l, 'fanbox_not_support'))

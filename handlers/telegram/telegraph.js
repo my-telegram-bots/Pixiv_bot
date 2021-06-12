@@ -1,6 +1,7 @@
 const fetch = require('node-fetch')
 const config = require('../../config.json')
 const { asyncForEach } = require('../common')
+const ugoira_to_mp4 = require('../pixiv/ugoira_to_mp4')
 const br = { tag: 'br' }
 /**
  * mediagroup to telegraph
@@ -14,8 +15,11 @@ async function mg2telegraph(mg) {
     }]
     let t_data_id = 0
     try {
-        mg.forEach(d => {
-            let url = d.media.replace('i-cf.pximg.net', config.pixiv.pximgproxy)
+        await asyncForEach(mg, async d => {
+            if(d.type == 'video'){
+                d.media_o = await ugoira_to_mp4(d.id)
+            }
+            let url = d.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)
             // caption = '' = -> muilt images
             if (d.caption == '') {
                 t_data[t_data_id].content.push({

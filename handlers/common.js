@@ -1,6 +1,8 @@
 const { default: axios } = require("axios")
 const config = require('../config.json')
 const fs = require('fs')
+const { _l } = require("./telegram/i18n")
+
 async function asyncForEach(array, callback) {
     for (let index = 0; index < array.length; index++) {
         await callback(array[index], index, array)
@@ -52,7 +54,7 @@ function sleep(ms) {
  * @param {*} ctx ctx
  */
  async function catchily(e,ctx) {
-    console.warn(e)
+    console.warn(e,JSON.stringify(e))
     ctx.telegram.sendMessage(config.tg.master_id, 'error' + e)
     if(e.response){
         if(e.response.description.includes('MEDIA_CAPTION_TOO_LONG')){
