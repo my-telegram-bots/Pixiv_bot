@@ -7,53 +7,61 @@ pageClass: guide
 A Telegram bot that helps you send pixiv illust on telegeam.  
 [Get started!](tg://resolve?domain=pixiv_bot&start=67953985)  
 
-![r_1](./img/r_1.jpg)  
+
+! [r_1](... /img/r_1.jpg)  
+
 
 The following Pixiv links are currently supported:
 - pixiv.net/artworks/:id
 - pixiv.net/artworks/en/:id
 - pixiv.net/i/:id
 - pixiv.net/member_illust.php?illustr_id=:id
+- pixiv.net/member_illust.php?illustr_id=:id#manga
 - :id
 ## Simple usage
 ### message mode
-Simply send pixiv's link to bot  
-Support multiple links in one message, just send all to me!
+Just send pixiv link to bot  
+Supports multiple links in one message, just send them all to me!
 
 ### inline mode
-bot supports Telegram's inline usage, click the share button or `@Pixiv_bot` in the chat.  
-At the moment, inline only has the function of daily illusts and id, there is no search function yet.
+bot supports Telegram's inline mode, click the share button or `@Pixiv_bot` in the chat to experience it.  
+At the moment, inline only has the function of daily ranking and illust id, there is no search function yet.
 
-## Advanced Usage
-The bot supports some custom usage, here is the usage introduction.
+
+## Advanced usage
+The bot supports some custom usage, which are described below.  
+
+For example, if I want to show the tag in the reply, then type `+tag` and it will be shown.  
+If I don't want the open button, then I type `-open` and the open button disappears
 
 ### Include work tags +tags
-Just type `+tags` in the message to show the tags of the work  
-> Due to Telegram's limitation, the tag will not become a clickable link when it encounters some special characters (e.g. "()").  
+Just type `+tag` / `+tags` in the message to show the tags of the work  
+> Due to Telegram's limitation, the tag does not become a clickable link when it encounters some special characters (e.g. `() - ・), which I can't fix.   
 
-### Remove share button -share
-Type `-share` in the message to remove the share button, which means that only the open button remains.
+### Delete button -open -share -kb
+Type `-open` in the message to remove the open button, which means that only share is left  
+Type `-share` in the message to remove the share button  
+Type `-kb` in the message to remove all two buttons  
 
-### Remove keyboard and caqption -rm
+> kb = keyboard
 
-Type `-rm` in the message and the whole button and caption are gone.  
+### Delete buttons and profile -rm
 
-`-rmc` only caption is gone.  
-
-`-rmk` only keyboard is gone.   
+Type `-rm` in the message and the bot will only reply to the image without anything
 
 ### Send work using file +file
 
-Type `+file` in the message and the bot will send the source file directly to you.  
-> good for collection of original images (right-click on web page to download is even faster?)
+Type `+file` in the message and the bot will send the source file directly for you.  
 
-### Integrate multiple illusts into one media group (album) +album
+### Integrate multiple artworks into one media group (album) +album (enabled by default)
 
-Type `+album` in the message, the bot will integrate multiple entries into mediagroup.  
-> but Telegram has a limit of 10 images per mediagroup
+Enter `+album` in the message and the bot will integrate multiple illusts into one media group  
+If you want to disable this feature and send an id once, then enter `-album` and it will work.
+> However, Telegram has a limit of 10 images per media group
 
-### Convert multiple illusts to telegraph +graph +telegraph
+### Show multiple illusts using telegraph +graph +telegraph
 
-Type `+graph` or `+telegraph` in the message and the bot will integrate multiple illusts into telegraph.ph and bot will send a telegra.ph link for a quick preview on your mobile devices and macOS client.
+By typing `+graph` / `+telegraph` in the message the bot will integrate multiple illusts into one telegraph and return a telegraph link for a instant preview on your Telegram Mobile / macOS / Unigram App.
 
-> If there are too many illusts, Telegram may not show instant preview, it is recommended to have less than 200 graphs at a time. 
+> If there are too many illusts, Telegram may not show the instant preview, so it is recommended to have less than 200 graphs at a time.  
+~~Too many may bring down my potato server qaq~~
