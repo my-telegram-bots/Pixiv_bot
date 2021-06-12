@@ -90,7 +90,7 @@ function format(td, flag, mode = 'message', p) {
         })
         template = splited_tamplate.join('').replaceAll('\uff69', '%')
     }
-    return template
+    return template.trim()
 }
 
 /**

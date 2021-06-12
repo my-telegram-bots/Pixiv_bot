@@ -1,6 +1,7 @@
 const { format } = require("./format")
 const { ugoiraurl } = require('../../config.json').pixiv
-function mg_create(td, flag) {
+function mg_create(td, flag,url = false) {
+    let mediagroup_t = []
     let mediagroup_o = []
     let mediagroup_r = []
     if (process.env.dev) {
@@ -17,6 +18,16 @@ function mg_create(td, flag) {
             if (flag.telegraph) {
                 mediagroup_data.id = td.id
                 mediagroup_data.q_id = flag.q_id
+            }
+            if(td.tg_file_id){
+                mediagroup_t[pid] = mediagroup_data
+                if (typeof td.tg_file_id == 'string') {
+                    mediagroup_t[pid].media = td.tg_file_id
+                } else {
+                    mediagroup_t[pid].media = td.tg_file_id[pid]
+                }
+            } else {
+                mediagroup_t[pid] = []
             }
             if (td.type <= 1) {
                 mediagroup_o[pid] = {
@@ -39,6 +50,7 @@ function mg_create(td, flag) {
         })
     }
     return {
+        mediagroup_t,
         mediagroup_o,
         mediagroup_r
     }

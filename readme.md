@@ -44,7 +44,7 @@ see more https://telegra.ph
 
 ## todolist
     1. subscribe (0%)
-    2. error handle (10%)
+    2. error handle (50%)
     3. web version (0%)
     4. bookmarks (1%)
     5. Group / Channel support

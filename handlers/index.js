@@ -1,4 +1,4 @@
-const { asyncForEach, download_file } = require('./common')
+const common = require('./common')
 const handle_illust = require('./telegram/handle_illust')
 const handle_ranking = require('./telegram/handle_ranking')
 const get_pixiv_ids = require('./telegram/get_pixiv_ids')
@@ -16,8 +16,7 @@ module.exports = {
     get_pixiv_ids,
     ugoira_to_mp4,
     ...keyboards,
-    asyncForEach,
-    download_file,
+    ...common,
     _l,
     ...format,
     ...mediagroup,

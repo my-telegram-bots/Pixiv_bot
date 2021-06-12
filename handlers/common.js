@@ -46,8 +46,25 @@ function download_file(url, id, force = false, try_time = 0) {
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+/**
+ * catch error report && reply
+ * @param {*} e error
+ * @param {*} ctx ctx
+ */
+ async function catchily(e,ctx) {
+    console.warn(e)
+    ctx.telegram.sendMessage(config.tg.master_id, 'error' + e)
+    if(e.response){
+        if(e.response.description.includes('MEDIA_CAPTION_TOO_LONG')){
+            await ctx.reply(_l(ctx.l, 'error_text_too_long'))
+            return false
+        }
+    }
+    return true
+}
 module.exports = {
     asyncForEach,
     download_file,
+    catchily,
     sleep
 }
