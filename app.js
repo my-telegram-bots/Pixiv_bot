@@ -63,6 +63,7 @@ bot.use(async (ctx, next) => {
                 inline: false
             },
             default: {
+                open: true,
                 share: true,
                 album: true
             },
@@ -98,9 +99,10 @@ bot.use(async (ctx, next) => {
         ...ctx.flag,
         // caption start
         tags: (d_f.tags && !ctx.rtext.includes('-tag')) || ctx.rtext.includes('+tag'),
+        open: (d_f.open && !ctx.rtext.includes('-open')) || ctx.rtext.includes('+open'),
         share: (d_f.share && !ctx.rtext.includes('-share')) || ctx.rtext.includes('+share'),
-        remove_keyboard: (d_f.remove_keyboard && !ctx.rtext.includes('+rmk')) || ctx.rtext.includes('-rmk'),
-        remove_caption: (d_f.remove_caption && !ctx.rtext.includes('+rmc')) || ctx.rtext.includes('-rmc'),
+        remove_keyboard: (d_f.remove_keyboard && !ctx.rtext.includes('+kb')) || ctx.rtext.includes('-kb'),
+        remove_caption: (d_f.remove_caption && !ctx.rtext.includes('+cp')) || ctx.rtext.includes('-cp'),
         single_caption: (d_f.single_caption && !ctx.rtext.includes('-sc')) || ctx.rtext.includes('+sc'),
 
         show_id: !ctx.rtext.includes('-id'),
@@ -128,9 +130,10 @@ bot.use(async (ctx, next) => {
         .replaceAll('+tags', '').replaceAll('+tag', '').replaceAll('-tags', '').replaceAll('-tag', '')
         .replaceAll('+telegraph', '').replaceAll('+graph', '')
         .replaceAll('+album', '').replaceAll('-album', '')
+        .replaceAll('+open', '').replaceAll('-open', '')
         .replaceAll('+share', '').replaceAll('-share', '')
-        .replaceAll('+rmc', '').replaceAll('-rmc', '')
-        .replaceAll('+rmk', '').replaceAll('-rmk', '')
+        .replaceAll('+cp', '').replaceAll('-cp', '')
+        .replaceAll('+kb', '').replaceAll('-kb', '')
         .replaceAll('+sc', '').replaceAll('-sc', '')
         .replaceAll('-id', '')
         .replaceAll('+file', '')
@@ -142,6 +145,9 @@ bot.use(async (ctx, next) => {
     if (ctx.rtext.includes('-rm')) {
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = true
         ctx.rtext = ctx.rtext.replaceAll('-rm', '')
+    }
+    if(ctx.flag.remove_keyboard){
+        ctx.flag.open = ctx.flag.share = false
     }
     // only support user
     if(otext== '/s'){
@@ -165,6 +171,10 @@ bot.use(async (ctx, next) => {
         return
     }
     if((otext.substr(0,3) == '/s ' || ctx.rtext.substr(0, 3) == 'eyJ') && ctx.chat.id > 0){
+        if(otext == '/s reset'){
+            await ctx.reply(_l(ctx.l, 'setting_reset'))
+            await db.delete_setting(ctx.chat.id)
+        }
         let new_setting = {}
         if(otext.length > 2 && (otext.includes('+') || otext.includes('-'))){
             new_setting = {

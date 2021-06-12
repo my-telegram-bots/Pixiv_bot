@@ -9,7 +9,8 @@ module.exports = {
     telegraph_iv: "You need wait for a while and the Telegram instat view will be generated.",
     pm_to_generate_ugoira: "Click me to generate ugoira",
     error: "Something went wrong :(",
-    setting_open_link: "Please click the following link to configurate the bot.",
+    setting_open_link: "Click the following link to configurate the bot.",
+    setting_reset: "The configuration has been reset.",
     setting_saved: "Configurate saved.",
     fanbox_not_support: "Bot isn't support pixiv fanbox",
     error_text_too_long: "Sending failed, text is too long, try the following actions to cut the text \n"+

@@ -10,6 +10,7 @@ module.exports = {
     pm_to_generate_ugoira: "クリックして動いらを生成する",
     error: "エラーが発生しました",
     setting_open_link: "以下のリンクをクリックして、ボットを設定してください。",
+    setting_reset: "設定がリセットされました。",
     setting_saved: "保存されています。",
     fanbox_not_support: "Bot は fanbox に対応していません。",
     error_text_too_long: "送信に失敗しました。テキストが長すぎます。以下の方法でテキストをカットしてください。\n"+

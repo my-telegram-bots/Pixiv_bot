@@ -10,6 +10,7 @@ module.exports = {
     pm_to_generate_ugoira: "点我私聊生成动图",
     error: "发生了点错误",
     setting_open_link: "请点击以下链接到网页配置。",
+    setting_reset: "配置已重置。",
     setting_saved: "保存配置成功。",
     fanbox_not_support: "机器人不支持 fanbox 作品。",
     error_text_too_long: "发送失败，回复文本太长，请尝试以下操作减少文本量\n"+

@@ -4,9 +4,6 @@ function mg_create(td, flag,url = false) {
     let mediagroup_t = []
     let mediagroup_o = []
     let mediagroup_r = []
-    if (process.env.dev) {
-        console.log('mg_create', td)
-    }
     if (td) {
         td.size.forEach((size, pid) => {
             let mediagroup_data = {
@@ -42,12 +39,15 @@ function mg_create(td, flag,url = false) {
                 mediagroup_o[pid] = mediagroup_r[pid] = {
                     ...mediagroup_data,
                     type: 'video',
-                    media: td.tg_file_id ? td.tg_file_id : {
+                    media:  {
                         url: ugoiraurl + td.id + '.mp4'
                     }
                 }
             }
         })
+    }
+    if (process.env.dev) {
+        console.log('mg_create', JSON.stringify(mediagroup_o),JSON.stringify(mediagroup_t))
     }
     return {
         mediagroup_t,

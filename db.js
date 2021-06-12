@@ -37,7 +37,7 @@ module.exports = {
                 }
                 if (value.default) {
                     for (const i in value.default) {
-                        if (['tags', 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album'].includes(i)) {
+                        if (['tags','open' , 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album'].includes(i)) {
                             if(typeof value.default[i] == 'boolean'){
                                 s.default[i] = value.default[i]
                             } else {
@@ -63,6 +63,14 @@ module.exports = {
                 console.warn(error)
                 resolve(false)
             }
+        })
+    },
+    delete_setting: (chat_id) => {
+        return new Promise(async (resolve, reject) => {
+            let col = await db.collection('chat_setting')
+            await col.deleteOne({
+                id: chat_id
+            })
         })
     }
 }
