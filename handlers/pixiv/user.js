@@ -81,20 +81,15 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                 }
                 let illusts_data = (await r_p.get(`user/${id}/profile/illusts?ids%5B%5D=${p.join('&ids%5B%5D=')}&work_category=illustManga&is_first_page=1`)).data
                 for (const id in illusts_data.body.works) {
-                    page[page.indexOf(id)] = illusts_data.body.works[id]
-                }
-            }
-            let data = []
-            await asyncForEach(illusts,async illust=>{
-                let db_illust = await get_illust(illust.id,'local')
-                if(db_illust){
-                    data.push(db_illust)
-                    return
-                }else {
-                    if(process.env.dev){
-                        console.log('cache missing')
+                    illusts[page.indexOf(id)] = {
+                        ...illusts_data.body.works[id],
+                        flag: true
                     }
                 }
+            }
+            await asyncForEach(illusts,async (illust,id)=>{
+                let extra = {}
+                if(!illust.flag) return
                 extra.type = illust.illustType
                 extra.imgs_ = {
                     thumb_urls: [],
@@ -145,29 +140,27 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                     }
                     ugoira_to_mp4(illust.id)
                 }
+                let data = {
+                    id: illust.id,
+                    title: illust.title,
+                    description: illust.description,
+                    type: illust.illustType,
+                    userName: illust.userName,
+                    userId: illust.userId,
+                    restrict: illust.restrict,
+                    xRestrict: illust.xRestrict,
+                    tags: illust.tags,
+                    createDate: illust.createDate,
+                    imgs_: extra.imgs_
+                }
                 try {
-                    col.insertOne({
-                        id: illust.id,
-                        title: illust.title,
-                        description: illust.description,
-                        type: illust.illustType,
-                        userName: illust.userName,
-                        userId: illust.userId,
-                        restrict: illust.restrict,
-                        xRestrict: illust.xRestrict,
-                        tags: illust.tags,
-                        createDate: illust.createDate,
-                        imgs_: extra.imgs_
-                    })
+                    col.insertOne(data)
                 } catch (error) {
                     console.warn(error)
                 }
-                data.push({
-                    ...illust,
-                    ...extra
-                })
+                illusts[id] = data
             })
-            return data
+            return illusts
         }
     } catch (e) {
         console.warn(e)
