@@ -253,7 +253,6 @@ bot.on('text', async (ctx, next) => {
         if(a.length > 0 && ctx.from.id == config.tg.master_id){
             await asyncForEach(a,async id=>{
                 illusts = await get_user_illusts(id)
-                console.log(illusts)
             })
         }
         timer_type[3] = ''

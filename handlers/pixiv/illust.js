@@ -7,7 +7,8 @@ const db = require('../../db')
  * @param {object} flag configure
  */
 async function get_illust(id,mode = 'p') {
-    if (id.toString().length < 6 || id.toString().length > 8)
+    id = typeof id == 'number' ? id.toString() : id
+    if (id.length < 6 || id.length > 8)
         return false
     if (process.env.dev) {
         console.log('i', id)

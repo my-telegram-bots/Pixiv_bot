@@ -63,16 +63,28 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                 })
             }
         } else if (typeof page == 'object') {
-            let illusts_data = (await r_p.get(`user/${id}/profile/illusts?ids%5B%5D=${page.join('&ids%5B%5D=')}&work_category=illustManga&is_first_page=1`)).data
-            if (illusts_data.error) {
-                return false
+            let illusts = page
+            let local_illust_data = await (col.find({
+                $or: page.map(id=>{
+                    return {
+                        id: id
+                    }
+                })
+            }))
+            await local_illust_data.forEach(l=>{
+                illusts[page.indexOf(l.id)] = l
+            })
+            let p = illusts.filter(x=>{return typeof x != 'object'})
+            if(p.length > 0){
+                if(process.env.dev){
+                    console.log('query from pixiv',p)
+                }
+                let illusts_data = (await r_p.get(`user/${id}/profile/illusts?ids%5B%5D=${p.join('&ids%5B%5D=')}&work_category=illustManga&is_first_page=1`)).data
+                for (const id in illusts_data.body.works) {
+                    page[page.indexOf(id)] = illusts_data.body.works[id]
+                }
             }
-            let illusts = []
             let data = []
-            for (const id in illusts_data.body.works) {
-                illusts.push(illusts_data.body.works[id])
-            }
-            let extra = {}
             await asyncForEach(illusts,async illust=>{
                 let db_illust = await get_illust(illust.id,'local')
                 if(db_illust){
@@ -131,7 +143,7 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                             height: illust.height
                         }]
                     }
-                    await ugoira_to_mp4(illust.id)
+                    ugoira_to_mp4(illust.id)
                 }
                 try {
                     col.insertOne({
