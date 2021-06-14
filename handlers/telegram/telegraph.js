@@ -53,7 +53,7 @@ async function mg2telegraph(mg) {
                 return `${p.id}_${p.q_id}` == `${d.id}_${d.q_id}`
             })
             // content (Array of Node, up to 64 KB)
-            if (((JSON.stringify(t_data[t_data_id].content).length + same_illust.length * JSON.stringify(dd).length)) > 64000) {
+            if (((JSON.stringify(t_data[t_data_id].content).length + same_illust.length * JSON.stringify(dd).length)) > 60000) {
                 t_data_id = t_data_id + 1
                 t_data[t_data_id] = {
                     content: [],

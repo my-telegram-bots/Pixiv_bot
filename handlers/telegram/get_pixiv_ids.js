@@ -15,6 +15,10 @@
                 if (!isNaN(parseInt(u.replace('https://pixiv.net/novel/show.php?id=', '').split('&')[0]))) {
                     ids.push(parseInt(u.replace('https://pixiv.net/novel/show.php?id=', '').split('&')[0]))
                 }
+            } else if (u.includes('user') && type == 'user') {
+                if (!isNaN(parseInt(u.replace('https://pixiv.net/users/', '').split('?')[0].split('&')[0]))) {
+                    ids.push(parseInt(u.replace('https://pixiv.net/users/', '').split('?')[0].split('&')[0]))
+                }
             } else if (type == 'illust' && !u.includes('novel')) {
                 try {
                     let uu = new URL(u).searchParams

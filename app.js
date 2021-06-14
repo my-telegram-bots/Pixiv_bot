@@ -8,6 +8,7 @@ const {
     handle_ranking,
     handle_novel,
     get_pixiv_ids,
+    get_user_illusts,
     ugoira_to_mp4,
     download_file,
     catchily,
@@ -236,26 +237,37 @@ bot.on('text', async (ctx, next) => {
     let timer = setInterval(f_timer, 2000)
     setTimeout(() => {
         clearInterval(timer)
-    }, 20000)
+    }, 30000)
     let default_extra = {
         parse_mode: 'MarkdownV2',
         reply_to_message_id: ctx.message.message_id,
         allow_sending_without_reply: true
     }
-    if (ids = get_pixiv_ids(ctx.rtext)) {
-        await asyncForEach(ids, async id => {
+    let ids = false
+    let illusts = []
+    if(a = get_pixiv_ids(ctx.rtext, 'user') && ctx.from.id == config.tg.master_id){
+        if(a.length > 0){
+            await asyncForEach(a,async id=>{
+                illusts = await get_user_illusts(id)
+            })
+        }
+    }
+    if (b = get_pixiv_ids(ctx.rtext)) {
+        if(b.length > 0){
+            illusts = [...illusts,...b]
+        }
+    }
+    if(illusts.length > 0){
+        await asyncForEach(illusts, async id => {
             let d = await handle_illust(id, ctx.flag)
             if (d == 404) {
                 if (ctx.chat.id > 0){
-                    await ctx.reply(_l(ctx.l, 'illust_404'),default_extra)
+                    await ctx.reply(_l(ctx.l, 'illust_404'),{...default_extra,parse_mode: 'Markdown'})
+                    return
                 }
             }
             ctx.flag.q_id += 1
-            let mg = mg_create(d.td, ctx.flag)
-            if (d.type == 2) {
-                ugoira_to_mp4(d.id)
-            }
-            
+            let mg = mg_create(d, ctx.flag)
             // send as file
             if (ctx.flag.asfile) {
                 timer_type[2] = 'document'
@@ -282,7 +294,7 @@ bot.on('text', async (ctx, next) => {
             } else {
                 if(d.type <= 1) timer_type[0] = 'photo'
                 if(d.type == 2) timer_type[1] = 'video'
-                if (ctx.flag.album && (mg.length > 1 || (mg.length == 1 && ids.length > 1))) {
+                if (ctx.flag.album && (mg.length > 1 || (mg.length == 1 && illusts.length > 1))) {
                     ctx.temp_data.mg = [...ctx.temp_data.mg, ...mg]
                 } else {
                     let extra = {
@@ -325,7 +337,7 @@ bot.on('text', async (ctx, next) => {
                         }
                         await ctx.replyWithAnimation(media,extra).then(async data=>{
                             // save ugoira file_id and next time bot can reply without send file
-                            if (!d.td.tg_file_id && data.document) {
+                            if (!d.tg_file_id && data.document) {
                                 let col = await db.collection('illust')
                                 col.updateOne({
                                     id: d.id.toString()
@@ -394,9 +406,6 @@ bot.on('text', async (ctx, next) => {
             console.warn(error)
         }
     }
-    if(ids = get_pixiv_ids(ctx.rtext, 'user')){
-        
-    }
     if (ctx.rtext.includes('fanbox.cc/') && ctx.chat.id > 0) {
         await ctx.reply(_l(ctx.l, 'fanbox_not_support'))
     }
@@ -417,7 +426,7 @@ bot.on('inline_query', async (ctx) => {
         await asyncForEach(ids.reverse(), async id => {
             let d = await handle_illust(id, ctx.flag)
             // 动图目前还是要私聊机器人生成
-            if (d.type == 2 && d.td.inline.length == 0) {
+            if (d.type == 2 && d.inline.length == 0) {
                 // 这个时候就偷偷开始处理了 所以不加 await
                 ugoira_to_mp4(d.id)
                 await ctx.answerInlineQuery([], {
@@ -429,7 +438,7 @@ bot.on('inline_query', async (ctx) => {
                 })
                 return true
             }
-            res = d.td.inline.concat(res)
+            res = d.inline.concat(res)
         })
         if (res.splice((offset + 1) * 20 - 1, 20))
             res_options.next_offset = offset + 1

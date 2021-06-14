@@ -6,7 +6,7 @@ const db = require('../../db')
  * @param {number} id illust_id
  * @param {object} flag configure
  */
-async function get_illust(id) {
+async function get_illust(id,mode = 'p') {
     if (id.toString().length < 6 || id.toString().length > 8)
         return false
     if (process.env.dev) {
@@ -17,6 +17,9 @@ async function get_illust(id) {
         id: id.toString()
     })
     let update_p_flag = true
+    if(mode == 'local'){
+        return illust
+    }
     if (!illust) {
         try {
             // data example https://paste.huggy.moe/mufupocomo.json

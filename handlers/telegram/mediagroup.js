@@ -11,7 +11,7 @@ function mg_create(td, flag,url = false) {
                 caption: format(td, flag, 'message', pid),
                 parse_mode: 'MarkdownV2',
                 id: td.id,
-                //p: td.p
+                p: pid
             }
             // mg2telegraph 还需要作品的 id
             if (flag.telegraph) {
@@ -105,6 +105,8 @@ async function mg_filter(mg,type = 't'){
             if (type.includes('dl') && !xx.media_t) {
                 if(xx.type == 'photo'){
                     xx.media = {
+                        // dlo => download media_o file
+                        // dlr => download media_r file
                         source: await download_file(xx['media_' + type.replace('dl','')])
                     }
                 }

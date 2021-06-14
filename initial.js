@@ -8,6 +8,11 @@ async function handle() {
     }, {
         unique: true,
     });
+    (await collection('user')).createIndex({
+        id: 1
+    }, {
+        unique: true,
+    });
     (await collection('novel')).createIndex({
         id: 1
     }, {

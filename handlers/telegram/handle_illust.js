@@ -4,6 +4,17 @@ const { asyncForEach } = require('../common')
 const get_illust = require('../pixiv/illust')
 const r_p = require('../pixiv/r_p')
 const { format } = require('./format')
+const ugoira_to_mp4 = require('../pixiv/ugoira_to_mp4')
+
+async function handle_illusts(ids, flag){
+    if(!ids instanceof Array){
+        ids = [ids]
+    }
+    await asyncForEach(ids, async (d,id)=>{
+        ids[id] = await handle_illust(d,flag)
+    })
+    return ids
+}
 /**
  * 处理成 tg 友好型数据
  * 作为 ../pixiv/illust 的 tg 封装
@@ -11,7 +22,11 @@ const { format } = require('./format')
  * @param {*} flag 
  */
 async function handle_illust(id, flag) {
-    let illust = await get_illust(id)
+    let illust = id
+    if(typeof id == 'object'){
+    } else {
+        illust = await get_illust(id)
+    }
     if (typeof illust == 'number' || !illust)
         return illust
     let td = {
@@ -26,9 +41,11 @@ async function handle_illust(id, flag) {
         nsfw: illust.xRestrict > 0,
         tg_file_id: illust.tg_file_id
     }
-    illust.tags.tags.forEach(tag => {
-        td.tags.push(tag.tag)
-    })
+    if(illust.tags && illust.tags.tags){
+        illust.tags.tags.forEach(tag => {
+            td.tags.push(tag.tag)
+        })
+    }
     if (illust.type <= 1) {
         td.size.forEach((size, pid) => {
             td.inline[pid] = {
@@ -62,13 +79,13 @@ async function handle_illust(id, flag) {
                 parse_mode: 'MarkdownV2',
                 ...k_os(illust.id, flag)
             }
+        } else {
+            ugoira_to_mp4(illust.id)
         }
     }
-    return {
-        id: id,
-        title: illust.title,
-        type: illust.type,
-        td: td
-    }
+    return td
 }
-module.exports = handle_illust
+module.exports = {
+    handle_illusts,
+    handle_illust,
+}
