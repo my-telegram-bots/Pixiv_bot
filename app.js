@@ -32,7 +32,6 @@ const throttler = telegrafThrottler({
     },
     onThrottlerError: (error) => {
         console.warn(error)
-        return true
     }
 })
 const bot = new Telegraf(config.tg.token)
@@ -249,12 +248,15 @@ bot.on('text', async (ctx, next) => {
     }
     let ids = false
     let illusts = []
-    if(a = get_pixiv_ids(ctx.rtext, 'user') && ctx.from.id == config.tg.master_id){
-        if(a.length > 0){
+    if(a = get_pixiv_ids(ctx.rtext, 'user')){
+        timer_type[3] = 'typing'
+        if(a.length > 0 && ctx.from.id == config.tg.master_id){
             await asyncForEach(a,async id=>{
                 illusts = await get_user_illusts(id)
+                console.log(illusts)
             })
         }
+        timer_type[3] = ''
     }
     if (b = get_pixiv_ids(ctx.rtext)) {
         if(b.length > 0){

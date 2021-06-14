@@ -36,7 +36,8 @@ function mg_create(td, flag,url = false) {
                     type: 'video',
                     media:  {
                         url: ugoiraurl + td.id + '.mp4'
-                    }
+                    },
+                    media_o: ugoiraurl + td.id + '.mp4'
                 }
             }
             mediagroups.push(mediagroup_data)

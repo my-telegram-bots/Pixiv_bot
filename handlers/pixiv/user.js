@@ -109,11 +109,11 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                             }
                         })
                     } catch (error) {
-                        //if(error.response.status == 404){
+                        if(error.response.status == 404){
                             original_url = original_url.replace('.jpg','.png')
-                        //} else {
-                        //  console.warn(error)
-                        //}
+                        } else {
+                          console.warn(error)
+                        }
                     }
                     for (let i = 0; i < illust.pageCount; i++) {
                         extra.imgs_.thumb_urls[i] = illust.url.replace('p0',`p${i}`)
@@ -135,8 +135,17 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                 }
                 try {
                     col.insertOne({
-                        ...illust,
-                        ...extra
+                        id: illust.id,
+                        title: illust.title,
+                        description: illust.description,
+                        type: illust.illustType,
+                        userName: illust.userName,
+                        userId: illust.userId,
+                        restrict: illust.restrict,
+                        xRestrict: illust.xRestrict,
+                        tags: illust.tags,
+                        createDate: illust.createDate,
+                        imgs_: extra.imgs_
                     })
                 } catch (error) {
                     console.warn(error)
