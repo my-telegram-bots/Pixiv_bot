@@ -41,10 +41,14 @@ async function handle_illust(id, flag) {
         nsfw: illust.xRestrict > 0,
         tg_file_id: illust.tg_file_id
     }
-    if(illust.tags && illust.tags.tags){
-        illust.tags.tags.forEach(tag => {
-            td.tags.push(tag.tag)
-        })
+    if(illust.tags){
+        if(illust.tags.tags){
+            illust.tags.tags.forEach(tag => {
+                td.tags.push(tag.tag)
+            })
+        }else{
+            td.tags = illust.tags
+        }
     }
     if (illust.type <= 1) {
         td.size.forEach((size, pid) => {

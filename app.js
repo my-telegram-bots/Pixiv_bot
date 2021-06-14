@@ -107,6 +107,9 @@ bot.use(async (ctx, next) => {
         // caption end
         // send all illusts as mediagroup
         album: (d_f.album && !ctx.rtext.includes('-album')) || ctx.rtext.includes('+album'),
+        
+        // descending order
+        desc: (d_f.desc && !ctx.rtext.includes('-desc')) || ctx.rtext.includes('+desc'),
 
 
         // send as telegraph
@@ -132,6 +135,7 @@ bot.use(async (ctx, next) => {
         .replaceAll('+share', '').replaceAll('-share', '')
         .replaceAll('+caption', '').replaceAll('-caption', '').replaceAll('+cp', '').replaceAll('-cp', '')
         .replaceAll('+keyboard', '').replaceAll('-keyboard', '').replaceAll('+kb', '').replaceAll('-kb', '')
+        .replaceAll('+desc', '').replaceAll('-desc', '')
         .replaceAll('+sc', '').replaceAll('-sc', '')
         .replaceAll('-id', '')
         .replaceAll('+file', '')
@@ -257,6 +261,9 @@ bot.on('text', async (ctx, next) => {
             illusts = [...illusts,...b]
         }
     }
+    if(ctx.flag.desc){
+        illusts = illusts.reverse()
+    }
     if(illusts.length > 0){
         await asyncForEach(illusts, async id => {
             let d = await handle_illust(id, ctx.flag)
@@ -356,6 +363,9 @@ bot.on('text', async (ctx, next) => {
                 }
             }
         })
+        if(ctx.temp_data.mg.length == 0){
+            return
+        }
         if(ctx.flag.asfile){
 
         }else if (ctx.flag.telegraph) {

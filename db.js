@@ -37,7 +37,7 @@ module.exports = {
                 }
                 if (value.default) {
                     for (const i in value.default) {
-                        if (['tags','open' , 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album'].includes(i)) {
+                        if (['tags','open' , 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album', 'desc'].includes(i)) {
                             if(typeof value.default[i] == 'boolean'){
                                 s.default[i] = value.default[i]
                             } else {
