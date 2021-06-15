@@ -43,6 +43,9 @@ function mg_create(td, flag,url = false) {
             mediagroups.push(mediagroup_data)
         })
     }
+    if(process.env.dev){
+        console.log('mg_create',mediagroups)
+    }
     return mediagroups
 }
 function mg_albumize(mg, single_caption = false) {
@@ -101,15 +104,14 @@ async function mg_filter(mg,type = 't'){
         let xx = {...x}
         if(!x.media)    xx.media = xx.media_t ? xx.media_t : xx.media_o
         if(mg.type == 'video'){
+            // nothing download in ugoira
             xx.media = await ugoira_to_mp4(xx.id)
         } else {
             if (type.includes('dl') && !xx.media_t) {
-                if(xx.type == 'photo'){
-                    xx.media = {
-                        // dlo => download media_o file
-                        // dlr => download media_r file
-                        source: await download_file(xx['media_' + type.replace('dl','')])
-                    }
+                xx.media = {
+                    // dlo => download media_o file
+                    // dlr => download media_r file
+                    source: await download_file(xx['media_' + type.replace('dl','')])
                 }
             } else if (type == 'r'){
                 xx.media = xx.media_r ? xx.media_r : xx.media_o

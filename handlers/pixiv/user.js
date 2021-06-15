@@ -71,8 +71,21 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                     }
                 })
             }))
-            await local_illust_data.forEach(l=>{
-                illusts[page.indexOf(l.id)] = l
+            await local_illust_data.forEach(illust=>{
+                // s**t code
+                illusts[page.indexOf(illust.id)] = {
+                    id: illust.id,
+                    title: illust.title,
+                    description: illust.description,
+                    type: typeof illust.type == 'undefined' ? illust.illustType : illust.type,
+                    userName: illust.userName,
+                    userId: illust.userId,
+                    restrict: illust.restrict,
+                    xRestrict: illust.xRestrict,
+                    tags: illust.tags,
+                    createDate: illust.createDate,
+                    imgs_: illust.imgs_
+                }
             })
             let p = illusts.filter(x=>{return typeof x != 'object'})
             if(p.length > 0){

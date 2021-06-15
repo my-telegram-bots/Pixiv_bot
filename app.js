@@ -320,9 +320,9 @@ bot.on('text', async (ctx, next) => {
                             } else {
                                 await ctx.replyWithPhoto(mg[0].media_o,extra).catch(async e=>{
                                     if(await catchily(e,ctx)){
-                                        await ctx.replyWithPhoto(await download_file(mg[0].media_o),extra).catch(async e=>{
+                                        await ctx.replyWithPhoto(await download_file({...mg[0].media_o}),extra).catch(async e=>{
                                             await ctx.replyWithPhoto(mg[0].media_r,extra).catch(async e=>{
-                                                await ctx.replyWithPhoto(await download_file(mg[0].media_r),extra).catch(async e=>{
+                                                await ctx.replyWithPhoto(await download_file({...mg[0].media_r}),extra).catch(async e=>{
                                                     if(await catchily(e,ctx)){
                                                         ctx.reply(_l(ctx.l, 'error'),default_extra)
                                                     }

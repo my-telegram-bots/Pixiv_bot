@@ -14,12 +14,12 @@ let queue_list = []
  * @returns 
  */
 async function ugoira_to_mp4(id, force = false) {
-    if (queue_list.includes(id)) {
-        await sleep(1000)
-        return await ugoira_to_mp4(id, false)
-    }
     if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`) && !force) {
         return `${config.pixiv.ugoiraurl}/${id}.mp4`
+    }
+    if (queue_list.length > 4 || queue_list.includes(id)) {
+        await sleep(1000)
+        return await ugoira_to_mp4(id, false)
     }
     queue_list.push(id)
     try {
