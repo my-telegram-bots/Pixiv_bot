@@ -26,7 +26,7 @@ async function get_user(id) {
  * @returns object / boolean
  */
 async function get_user_illusts(id, page = 0, try_time = 0) {
-    let col = await db.collection('illust')
+    let col = db.collection.illust
     if (try_time > 5) {
         return false
     }
@@ -54,7 +54,6 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                     if (illust_id_list.length > 0) {
                         if (a = await get_user_illusts(id, illust_id_list)) {
                             illusts = [...illusts,...a]
-                            
                         }
                     }
                 })
@@ -73,19 +72,7 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
             }))
             await local_illust_data.forEach(illust=>{
                 // s**t code
-                illusts[page.indexOf(illust.id)] = {
-                    id: illust.id,
-                    title: illust.title,
-                    description: illust.description,
-                    type: typeof illust.type == 'undefined' ? illust.illustType : illust.type,
-                    userName: illust.userName,
-                    userId: illust.userId,
-                    restrict: illust.restrict,
-                    xRestrict: illust.xRestrict,
-                    tags: illust.tags,
-                    createDate: illust.createDate,
-                    imgs_: illust.imgs_
-                }
+                illusts[page.indexOf(illust.id)] = illust
             })
             let p = illusts.filter(x=>{return typeof x != 'object'})
             if(p.length > 0){
@@ -102,6 +89,9 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
             }
             await asyncForEach(illusts,async (illust,id)=>{
                 let extra = {}
+                if(illust.type == 2){
+                    ugoira_to_mp4(illust.id)
+                }
                 if(!illust.flag) return
                 extra.type = illust.illustType
                 extra.imgs_ = {
@@ -151,9 +141,8 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                             height: illust.height
                         }]
                     }
-                    ugoira_to_mp4(illust.id)
                 }
-                let data = {
+                illust = {
                     id: illust.id,
                     title: illust.title,
                     description: illust.description,
@@ -167,11 +156,21 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                     imgs_: extra.imgs_
                 }
                 try {
-                    col.insertOne(data)
+                    col.insertOne(illust)
                 } catch (error) {
                     console.warn(error)
                 }
-                illusts[id] = data
+                
+                illusts[id] = {
+                    id: illust.id,
+                    title: illust.title,
+                    type: typeof illust.type == 'undefined' ? illust.illustType : illust.type,
+                    author_name: illust.userName,
+                    author_id: illust.userId,
+                    nsfw: illust.xRestrict > 0,
+                    tags: illust.tags,
+                    ...illust.imgs_
+                }
             })
             return illusts
         }

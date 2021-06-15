@@ -14,7 +14,7 @@ async function get_novel(id) {
     if (process.env.dev) {
         console.log('n', id)
     }
-    let col = await db.collection('novel')
+    let col = db.collection.novel
     let novel = await col.findOne({
         id: id.toString()
     })

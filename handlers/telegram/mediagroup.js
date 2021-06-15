@@ -1,10 +1,13 @@
 const { format } = require("./format")
 const { asyncForEach, download_file } = require("../common")
 const { ugoiraurl } = require('../../config.json').pixiv
-
+const ugoira_to_mp4 = require("../pixiv/ugoira_to_mp4")
 function mg_create(td, flag,url = false) {
     let mediagroups = []
     if (td) {
+        if(td.type == 2){
+            ugoira_to_mp4(td.id)
+        }
         td.size.forEach((size, pid) => {
             let mediagroup_data = {
                 type: 'photo',

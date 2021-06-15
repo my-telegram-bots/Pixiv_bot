@@ -24,7 +24,7 @@ async function ranking(page = 1, mode = 'daily', date = false, filter_type = [0,
     // GMT+0 9 * 60 * 60 - 86400  = 日本前一天时间 - 8 * 60 * 60 (8点更新)
     // 目前我觉得 pixiv 日榜是 GMT+9 08:00 AM 更新的 等我早起或者挂监控脚本才知道了（（
     date = date ? date : new Date(new Date().getTime() - 82800000).toISOString().split("T")[0].replace(/-/g, "")
-    let col = await db.collection("ranking")
+    let col = db.collection.ranking
     let data = await col.findOne({
         id: mode + date + '_' + page
     })

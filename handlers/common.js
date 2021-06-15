@@ -3,9 +3,34 @@ const config = require('../config.json')
 const fs = require('fs')
 const { _l } = require("./telegram/i18n")
 
+/**
+ * ForEach with async
+ * @param {Array} array 
+ * @param {Function} callback 
+ */
 async function asyncForEach(array, callback) {
     for (let index = 0; index < array.length; index++) {
         await callback(array[index], index, array)
+    }
+}
+/**
+ * honsole => huggy console
+ * record error and report
+ */
+ const honsole = {
+    dev: function(...args){
+        if(process.env.dev){
+            console.log(...args)
+        }
+    },
+    log: function(...args){
+        console.log(...args)
+    },
+    error: function(...args){
+        console.error(...args)
+    },
+    warn: function(...args){
+        console.warn(...args)
     }
 }
 /**
@@ -17,6 +42,9 @@ async function asyncForEach(array, callback) {
  */
 let dw_queue_list = []
 function download_file(url, id, force = false, try_time = 0) {
+    if(url.includes(config.pixiv.ugoiraurl)){
+        return url + '?' + (+new Date())
+    }
     if (try_time > 5){
         return false
     }
@@ -31,7 +59,7 @@ function download_file(url, id, force = false, try_time = 0) {
     if(dw_queue_list.length > 4 || dw_queue_list.includes(url)){
         return new Promise(async (resolve, reject) => {
             await sleep(1000)
-            console.log('downloading',id,url)
+            honsole.dev('downloading',id,url)
             resolve(await download_file(url, id, force, try_time))
         })
     }
@@ -84,5 +112,6 @@ module.exports = {
     asyncForEach,
     download_file,
     catchily,
-    sleep
+    sleep,
+    honsole
 }

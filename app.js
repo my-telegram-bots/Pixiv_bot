@@ -72,9 +72,8 @@ bot.use(async (ctx, next) => {
     ctx.temp_data = {
         mg: []
     }
-    let s_col = await db.collection('chat_setting')
     if (ctx.from) {
-        let setting = await s_col.findOne({
+        let setting = await db.collection.chat_setting.findOne({
             id: ctx.from.id
         })
         if(setting){
@@ -109,7 +108,6 @@ bot.use(async (ctx, next) => {
         
         // descending order
         desc: (d_f.desc && !ctx.rtext.includes('-desc')) || ctx.rtext.includes('+desc'),
-
 
         // send as telegraph
         telegraph: ctx.rtext.includes('+graph') || ctx.rtext.includes('+telegraph'),
@@ -284,10 +282,13 @@ bot.on('text', async (ctx, next) => {
                         ...default_extra,
                         caption: o.caption.replace('%mid%','').trim()
                     }
+                    if(mg.type == 'video'){
+                        await ugoira_to_mp4(mg.id)
+                    }
                     await ctx.replyWithDocument(o.media_o,extra).catch(async e=>{
                         if(catchily(e,ctx)){
                             if(d.type <= 2){
-                                await ctx.replyWithDocument({source: await download_file(o.media_o)},extra).catch(e=>{
+                                await ctx.replyWithDocument({source: await download_file(o.media_o,o.id)},{...extra,thumb:{source: await download_file(o.media_r ? o.media_r : o.media_o,o.id)}}).catch(e=>{
                                     if(catchily(e,ctx)){
                                         ctx.reply(_l(ctx.l, 'file_too_large',o.media_o.replace('i-cf.pximg.net',config.pixiv.pximgproxy)),default_extra)
                                     }
@@ -346,7 +347,7 @@ bot.on('text', async (ctx, next) => {
                         await ctx.replyWithAnimation(media,extra).then(async data=>{
                             // save ugoira file_id and next time bot can reply without send file
                             if (!d.tg_file_id && data.document) {
-                                let col = await db.collection('illust')
+                                let col = db.collection.illust
                                 col.updateOne({
                                     id: d.id.toString()
                                 }, {
@@ -469,6 +470,11 @@ bot.catch(async (e, ctx) => {
     catchily(e,ctx)
 })
 bot.launch().then(async () => {
+    await db.db_initial().catch(e=>{
+        console.error('database error',e)
+        console.log('bye')
+        process.exit()
+    })
     if (!process.env.DEPENDIONLESS && !process.env.dev) {
         try {
             await exec('which ffmpeg')
@@ -477,6 +483,7 @@ bot.launch().then(async () => {
             console.error('You must install ffmpeg and mp4fpsmod to enable ugoira to mp4 function', error)
             console.error('If you want to run but won\'t install ffmpeg and mp4fpsmod, please exec following command:')
             console.error('DEPENDIONLESS=1 node app.js')
+            console.log('bye')
             process.exit()
         }
     }

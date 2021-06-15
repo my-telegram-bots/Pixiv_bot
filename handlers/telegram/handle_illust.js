@@ -24,6 +24,11 @@ async function handle_illusts(ids, flag){
 async function handle_illust(id, flag) {
     let illust = id
     if(typeof id == 'object'){
+        if(id.imgs_ && !id.original_urls){
+            illust = await get_illust(id)
+        }else{
+            return id
+        }
     } else {
         illust = await get_illust(id)
     }

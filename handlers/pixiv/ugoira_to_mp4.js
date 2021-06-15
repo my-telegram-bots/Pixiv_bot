@@ -5,7 +5,7 @@ const fs = require('fs')
 const config = require('../../config.json')
 const { download_file, sleep } = require('../common')
 // queue
-let queue_list = []
+let ugoira_queue_list = []
 
 /**
  * ugoira to mp4
@@ -17,11 +17,11 @@ async function ugoira_to_mp4(id, force = false) {
     if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`) && !force) {
         return `${config.pixiv.ugoiraurl}/${id}.mp4`
     }
-    if (queue_list.length > 4 || queue_list.includes(id)) {
+    if (ugoira_queue_list.length > 4 || ugoira_queue_list.includes(id)) {
         await sleep(1000)
         return await ugoira_to_mp4(id, false)
     }
-    queue_list.push(id)
+    ugoira_queue_list.push(id)
     try {
         id = parseInt(id).toString()
         let ud = (await r_p(`/illust/${id}/ugoira_meta`)).data
@@ -50,7 +50,9 @@ async function ugoira_to_mp4(id, force = false) {
             }
         }
         if (fs.existsSync(`./tmp/ugoira/${id}`)) {
-            fs.unlinkSync(`./tmp/ugoira/${id}`)
+            fs.rmdirSync(`./tmp/ugoira/${id}`,{
+                recursive: true
+            })
         }
         if (fs.existsSync(`./tmp/mp4_0/${id}.mp4`)) {
             fs.unlinkSync(`./tmp/mp4_0/${id}.mp4`)
@@ -62,11 +64,11 @@ async function ugoira_to_mp4(id, force = false) {
         await exec(`ffmpeg -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         // add time metadata via mp4fpsmod
         await exec(`mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
-        queue_list.splice(queue_list.indexOf(id), 1)
+        ugoira_queue_list.splice(ugoira_queue_list.indexOf(id), 1)
         return `${config.pixiv.ugoiraurl}/${id}.mp4`
     } catch (error) {
         console.warn(error)
-        queue_list.splice(queue_list.indexOf(id), 1)
+        ugoira_queue_list.splice(ugoira_queue_list.indexOf(id), 1)
         return false
     }
 }

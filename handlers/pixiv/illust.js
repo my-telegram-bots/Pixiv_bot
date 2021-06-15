@@ -7,13 +7,17 @@ const db = require('../../db')
  * @param {object} flag configure
  */
 async function get_illust(id,mode = 'p') {
+    if(typeof id == 'object'){
+        console.warn(id)
+        return id
+    }
     id = typeof id == 'number' ? id.toString() : id
     if (id.length < 6 || id.length > 8)
         return false
     if (process.env.dev) {
         console.log('i', id)
     }
-    let col = await db.collection('illust')
+    let col = db.collection.illust
     let illust = await col.findOne({
         id: id.toString()
     })
