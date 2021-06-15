@@ -1,7 +1,6 @@
 const fetch = require('node-fetch')
 const config = require('../../config.json')
-const { asyncForEach } = require('../common')
-const ugoira_to_mp4 = require('../pixiv/ugoira_to_mp4')
+const { asyncForEach, ugoira_to_mp4} = require('../common')
 const br = { tag: 'br' }
 /**
  * mediagroup to telegraph

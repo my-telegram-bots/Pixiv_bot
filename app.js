@@ -16,6 +16,7 @@ const {
     k_os,
     mg_create, mg_albumize,mg_filter,
     mg2telegraph,
+    honsole,
 } = require('./handlers')
 const db = require('./db')
 const throttler = telegrafThrottler({
@@ -83,9 +84,7 @@ bot.use(async (ctx, next) => {
             delete ctx.flag.setting.id
         }
     }
-    if (process.env.dev) {
-        console.log('input ->', ctx.rtext,ctx.flag)
-    }
+    honsole.log('input ->', ctx.rtext,ctx.flag)
     next()
 })
 bot.use(async (ctx, next) => {
@@ -321,9 +320,9 @@ bot.on('text', async (ctx, next) => {
                             } else {
                                 await ctx.replyWithPhoto(mg[0].media_o,extra).catch(async e=>{
                                     if(await catchily(e,ctx)){
-                                        await ctx.replyWithPhoto(await download_file({...mg[0].media_o}),extra).catch(async e=>{
+                                        await ctx.replyWithPhoto(await download_file(mg[0].media_o),extra).catch(async e=>{
                                             await ctx.replyWithPhoto(mg[0].media_r,extra).catch(async e=>{
-                                                await ctx.replyWithPhoto(await download_file({...mg[0].media_r}),extra).catch(async e=>{
+                                                await ctx.replyWithPhoto(await download_file(mg[0].media_r),extra).catch(async e=>{
                                                     if(await catchily(e,ctx)){
                                                         ctx.reply(_l(ctx.l, 'error'),default_extra)
                                                     }
@@ -469,12 +468,7 @@ bot.on('inline_query', async (ctx) => {
 bot.catch(async (e, ctx) => {
     catchily(e,ctx)
 })
-bot.launch().then(async () => {
-    await db.db_initial().catch(e=>{
-        console.error('database error',e)
-        console.log('bye')
-        process.exit()
-    })
+db.db_initial().then(async ()=>{
     if (!process.env.DEPENDIONLESS && !process.env.dev) {
         try {
             await exec('which ffmpeg')
@@ -487,9 +481,15 @@ bot.launch().then(async () => {
             process.exit()
         }
     }
-    console.log(new Date(), 'started!')
-    bot.telegram.sendMessage(config.tg.master_id,`${new Date().toString()} started!`)
+    await bot.launch().then(async () => {
+        console.log(new Date(), 'started!')
+        bot.telegram.sendMessage(config.tg.master_id,`${new Date().toString()} started!`)
+    }).catch((e)=>{
+        console.error('You are offline or bad bot token', e)
+        process.exit()
+    })
 }).catch(e => {
-    console.error('You are offline or bad bot token', e)
+    console.error('database error',e)
+    console.log('bye')
     process.exit()
 })

@@ -1,12 +1,57 @@
+const { default: axios } = require("axios")
 const r_p = require('./r_p')
-const { default: axios } = require('axios')
 const exec = require('util').promisify((require('child_process')).exec)
 const fs = require('fs')
 const config = require('../../config.json')
-const { download_file, sleep } = require('../common')
-// queue
+const { download_file, sleep, honsole } = require('../common')
+// ugoira queue
 let ugoira_queue_list = []
-
+/**
+ * thumb url to regular and original url
+ * @param {string} thumb_url 
+ * @param {number} pageCount 
+ * @returns 
+ */
+async function thumb_to_all(illust){
+    let imgs_ = {
+        thumb_urls: [],
+        regular_urls: [],
+        original_urls: [],
+        size: []
+    }
+    illust.url = illust.url.replace('i.pximg.net', 'i-cf.pximg.net')
+    let url = illust.url.replace('/c/250x250_80_a2/custom-thumb','∏a∏').replace('_custom1200','∏b∏')
+                        .replace('/c/250x250_80_a2/img-master','∏a∏').replace('_square1200','∏b∏')
+    let original_url = url.replace('∏a∏','/img-original').replace('∏b∏','')
+    let regular_url = url.replace('∏a∏','/img-master').replace('∏b∏','_master1200')
+    try {
+        // original may be a .png file
+        // send head reqeust to check.
+        honsole.log('trying', original_url)
+        await axios.head(original_url,{
+            headers: {
+                'User-Agent': config.pixiv.ua,
+                'Referer': 'https://www.pixiv.net'
+            }
+        })
+    } catch (error) {
+        if(error.response.status == 404){
+            original_url = original_url.replace('.jpg','.png')
+        } else {
+            console.warn(error)
+        }
+    }
+    for (let i = 0; i < illust.pageCount; i++) {
+        imgs_.thumb_urls[i] = illust.url.replace('p0',`p${i}`)
+        imgs_.regular_urls[i] = regular_url.replace('p0',`p${i}`)
+        imgs_.original_urls[i] = original_url.replace('p0',`p${i}`)
+        imgs_.size[i] = {
+            width: illust.width,
+            height: illust.height
+        }
+    }
+    return {...imgs_}
+}
 /**
  * ugoira to mp4
  * @param {*} id illustId
@@ -72,5 +117,7 @@ async function ugoira_to_mp4(id, force = false) {
         return false
     }
 }
-
-module.exports = ugoira_to_mp4
+module.exports = {
+    thumb_to_all,
+    ugoira_to_mp4
+}

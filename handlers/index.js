@@ -2,7 +2,7 @@ const common = require('./common')
 const handle_illust = require('./telegram/handle_illust')
 const handle_ranking = require('./telegram/handle_ranking')
 const get_pixiv_ids = require('./telegram/get_pixiv_ids')
-const ugoira_to_mp4 = require('./pixiv/ugoira_to_mp4')
+const pixiv_tools = require('./pixiv/tools')
 const user = require('./pixiv/user')
 const keyboards = require('./telegram/keyboard')
 const { _l } = require('./telegram/i18n')
@@ -15,7 +15,7 @@ module.exports = {
     handle_ranking,
     handle_novel,
     get_pixiv_ids,
-    ugoira_to_mp4,
+    ...pixiv_tools,
     ...keyboards,
     ...common,
     ...user,

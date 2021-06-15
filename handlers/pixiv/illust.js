@@ -1,5 +1,6 @@
 const r_p = require('./r_p')
 const db = require('../../db')
+const { honsole } = require('../common')
 /**
  * get illust data
  * save illust data to MongoDB
@@ -14,9 +15,7 @@ async function get_illust(id,mode = 'p') {
     id = typeof id == 'number' ? id.toString() : id
     if (id.length < 6 || id.length > 8)
         return false
-    if (process.env.dev) {
-        console.log('i', id)
-    }
+    honsole.log('i', id)
     let col = db.collection.illust
     let illust = await col.findOne({
         id: id.toString()
@@ -113,9 +112,7 @@ async function get_illust(id,mode = 'p') {
             imgs_: illust.imgs_
         })
     }
-    if (process.env.dev) {
-        console.log('illust', illust)
-    }
+    honsole.log('illust', illust)
     return illust
 }
 module.exports = get_illust

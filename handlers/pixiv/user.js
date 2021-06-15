@@ -1,10 +1,7 @@
 const r_p = require('./r_p')
-const { asyncForEach, sleep } = require('../common')
-const { default: axios } = require('axios')
-const ua = require('../../config.json').pixiv.ua
-const ugoira_to_mp4 = require('./ugoira_to_mp4')
+const { asyncForEach, sleep, honsole, ugoira_to_mp4 } = require('../common')
 const db = require('../../db')
-const get_illust = require('./illust')
+const { thumb_to_all } = require('./tools')
 /**
  * get user data
  * save illust data to MongoDB
@@ -14,9 +11,7 @@ const get_illust = require('./illust')
 async function get_user(id) {
     if (id.toString().length > 8 && id > 80000000)
         return false
-    if (process.env.dev) {
-        console.log('u', id)
-    }
+    honsole.log('u', id)
 }
 /**
  * get user's (all) illusts
@@ -53,32 +48,30 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                 await asyncForEach(illust_id_list_p, async illust_id_list => {
                     if (illust_id_list.length > 0) {
                         if (a = await get_user_illusts(id, illust_id_list)) {
-                            illusts = [...illusts,...a]
+                            illusts = [...illusts, ...a]
                         }
                     }
                 })
-                return illusts.filter(i=>{
+                return illusts.filter(i => {
                     return i.id
                 })
             }
         } else if (typeof page == 'object') {
             let illusts = page
             let local_illust_data = await (col.find({
-                $or: page.map(id=>{
+                $or: page.map(id => {
                     return {
                         id: id
                     }
                 })
             }))
-            await local_illust_data.forEach(illust=>{
+            await local_illust_data.forEach(illust => {
                 // s**t code
                 illusts[page.indexOf(illust.id)] = illust
             })
-            let p = illusts.filter(x=>{return typeof x != 'object'})
-            if(p.length > 0){
-                if(process.env.dev){
-                    console.log('query from pixiv',p)
-                }
+            let p = illusts.filter(x => { return typeof x != 'object' })
+            if (p.length > 0) {
+                honsole.dev('query from pixiv', p)
                 let illusts_data = (await r_p.get(`user/${id}/profile/illusts?ids%5B%5D=${p.join('&ids%5B%5D=')}&work_category=illustManga&is_first_page=1`)).data
                 for (const id in illusts_data.body.works) {
                     illusts[page.indexOf(id)] = {
@@ -87,12 +80,12 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                     }
                 }
             }
-            await asyncForEach(illusts,async (illust,id)=>{
+            await asyncForEach(illusts, async (illust, id) => {
                 let extra = {}
-                if(illust.type == 2){
+                if (illust.type == 2) {
                     ugoira_to_mp4(illust.id)
                 }
-                if(!illust.flag) return
+                if (!illust.flag) return
                 extra.type = illust.illustType
                 extra.imgs_ = {
                     thumb_urls: [],
@@ -100,41 +93,9 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                     original_urls: [],
                     size: []
                 }
-                if(illust.illustType <= 1){
-                    illust.url = illust.url.replace('i.pximg.net', 'i-cf.pximg.net')
-                    let url = illust.url.replace('/c/250x250_80_a2/custom-thumb','∏a∏').replace('_custom1200','∏b∏')
-                                            .replace('/c/250x250_80_a2/img-master','∏a∏').replace('_square1200','∏b∏')
-                    let original_url = url.replace('∏a∏','/img-original').replace('∏b∏','')
-                    let regular_url = url.replace('∏a∏','/img-master').replace('∏b∏','_master1200')
-                    try {
-                        // original may be a .png file
-                        // send head reqeust to check.
-                        if(process.env.dev){
-                            console.log('trying',original_url)
-                        }
-                        await axios.head(original_url,{
-                            headers: {
-                                'User-Agent': ua,
-                                'Referer': 'https://www.pixiv.net'
-                            }
-                        })
-                    } catch (error) {
-                        if(error.response.status == 404){
-                            original_url = original_url.replace('.jpg','.png')
-                        } else {
-                          console.warn(error)
-                        }
-                    }
-                    for (let i = 0; i < illust.pageCount; i++) {
-                        extra.imgs_.thumb_urls[i] = illust.url.replace('p0',`p${i}`)
-                        extra.imgs_.regular_urls[i] = regular_url.replace('p0',`p${i}`)
-                        extra.imgs_.original_urls[i] = original_url.replace('p0',`p${i}`)
-                        extra.imgs_.size[i] = {
-                            width: illust.width,
-                            height: illust.height
-                        }
-                    }
-                }else if(illust.illustType == 2){
+                if (illust.illustType <= 1) {
+                    extra.imgs_ = await thumb_to_all(illust)
+                } else if (illust.illustType == 2) {
                     extra.imgs_ = {
                         size: [{
                             width: illust.width,
@@ -160,17 +121,11 @@ async function get_user_illusts(id, page = 0, try_time = 0) {
                 } catch (error) {
                     console.warn(error)
                 }
-                
                 illusts[id] = {
-                    id: illust.id,
-                    title: illust.title,
-                    type: typeof illust.type == 'undefined' ? illust.illustType : illust.type,
-                    author_name: illust.userName,
-                    author_id: illust.userId,
-                    nsfw: illust.xRestrict > 0,
-                    tags: illust.tags,
+                    ...illust,
                     ...illust.imgs_
                 }
+                delete illusts[id].imgs_
             })
             return illusts
         }

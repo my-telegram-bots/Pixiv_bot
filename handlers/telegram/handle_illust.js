@@ -1,10 +1,8 @@
 
 const { k_os } = require('../telegram/keyboard')
-const { asyncForEach } = require('../common')
+const { asyncForEach, ugoira_to_mp4 } = require('../common')
 const get_illust = require('../pixiv/illust')
-const r_p = require('../pixiv/r_p')
 const { format } = require('./format')
-const ugoira_to_mp4 = require('../pixiv/ugoira_to_mp4')
 
 async function handle_illusts(ids, flag){
     if(!ids instanceof Array){

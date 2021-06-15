@@ -7,13 +7,12 @@
  */
 const r_p = require('./r_p')
 const db = require('../../db')
+const { honsole } = require('../common')
 
 async function get_novel(id) {
     if (id.toString().length < 6 || id.toString().length > 8)
         return false
-    if (process.env.dev) {
-        console.log('n', id)
-    }
+    honsole.log('n', id)
     let col = db.collection.novel
     let novel = await col.findOne({
         id: id.toString()
@@ -44,9 +43,7 @@ async function get_novel(id) {
             return 404
         }
     }
-    if (process.env.dev) {
-        console.log('novel', novel)
-    }
+    honsole.log('novel', novel)
     return novel
 }
 module.exports = get_novel
