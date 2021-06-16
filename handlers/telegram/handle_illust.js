@@ -58,8 +58,7 @@ async function handle_illust(id, flag) {
             td.inline[pid] = {
                 type: 'photo',
                 id: 'p_' + illust.id + '-' + pid,
-                // 图片 size 太大基本发不出去了 用小图凑合
-                photo_url: (size.width > 2000 || size.height > 2000) ? td.regular_urls[pid] : td.original_urls[pid],
+                photo_url: td.regular_urls[pid],
                 thumb_url: td.thumb_urls[pid],
                 caption: format(td, flag, 'inline', pid, flag.setting.format.inline),
                 parse_mode: 'MarkdownV2',

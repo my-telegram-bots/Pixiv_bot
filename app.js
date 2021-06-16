@@ -292,7 +292,7 @@ bot.on('text', async (ctx) => {
             } else {
                 if (d.type <= 1) timer_type[0] = 'photo'
                 if (d.type == 2) timer_type[1] = 'video'
-                if (ctx.flag.album && (mg.length > 1 || (mg.length == 1 && illusts.length > 1))) {
+                if (ctx.flag.album) {
                     ctx.temp_data.mg = [...ctx.temp_data.mg, ...mg]
                 } else {
                     let extra = {
@@ -310,8 +310,8 @@ bot.on('text', async (ctx) => {
                             } else {
                                 await ctx.replyWithPhoto(mg[0].media_o, extra).catch(async e => {
                                     if (await catchily(e, ctx)) {
-                                        await ctx.replyWithPhoto(await download_file(mg[0].media_o), extra).catch(async e => {
-                                            await ctx.replyWithPhoto(mg[0].media_r, extra).catch(async e => {
+                                        await ctx.replyWithPhoto(mg[0].media_r, extra).catch(async e => {
+                                            await ctx.replyWithPhoto(await download_file(mg[0].media_o), extra).catch(async e => {
                                                 await ctx.replyWithPhoto(await download_file(mg[0].media_r), extra).catch(async e => {
                                                     if (await catchily(e, ctx)) {
                                                         ctx.reply(_l(ctx.l, 'error'), default_extra)
@@ -380,8 +380,8 @@ bot.on('text', async (ctx) => {
                 await asyncForEach(ctx.temp_data.mg, async (mg) => {
                     await ctx.replyWithMediaGroup(await mg_filter([...mg])).catch(async e => {
                         if (catchily(e, ctx)) {
-                            await ctx.replyWithMediaGroup(await mg_filter([...mg], 'dlo')).catch(async () => {
-                                await ctx.replyWithMediaGroup(await mg_filter([...mg], 'r')).catch(async () => {
+                            await ctx.replyWithMediaGroup(await mg_filter([...mg], 'r')).catch(async () => {
+                                await ctx.replyWithMediaGroup(await mg_filter([...mg], 'dlo')).catch(async () => {
                                     await ctx.replyWithMediaGroup(await mg_filter([...mg], 'dlr')).catch(async e => {
                                         await catchily(e, ctx)
                                         await ctx.reply(_l(ctx.l, 'error'))

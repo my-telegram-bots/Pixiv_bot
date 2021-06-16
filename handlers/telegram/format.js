@@ -128,5 +128,6 @@ function format_group(td, flag, mode = 'message', p, custom_template = false) {
 }
 module.exports = {
     format,
+    escape_strings,
     format_group
 }

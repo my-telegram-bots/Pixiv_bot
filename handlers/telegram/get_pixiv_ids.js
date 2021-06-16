@@ -10,7 +10,7 @@ function get_pixiv_ids(text) {
         author: [],
         novel: []
     }
-    text.replaceAll('-_-', ' ').replaceAll('www.', '').replaceAll('http://', 'https://').replaceAll('https://', '\nhttps://').replaceAll('  ', ' ').replaceAll(' ', '\n').replaceAll('/en', '/').replaceAll('+', ' ').replaceAll('-', ' ').split('\n').forEach(u => {
+    text.replaceAll('-_-', ' ').replaceAll('www.', '').replaceAll('http://', 'https://').replaceAll('https://', '\nhttps://').replaceAll('  ', ' ').replaceAll('+', ' ').replaceAll('-', ' ').replaceAll(' ', '\n').replaceAll('/en', '/').split('\n').forEach(u => {
         try {
             if (!u || u.length < 6) {
                 return []
