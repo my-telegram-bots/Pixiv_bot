@@ -7,7 +7,7 @@ const { Markup } = require("telegraf");
  */
 function k_os(id, flag = false) {
     let inline_keyboard = [[]]
-    if(flag.open){
+    if (flag.open) {
         inline_keyboard[0].push(Markup.button.url('open', 'https://www.pixiv.net/artworks/' + id))
     }
     if (flag.share) {

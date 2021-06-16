@@ -17,19 +17,19 @@ async function asyncForEach(array, callback) {
  * honsole => huggy console
  * record error and report
  */
- const honsole = {
-    dev: function(...args){
-        if(process.env.dev){
+const honsole = {
+    dev: function (...args) {
+        if (process.env.dev) {
             console.log(...args)
         }
     },
-    log: function(...args){
+    log: function (...args) {
         console.log(...args)
     },
-    error: function(...args){
+    error: function (...args) {
         console.error(...args)
     },
-    warn: function(...args){
+    warn: function (...args) {
         console.warn(...args)
     }
 }
@@ -42,10 +42,10 @@ async function asyncForEach(array, callback) {
  */
 let dw_queue_list = []
 function download_file(url, id, force = false, try_time = 0) {
-    if(url.includes(config.pixiv.ugoiraurl)){
+    if (url.includes(config.pixiv.ugoiraurl)) {
         return url + '?' + (+new Date())
     }
-    if (try_time > 5){
+    if (try_time > 5) {
         return false
     }
     url = url.replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
@@ -53,13 +53,13 @@ function download_file(url, id, force = false, try_time = 0) {
     if (url.includes('.zip')) {
         filename = id + '.zip'
     }
-    if(fs.existsSync(`./tmp/file/${filename}`) && !force){
+    if (fs.existsSync(`./tmp/file/${filename}`) && !force) {
         return `./tmp/file/${filename}`
     }
-    if(dw_queue_list.length > 4 || dw_queue_list.includes(url)){
+    if (dw_queue_list.length > 4 || dw_queue_list.includes(url)) {
         return new Promise(async (resolve, reject) => {
             await sleep(1000)
-            honsole.dev('downloading',id,url)
+            honsole.dev('downloading', id, url)
             resolve(await download_file(url, id, force, try_time))
         })
     }
@@ -77,7 +77,7 @@ function download_file(url, id, force = false, try_time = 0) {
             d.pipe(dwfile)
             dwfile.on('finish', function () {
                 dw_queue_list.splice(dw_queue_list.indexOf(id), 1)
-                fs.renameSync(`./tmp/file/temp_${filename}`,`./tmp/file/${filename}`)
+                fs.renameSync(`./tmp/file/temp_${filename}`, `./tmp/file/${filename}`)
                 resolve(`./tmp/file/${filename}`)
             })
         } catch (error) {
@@ -97,11 +97,11 @@ function sleep(ms) {
  * @param {*} e error
  * @param {*} ctx ctx
  */
- async function catchily(e,ctx) {
-    console.warn(e,JSON.stringify(e))
+async function catchily(e, ctx) {
+    console.warn(e, JSON.stringify(e))
     ctx.telegram.sendMessage(config.tg.master_id, 'error' + e)
-    if(e.response){
-        if(e.response.description.includes('MEDIA_CAPTION_TOO_LONG')){
+    if (e.response) {
+        if (e.response.description.includes('MEDIA_CAPTION_TOO_LONG')) {
             await ctx.reply(_l(ctx.l, 'error_text_too_long'))
             return false
         }

@@ -14,7 +14,7 @@ const {
     catchily,
     _l,
     k_os,
-    mg_create, mg_albumize,mg_filter,
+    mg_create, mg_albumize, mg_filter,
     mg2telegraph,
     honsole,
 } = require('./handlers')
@@ -42,21 +42,22 @@ bot.use(async (ctx, next) => {
     ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code
     try {
         let text = ''
-        if (ctx.message && ctx.message.text)
+        if (ctx.message && ctx.message.text) {
             text = ctx.message.text
-        if (ctx.inlineQuery && ctx.inlineQuery.query)
+        }
+        if (ctx.inlineQuery && ctx.inlineQuery.query) {
             text = ctx.inlineQuery.query
-        // remove command[@username] : /start@pixiv_bot -> /start
-        ctx.rtext = text.replaceAll('@' + ctx.botInfo.username, '')
+        }
+        // remove command[@username] : /start@Pixiv_bot -> /start
+        ctx.rtext = text.replace('@' + ctx.botInfo.username, '')
     } catch (error) {
         ctx.rtext = ''
     }
-    // db
-    ctx.db = {}
+
     ctx.flag = {
+        // I don't wanna save the 'string' data in default (maybe the format will be changed in the future)
+        // see telegram/fotmat.js to get real data
         setting: {
-            // I don't wanna save the 'string' data in default (maybe the format will be changed in the future)
-            // see telegram/fotmat.js to get real data
             format: {
                 message: false,
                 mediagroup_message: false,
@@ -68,7 +69,8 @@ bot.use(async (ctx, next) => {
                 album: true
             },
             dbless: true, // the user isn't in chat_setting
-        }
+        },
+        q_id: 0 // telegraph albumized value
     }
     ctx.temp_data = {
         mg: []
@@ -77,42 +79,41 @@ bot.use(async (ctx, next) => {
         let setting = await db.collection.chat_setting.findOne({
             id: ctx.from.id
         })
-        if(setting){
+        if (setting) {
             ctx.flag.setting = setting
             ctx.flag.setting.dbless = false
             delete ctx.flag.setting._id
             delete ctx.flag.setting.id
         }
     }
-    honsole.log('input ->', ctx.rtext,ctx.flag)
-    next()
-})
-bot.use(async (ctx, next) => {
+    honsole.dev('input ->', ctx.chat, ctx.rtext, ctx.flag)
+
     // default flag -> d_f
     let d_f = ctx.flag.setting.default ? ctx.flag.setting.default : {}
     ctx.flag = {
         ...ctx.flag,
+
         // caption start
         tags: (d_f.tags && !ctx.rtext.includes('-tag')) || ctx.rtext.includes('+tag'),
         open: (d_f.open && !ctx.rtext.includes('-open')) || ctx.rtext.includes('+open'),
         share: (d_f.share && !ctx.rtext.includes('-share')) || ctx.rtext.includes('+share'),
         remove_keyboard: (d_f.remove_keyboard && !ctx.rtext.includes('+kb')) || ctx.rtext.includes('-kb'),
         remove_caption: (d_f.remove_caption && !ctx.rtext.includes('+cp')) || ctx.rtext.includes('-cp'),
-        single_caption: !ctx.inlineQuery && (d_f.single_caption && !ctx.rtext.includes('-sc')) || ctx.rtext.includes('+sc'),
-
+        single_caption: (!ctx.inlineQuery && ((d_f.single_caption && !ctx.rtext.includes('-sc'))) || ctx.rtext.includes('+sc')),
         show_id: !ctx.rtext.includes('-id'),
         // caption end
+
         // send all illusts as mediagroup
         album: (d_f.album && !ctx.rtext.includes('-album')) || ctx.rtext.includes('+album'),
-        
-        // descending order
+
+        // descending order 
         desc: (d_f.desc && !ctx.rtext.includes('-desc')) || ctx.rtext.includes('+desc'),
 
         // send as telegraph
         telegraph: ctx.rtext.includes('+graph') || ctx.rtext.includes('+telegraph'),
         // send as file
         asfile: ctx.rtext.includes('+file'),
-        q_id: 0 // telegraph albumized value
+
     }
     if (ctx.flag.telegraph) {
         ctx.flag.album = true
@@ -144,19 +145,19 @@ bot.use(async (ctx, next) => {
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = true
         ctx.rtext = ctx.rtext.replaceAll('-rm', '')
     }
-    if(ctx.flag.remove_keyboard){
+    if (ctx.flag.remove_keyboard) {
         ctx.flag.open = ctx.flag.share = false
     }
     // only support user
-    if(otext== '/s'){
+    if (otext == '/s') {
         // lazy....
-            ctx.flag.setting = {
-                format: {
-                    message: ctx.flag.setting.format.message ? ctx.flag.setting.format.message : '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%',
-                    mediagroup_message: ctx.flag.setting.format.mediagroup_message ? ctx.flag.setting.format.mediagroup_message : '%[%mid% %title%% |p%%](%url%)%\n|tags%',
-                    inline: ctx.flag.setting.format.inline ? ctx.flag.setting.format.inline : '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%'
-                },
-                default: ctx.flag.setting.default
+        ctx.flag.setting = {
+            format: {
+                message: ctx.flag.setting.format.message ? ctx.flag.setting.format.message : '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%',
+                mediagroup_message: ctx.flag.setting.format.mediagroup_message ? ctx.flag.setting.format.mediagroup_message : '%[%mid% %title%% |p%%](%url%)%\n|tags%',
+                inline: ctx.flag.setting.format.inline ? ctx.flag.setting.format.inline : '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%'
+            },
+            default: ctx.flag.setting.default
         }
         // alert who open old config (based on configuration generate time)
         ctx.flag.setting.time = +new Date()
@@ -168,28 +169,28 @@ bot.use(async (ctx, next) => {
         })
         return
     }
-    if((otext.substr(0,3) == '/s ' || ctx.rtext.substr(0, 3) == 'eyJ') && ctx.chat.id > 0){
-        if(otext == '/s reset'){
+    if ((otext.substr(0, 3) == '/s ' || ctx.rtext.substr(0, 3) == 'eyJ') && ctx.chat.id > 0) {
+        if (otext == '/s reset') {
             await ctx.reply(_l(ctx.l, 'setting_reset'))
             await db.delete_setting(ctx.chat.id)
         }
         let new_setting = {}
-        if(otext.length > 2 && (otext.includes('+') || otext.includes('-'))){
+        if (otext.length > 2 && (otext.includes('+') || otext.includes('-'))) {
             new_setting = {
                 default: ctx.flag
             }
-        }else if(ctx.rtext.substr(0, 3) == 'eyJ'){
+        } else if (ctx.rtext.substr(0, 3) == 'eyJ') {
             try {
                 new_setting = JSON.parse(Buffer.from(ctx.rtext, 'base64').toString('utf8'))
             } catch (error) {
                 // message type is doesn't base64
                 await ctx.reply(_l(ctx.l, 'error'))
-                console.warn(ctx,rtext,error)
+                honsole.warn(ctx.rtext, error)
             }
         }
-        if(JSON.stringify(new_setting).length > 2){
-            if(await db.update_setting(new_setting, ctx.from.id, ctx.flag)){
-                await ctx.reply(_l(ctx.l, 'setting_saved'),{
+        if (JSON.stringify(new_setting).length > 2) {
+            if (await db.update_setting(new_setting, ctx.from.id, ctx.flag)) {
+                await ctx.reply(_l(ctx.l, 'setting_saved'), {
                     reply_to_message_id: ctx.message.message_id,
                     allow_sending_without_reply: true
                 })
@@ -212,25 +213,25 @@ bot.start(async (ctx, next) => {
         await ctx.reply(_l(ctx.l, 'start', ctx.message.message_id))
     }
 })
-bot.help(async (ctx, next) => {
+bot.help(async (ctx) => {
     await ctx.reply('https://pixiv-bot.pages.dev')
 })
-bot.on('text', async (ctx, next) => {
+bot.on('text', async (ctx) => {
     let timer_type = []
     let f_timer = () => {
-        timer_type = timer_type.filter((v,i,s)=>{
+        timer_type = timer_type.filter((v, i, s) => {
             return s.indexOf(v) == i
         })
-        if(timer_type.includes('video')){
+        if (timer_type.includes('video')) {
             ctx.replyWithChatAction('upload_video')
         }
-        if(timer_type.includes('photo')){
+        if (timer_type.includes('photo')) {
             ctx.replyWithChatAction('upload_photo')
         }
-        if(timer_type.includes('document')){
+        if (timer_type.includes('document')) {
             ctx.replyWithChatAction('upload_document')
         }
-        if(timer_type.includes('typing')){
+        if (timer_type.includes('typing')) {
             ctx.replyWithChatAction('typing')
         }
     }
@@ -245,29 +246,29 @@ bot.on('text', async (ctx, next) => {
     }
     let ids = false
     let illusts = []
-    if(a = get_pixiv_ids(ctx.rtext, 'user')){
+    if (a = get_pixiv_ids(ctx.rtext, 'user')) {
         timer_type[3] = 'typing'
-        if(a.length > 0 && ctx.from.id == config.tg.master_id){
-            await asyncForEach(a,async id=>{
+        if (a.length > 0 && ctx.from.id == config.tg.master_id) {
+            await asyncForEach(a, async id => {
                 illusts = await get_user_illusts(id)
             })
         }
         timer_type[3] = ''
     }
     if (b = get_pixiv_ids(ctx.rtext)) {
-        if(b.length > 0){
-            illusts = [...illusts,...b]
+        if (b.length > 0) {
+            illusts = [...illusts, ...b]
         }
     }
-    if(ctx.flag.desc){
+    if (ctx.flag.desc) {
         illusts = illusts.reverse()
     }
-    if(illusts.length > 0){
+    if (illusts.length > 0) {
         await asyncForEach(illusts, async id => {
             let d = await handle_illust(id, ctx.flag)
             if (d == 404) {
-                if (ctx.chat.id > 0){
-                    await ctx.reply(_l(ctx.l, 'illust_404'),{...default_extra,parse_mode: 'Markdown'})
+                if (ctx.chat.id > 0) {
+                    await ctx.reply(_l(ctx.l, 'illust_404'), { ...default_extra, parse_mode: 'Markdown' })
                     return
                 }
             }
@@ -276,23 +277,23 @@ bot.on('text', async (ctx, next) => {
             // send as file
             if (ctx.flag.asfile) {
                 timer_type[2] = 'document'
-                await asyncForEach(mg,async (o)=>{
+                await asyncForEach(mg, async (o) => {
                     let extra = {
                         ...default_extra,
-                        caption: o.caption.replace('%mid%','').trim()
+                        caption: o.caption.replace('%mid%', '').trim()
                     }
-                    if(mg.type == 'video'){
+                    if (mg.type == 'video') {
                         await ugoira_to_mp4(mg.id)
                     }
-                    await ctx.replyWithDocument(o.media_o,extra).catch(async e=>{
-                        if(catchily(e,ctx)){
-                            if(d.type <= 2){
-                                await ctx.replyWithDocument({source: await download_file(o.media_o,o.id)},{...extra,thumb:{source: await download_file(o.media_r ? o.media_r : o.media_o,o.id)}}).catch(e=>{
-                                    if(catchily(e,ctx)){
-                                        ctx.reply(_l(ctx.l, 'file_too_large',o.media_o.replace('i-cf.pximg.net',config.pixiv.pximgproxy)),default_extra)
+                    await ctx.replyWithDocument(o.media_o, extra).catch(async e => {
+                        if (catchily(e, ctx)) {
+                            if (d.type <= 2) {
+                                await ctx.replyWithDocument({ source: await download_file(o.media_o, o.id) }, { ...extra, thumb: { source: await download_file(o.media_r ? o.media_r : o.media_o, o.id) } }).catch(e => {
+                                    if (catchily(e, ctx)) {
+                                        ctx.reply(_l(ctx.l, 'file_too_large', o.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)), default_extra)
                                     }
                                 })
-                            }else{
+                            } else {
                                 ctx.reply(_l(ctx.l, 'error'), default_extra)
                             }
                         }
@@ -300,31 +301,31 @@ bot.on('text', async (ctx, next) => {
                 })
                 timer_type[2] = ''
             } else {
-                if(d.type <= 1) timer_type[0] = 'photo'
-                if(d.type == 2) timer_type[1] = 'video'
+                if (d.type <= 1) timer_type[0] = 'photo'
+                if (d.type == 2) timer_type[1] = 'video'
                 if (ctx.flag.album && (mg.length > 1 || (mg.length == 1 && illusts.length > 1))) {
                     ctx.temp_data.mg = [...ctx.temp_data.mg, ...mg]
                 } else {
                     let extra = {
                         ...default_extra,
-                        caption: mg[0].caption.replaceAll('%mid%','').trim(),
+                        caption: mg[0].caption.replaceAll('%mid%', '').trim(),
                         ...k_os(d.id, ctx.flag)
                     }
                     if (d.type <= 1) {
                         if (mg.length == 1) {
                             // mediagroup doesn't support inline keyboard.
-                            if(mg.media_t){
-                                await ctx.replyWithPhoto(mg[0].media_t,extra).catch(async e=>{
-                                    await catchily(e,ctx)
+                            if (mg.media_t) {
+                                await ctx.replyWithPhoto(mg[0].media_t, extra).catch(async e => {
+                                    await catchily(e, ctx)
                                 })
                             } else {
-                                await ctx.replyWithPhoto(mg[0].media_o,extra).catch(async e=>{
-                                    if(await catchily(e,ctx)){
-                                        await ctx.replyWithPhoto(await download_file(mg[0].media_o),extra).catch(async e=>{
-                                            await ctx.replyWithPhoto(mg[0].media_r,extra).catch(async e=>{
-                                                await ctx.replyWithPhoto(await download_file(mg[0].media_r),extra).catch(async e=>{
-                                                    if(await catchily(e,ctx)){
-                                                        ctx.reply(_l(ctx.l, 'error'),default_extra)
+                                await ctx.replyWithPhoto(mg[0].media_o, extra).catch(async e => {
+                                    if (await catchily(e, ctx)) {
+                                        await ctx.replyWithPhoto(await download_file(mg[0].media_o), extra).catch(async e => {
+                                            await ctx.replyWithPhoto(mg[0].media_r, extra).catch(async e => {
+                                                await ctx.replyWithPhoto(await download_file(mg[0].media_r), extra).catch(async e => {
+                                                    if (await catchily(e, ctx)) {
+                                                        ctx.reply(_l(ctx.l, 'error'), default_extra)
                                                     }
                                                 })
                                             })
@@ -343,7 +344,7 @@ bot.on('text', async (ctx, next) => {
                                 source: `./tmp/mp4_1/${d.id}.mp4`
                             }
                         }
-                        await ctx.replyWithAnimation(media,extra).then(async data=>{
+                        await ctx.replyWithAnimation(media, extra).then(async data => {
                             // save ugoira file_id and next time bot can reply without send file
                             if (!d.tg_file_id && data.document) {
                                 let col = db.collection.illust
@@ -356,20 +357,21 @@ bot.on('text', async (ctx, next) => {
                                 })
                             }
                         }).catch(e => {
-                            if(catchily(e,ctx)){
-                                ctx.reply(_l(ctx.l, 'error'),default_extra)
+                            if (catchily(e, ctx)) {
+                                ctx.reply(_l(ctx.l, 'error'), default_extra)
                             }
                         })
                     }
                 }
             }
         })
-        if(ctx.temp_data.mg.length == 0){
+        if (ctx.temp_data.mg.length == 0) {
             return
         }
-        if(ctx.flag.asfile){
+        // eslint-disable-next-line no-empty
+        if (ctx.flag.asfile) {
 
-        }else if (ctx.flag.telegraph) {
+        } else if (ctx.flag.telegraph) {
             try {
                 let res_data = await mg2telegraph(ctx.temp_data.mg)
                 if (res_data) {
@@ -386,13 +388,13 @@ bot.on('text', async (ctx, next) => {
                 ctx.temp_data.mg = mg_albumize(ctx.temp_data.mg, ctx.flag.single_caption)
             }
             if (ctx.temp_data.mg.length > 0) {
-                await asyncForEach(ctx.temp_data.mg, async (mg, id) => {
+                await asyncForEach(ctx.temp_data.mg, async (mg) => {
                     await ctx.replyWithMediaGroup(await mg_filter([...mg])).catch(async e => {
-                        if(catchily(e,ctx)){
-                            await ctx.replyWithMediaGroup(await mg_filter([...mg],'dlo')).catch(async e => {
-                                await ctx.replyWithMediaGroup(await mg_filter([...mg],'r')).catch(async e => {
-                                    await ctx.replyWithMediaGroup(await mg_filter([...mg],'dlr')).catch(async e => {
-                                        await catchily(e,ctx)
+                        if (catchily(e, ctx)) {
+                            await ctx.replyWithMediaGroup(await mg_filter([...mg], 'dlo')).catch(async () => {
+                                await ctx.replyWithMediaGroup(await mg_filter([...mg], 'r')).catch(async () => {
+                                    await ctx.replyWithMediaGroup(await mg_filter([...mg], 'dlr')).catch(async e => {
+                                        await catchily(e, ctx)
                                         await ctx.reply(_l(ctx.l, 'error'))
                                     })
                                 })
@@ -444,7 +446,7 @@ bot.on('inline_query', async (ctx) => {
                     switch_pm_text: _l(ctx.l, 'pm_to_generate_ugoira'),
                     switch_pm_parameter: ids.join('-_-').toString(), // ref to handlers/telegram/get_pixiv_ids.js#L12
                     cache_time: 0
-                }).catch(async e=>{
+                }).catch(async e => {
                     await catchily(e)
                 })
                 return true
@@ -457,18 +459,18 @@ bot.on('inline_query', async (ctx) => {
     } else if (query.replace(/ /g, '') == '') {
         let data = await handle_ranking([offset], ctx.flag)
         res = data.data
-        if (data.next_offset){
+        if (data.next_offset) {
             res_options.next_offset = data.next_offset
         }
     }
-    await ctx.answerInlineQuery(res, res_options).catch(async e=>{
+    await ctx.answerInlineQuery(res, res_options).catch(async e => {
         await catchily(e)
     })
 })
 bot.catch(async (e, ctx) => {
-    catchily(e,ctx)
+    catchily(e, ctx)
 })
-db.db_initial().then(async ()=>{
+db.db_initial().then(async () => {
     if (!process.env.DEPENDIONLESS && !process.env.dev) {
         try {
             await exec('which ffmpeg')
@@ -483,13 +485,13 @@ db.db_initial().then(async ()=>{
     }
     await bot.launch().then(async () => {
         console.log(new Date(), 'started!')
-        bot.telegram.sendMessage(config.tg.master_id,`${new Date().toString()} started!`)
-    }).catch((e)=>{
+        bot.telegram.sendMessage(config.tg.master_id, `${new Date().toString()} started!`)
+    }).catch((e) => {
         console.error('You are offline or bad bot token', e)
         process.exit()
     })
 }).catch(e => {
-    console.error('database error',e)
+    console.error('database error', e)
     console.log('bye')
     process.exit()
 })

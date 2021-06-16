@@ -4,12 +4,12 @@ const { asyncForEach, ugoira_to_mp4 } = require('../common')
 const get_illust = require('../pixiv/illust')
 const { format } = require('./format')
 
-async function handle_illusts(ids, flag){
-    if(!ids instanceof Array){
+async function handle_illusts(ids, flag) {
+    if (!ids instanceof Array) {
         ids = [ids]
     }
-    await asyncForEach(ids, async (d,id)=>{
-        ids[id] = await handle_illust(d,flag)
+    await asyncForEach(ids, async (d, id) => {
+        ids[id] = await handle_illust(d, flag)
     })
     return ids
 }
@@ -21,10 +21,10 @@ async function handle_illusts(ids, flag){
  */
 async function handle_illust(id, flag) {
     let illust = id
-    if(typeof id == 'object'){
-        if(id.imgs_ && !id.original_urls){
+    if (typeof id == 'object') {
+        if (id.imgs_ && !id.original_urls) {
             illust = await get_illust(id)
-        }else{
+        } else {
             return id
         }
     } else {
@@ -44,12 +44,12 @@ async function handle_illust(id, flag) {
         nsfw: illust.xRestrict > 0,
         tg_file_id: illust.tg_file_id
     }
-    if(illust.tags){
-        if(illust.tags.tags){
+    if (illust.tags) {
+        if (illust.tags.tags) {
             illust.tags.tags.forEach(tag => {
                 td.tags.push(tag.tag)
             })
-        }else{
+        } else {
             td.tags = illust.tags
         }
     }

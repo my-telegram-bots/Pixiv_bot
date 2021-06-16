@@ -1,10 +1,10 @@
 const { format } = require("./format")
 const { asyncForEach, download_file, honsole, ugoira_to_mp4 } = require("../common")
 const { ugoiraurl } = require('../../config.json').pixiv
-function mg_create(td, flag,url = false) {
+function mg_create(td, flag, url = false) {
     let mediagroups = []
     if (td) {
-        if(td.type == 2){
+        if (td.type == 2) {
             ugoira_to_mp4(td.id)
         }
         td.size.forEach((size, pid) => {
@@ -19,10 +19,10 @@ function mg_create(td, flag,url = false) {
             if (flag.telegraph) {
                 mediagroup_data.q_id = flag.q_id
             }
-            if(flag.single_caption){
+            if (flag.single_caption) {
                 mediagroup_data.scaption = format(td, flag, 'message', -1)
             }
-            if(td.tg_file_id){
+            if (td.tg_file_id) {
                 if (typeof td.tg_file_id == 'string') {
                     mediagroup_data.media_t = td.tg_file_id
                 } else {
@@ -36,7 +36,7 @@ function mg_create(td, flag,url = false) {
                 mediagroup_data = {
                     ...mediagroup_data,
                     type: 'video',
-                    media:  {
+                    media: {
                         url: ugoiraurl + td.id + '.mp4'
                     },
                     media_o: ugoiraurl + td.id + '.mp4'
@@ -45,7 +45,7 @@ function mg_create(td, flag,url = false) {
             mediagroups.push(mediagroup_data)
         })
     }
-    honsole.log('mg_create',mediagroups)
+    honsole.log('mg_create', mediagroups)
     return mediagroups
 }
 function mg_albumize(mg, single_caption = false) {
@@ -54,7 +54,7 @@ function mg_albumize(mg, single_caption = false) {
     mg.forEach((m, mid) => {
         let gid = Math.floor(mid / 10)
         let id = mid % 10
-        if (!t[gid]){
+        if (!t[gid]) {
             t[gid] = []
         }
         m.caption = m.caption.replaceAll('%mid%', mid % 10 + 1)
@@ -63,8 +63,8 @@ function mg_albumize(mg, single_caption = false) {
             ...m,
             caption: m.caption
         }
-        if (single_caption && m.id){
-            if (id == 0){
+        if (single_caption && m.id) {
+            if (id == 0) {
                 t[gid][0].sc = []
                 t[gid][id].caption = ''
             } else {
@@ -78,30 +78,30 @@ function mg_albumize(mg, single_caption = false) {
             })
         }
     })
-    if(single_caption){
-        t.map((m,gid)=>{
+    if (single_caption) {
+        t.map((m, gid) => {
             let caption = []
-            let temp = m[0].sc.filter(x=>{
+            let temp = m[0].sc.filter(x => {
                 caption.push(x.caption)
                 return m[0].sc[0].id == x.id
             })
-            if(temp.length == m[0].sc.length){
-                t[gid][0].caption = t[gid][0].sc[0].scaption.replace('%mid%','')
-            }else{
+            if (temp.length == m[0].sc.length) {
+                t[gid][0].caption = t[gid][0].sc[0].scaption.replace('%mid%', '')
+            } else {
                 t[gid][0].caption = caption.join('\n')
             }
             delete t[gid][0].sc
         })
     }
-    honsole.log('mg_create',t)
+    honsole.log('mg_create', t)
     return t
 }
-async function mg_filter(mg,type = 't'){
+async function mg_filter(mg, type = 't') {
     let t = []
-    await asyncForEach(mg,async x=>{
-        let xx = {...x}
-        if(!x.media)    xx.media = xx.media_t ? xx.media_t : xx.media_o
-        if(mg.type == 'video'){
+    await asyncForEach(mg, async x => {
+        let xx = { ...x }
+        if (!x.media) xx.media = xx.media_t ? xx.media_t : xx.media_o
+        if (mg.type == 'video') {
             // nothing download in ugoira
             xx.media = await ugoira_to_mp4(xx.id)
         } else {
@@ -109,9 +109,9 @@ async function mg_filter(mg,type = 't'){
                 xx.media = {
                     // dlo => download media_o file
                     // dlr => download media_r file
-                    source: await download_file(xx['media_' + type.replace('dl','')])
+                    source: await download_file(xx['media_' + type.replace('dl', '')])
                 }
-            } else if (type == 'r'){
+            } else if (type == 'r') {
                 xx.media = xx.media_r ? xx.media_r : xx.media_o
             }
         }

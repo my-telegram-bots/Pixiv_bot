@@ -2,18 +2,18 @@ const config = require('./config.json')
 const { MongoClient } = require("mongodb")
 let db = null
 let col = {
-    illust: ()=>{},
-    chat_setting: ()=>{},
-    novel: ()=>{},
-    ranking: ()=>{}
+    illust: () => { },
+    chat_setting: () => { },
+    novel: () => { },
+    ranking: () => { }
 }
-async function db_initial(){
+async function db_initial() {
     db = (await MongoClient.connect(config.mongodb.uri, { useUnifiedTopology: true })).db(config.mongodb.dbname)
     for (const key in col) {
         col[key] = db.collection(key)
     }
 }
-async function update_setting(value, chat_id, flag){
+async function update_setting(value, chat_id, flag) {
     try {
         let s = {
             format: {},
@@ -59,7 +59,7 @@ async function update_setting(value, chat_id, flag){
         return false
     }
 }
-async function delete_setting(chat_id){
+async function delete_setting(chat_id) {
     try {
         await col.chat_setting.deleteOne({
             id: chat_id

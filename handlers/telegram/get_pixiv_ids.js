@@ -2,7 +2,7 @@
  * get Pixiv illust_id / novel_id from user's input
  * @param {*} text text
  */
- function get_pixiv_ids(text, type = 'illust') {
+function get_pixiv_ids(text, type = 'illust') {
     if (!text)
         return false
     let ids = []

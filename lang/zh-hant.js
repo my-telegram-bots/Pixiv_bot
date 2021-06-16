@@ -13,8 +13,8 @@ module.exports = {
     setting_reset: "配置已重設。",
     setting_saved: "保存配置成功。",
     fanbox_not_support: "機器人不支持 fanbox 作品。",
-    error_text_too_long: "發送失敗，回復文本太長，請嘗試以下操作減少文本量\n"+
-        "1. 在 /s 中減少格式量（如果您自訂了的話）\n"+
+    error_text_too_long: "發送失敗，回復文本太長，請嘗試以下操作減少文本量\n" +
+        "1. 在 /s 中減少格式量（如果您自訂了的話）\n" +
         "2. -tags (不顯示 tags )\n" +
         "3. 減少一次發送的作品數量"
 }

@@ -12,7 +12,7 @@ let ugoira_queue_list = []
  * @param {number} pageCount 
  * @returns 
  */
-async function thumb_to_all(illust){
+async function thumb_to_all(illust) {
     let imgs_ = {
         thumb_urls: [],
         regular_urls: [],
@@ -20,37 +20,37 @@ async function thumb_to_all(illust){
         size: []
     }
     illust.url = illust.url.replace('i.pximg.net', 'i-cf.pximg.net')
-    let url = illust.url.replace('/c/250x250_80_a2/custom-thumb','∏a∏').replace('_custom1200','∏b∏')
-                        .replace('/c/250x250_80_a2/img-master','∏a∏').replace('_square1200','∏b∏')
-    let original_url = url.replace('∏a∏','/img-original').replace('∏b∏','')
-    let regular_url = url.replace('∏a∏','/img-master').replace('∏b∏','_master1200')
+    let url = illust.url.replace('/c/250x250_80_a2/custom-thumb', '∏a∏').replace('_custom1200', '∏b∏')
+        .replace('/c/250x250_80_a2/img-master', '∏a∏').replace('_square1200', '∏b∏')
+    let original_url = url.replace('∏a∏', '/img-original').replace('∏b∏', '')
+    let regular_url = url.replace('∏a∏', '/img-master').replace('∏b∏', '_master1200')
     try {
         // original may be a .png file
         // send head reqeust to check.
         honsole.log('trying', original_url)
-        await axios.head(original_url,{
+        await axios.head(original_url, {
             headers: {
                 'User-Agent': config.pixiv.ua,
                 'Referer': 'https://www.pixiv.net'
             }
         })
     } catch (error) {
-        if(error.response.status == 404){
-            original_url = original_url.replace('.jpg','.png')
+        if (error.response.status == 404) {
+            original_url = original_url.replace('.jpg', '.png')
         } else {
             console.warn(error)
         }
     }
     for (let i = 0; i < illust.pageCount; i++) {
-        imgs_.thumb_urls[i] = illust.url.replace('p0',`p${i}`)
-        imgs_.regular_urls[i] = regular_url.replace('p0',`p${i}`)
-        imgs_.original_urls[i] = original_url.replace('p0',`p${i}`)
+        imgs_.thumb_urls[i] = illust.url.replace('p0', `p${i}`)
+        imgs_.regular_urls[i] = regular_url.replace('p0', `p${i}`)
+        imgs_.original_urls[i] = original_url.replace('p0', `p${i}`)
         imgs_.size[i] = {
             width: illust.width,
             height: illust.height
         }
     }
-    return {...imgs_}
+    return { ...imgs_ }
 }
 /**
  * ugoira to mp4
@@ -95,7 +95,7 @@ async function ugoira_to_mp4(id, force = false) {
             }
         }
         if (fs.existsSync(`./tmp/ugoira/${id}`)) {
-            fs.rmdirSync(`./tmp/ugoira/${id}`,{
+            fs.rmdirSync(`./tmp/ugoira/${id}`, {
                 recursive: true
             })
         }

@@ -7,8 +7,8 @@ const { honsole } = require('../common')
  * @param {number} id illust_id
  * @param {object} flag configure
  */
-async function get_illust(id,mode = 'p') {
-    if(typeof id == 'object'){
+async function get_illust(id, mode = 'p') {
+    if (typeof id == 'object') {
         console.warn(id)
         return id
     }
@@ -21,7 +21,7 @@ async function get_illust(id,mode = 'p') {
         id: id.toString()
     })
     let update_p_flag = true
-    if(mode == 'local'){
+    if (mode == 'local') {
         return illust
     }
     if (!illust) {
