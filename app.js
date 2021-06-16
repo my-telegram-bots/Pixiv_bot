@@ -37,6 +37,22 @@ const throttler = telegrafThrottler({
 })
 const bot = new Telegraf(config.tg.token)
 bot.use(throttler)
+bot.start(async (ctx, next) => {
+    // startPayload = deeplink 
+    // see more https://core.telegram.org/bots#deep-linking
+    if (ctx.startPayload) {
+        // callback to bot.on function
+        await next()
+    } else {
+        // reply start help command
+        await ctx.reply(_l(ctx.l, 'start', ctx.message.message_id))
+    }
+})
+bot.help(async (ctx) => {
+    await ctx.reply('https://pixiv-bot.pages.dev')
+})
+
+
 bot.use(async (ctx, next) => {
     // simple i18n
     ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code
@@ -115,35 +131,22 @@ bot.use(async (ctx, next) => {
         asfile: ctx.rtext.includes('+file'),
 
     }
+
     if (ctx.flag.telegraph) {
         ctx.flag.album = true
         ctx.flag.tags = true
     }
+
     if (ctx.flag.single_caption) {
         ctx.flag.album = true
     }
     let otext = ctx.rtext
-    // replace text
-    ctx.rtext = ctx.rtext
-        .replaceAll('+tags', '').replaceAll('+tag', '').replaceAll('-tags', '').replaceAll('-tag', '')
-        .replaceAll('+telegraph', '').replaceAll('+graph', '')
-        .replaceAll('+album', '').replaceAll('-album', '')
-        .replaceAll('+open', '').replaceAll('-open', '')
-        .replaceAll('+share', '').replaceAll('-share', '')
-        .replaceAll('+caption', '').replaceAll('-caption', '').replaceAll('+cp', '').replaceAll('-cp', '')
-        .replaceAll('+keyboard', '').replaceAll('-keyboard', '').replaceAll('+kb', '').replaceAll('-kb', '')
-        .replaceAll('+desc', '').replaceAll('-desc', '')
-        .replaceAll('+sc', '').replaceAll('-sc', '')
-        .replaceAll('-id', '')
-        .replaceAll('+file', '')
 
     if (ctx.rtext.includes('+rm')) {
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = false
-        ctx.rtext = ctx.rtext.replaceAll('+rm', '')
     }
     if (ctx.rtext.includes('-rm')) {
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = true
-        ctx.rtext = ctx.rtext.replaceAll('-rm', '')
     }
     if (ctx.flag.remove_keyboard) {
         ctx.flag.open = ctx.flag.share = false
@@ -173,6 +176,7 @@ bot.use(async (ctx, next) => {
         if (otext == '/s reset') {
             await ctx.reply(_l(ctx.l, 'setting_reset'))
             await db.delete_setting(ctx.chat.id)
+            return
         }
         let new_setting = {}
         if (otext.length > 2 && (otext.includes('+') || otext.includes('-'))) {
@@ -202,20 +206,6 @@ bot.use(async (ctx, next) => {
     }
     await next()
 })
-bot.start(async (ctx, next) => {
-    // startPayload = deeplink 
-    // see more https://core.telegram.org/bots#deep-linking
-    if (ctx.startPayload) {
-        // callback to bot.on function
-        await next()
-    } else {
-        // reply start help command
-        await ctx.reply(_l(ctx.l, 'start', ctx.message.message_id))
-    }
-})
-bot.help(async (ctx) => {
-    await ctx.reply('https://pixiv-bot.pages.dev')
-})
 bot.on('text', async (ctx) => {
     let timer_type = []
     let f_timer = () => {
@@ -244,21 +234,20 @@ bot.on('text', async (ctx) => {
         reply_to_message_id: ctx.message.message_id,
         allow_sending_without_reply: true
     }
-    let ids = false
+    let ids = get_pixiv_ids(ctx.rtext)
     let illusts = []
-    if (a = get_pixiv_ids(ctx.rtext, 'user')) {
+
+    if (ids.author.length > 0) {
         timer_type[3] = 'typing'
-        if (a.length > 0 && ctx.from.id == config.tg.master_id) {
-            await asyncForEach(a, async id => {
+        if (ctx.from.id == config.tg.master_id) {
+            await asyncForEach(ids.author, async id => {
                 illusts = await get_user_illusts(id)
             })
         }
         timer_type[3] = ''
     }
-    if (b = get_pixiv_ids(ctx.rtext)) {
-        if (b.length > 0) {
-            illusts = [...illusts, ...b]
-        }
+    if (ids.illust.length > 0) {
+        illusts = [...illusts, ...ids.illust]
     }
     if (ctx.flag.desc) {
         illusts = illusts.reverse()
@@ -407,7 +396,7 @@ bot.on('text', async (ctx) => {
         }
         timer_type = []
     }
-    if (ids = get_pixiv_ids(ctx.rtext, 'novel')) {
+    if (ids.novel.length > 0) {
         try {
             await asyncForEach(ids, async id => {
                 let d = await handle_novel(id)
@@ -435,8 +424,9 @@ bot.on('inline_query', async (ctx) => {
         cache_time: 20, // maybe update format
         is_personal: ctx.flag.setting.dbless ? false : true // personal result
     }
-    if (ids = get_pixiv_ids(query)) {
-        await asyncForEach(ids.reverse(), async id => {
+    let ids = get_pixiv_ids(ctx.rtext)
+    if (ids.illust.length > 0) {
+        await asyncForEach([...ids.illust.reverse()], async id => {
             let d = await handle_illust(id, ctx.flag)
             // 动图目前还是要私聊机器人生成
             if (d.type == 2 && d.inline.length == 0) {
@@ -444,7 +434,7 @@ bot.on('inline_query', async (ctx) => {
                 ugoira_to_mp4(d.id)
                 await ctx.answerInlineQuery([], {
                     switch_pm_text: _l(ctx.l, 'pm_to_generate_ugoira'),
-                    switch_pm_parameter: ids.join('-_-').toString(), // ref to handlers/telegram/get_pixiv_ids.js#L12
+                    switch_pm_parameter: ids.illust.join('-_-').toString(), // ref to handlers/telegram/get_pixiv_ids.js#L12
                     cache_time: 0
                 }).catch(async e => {
                     await catchily(e)
