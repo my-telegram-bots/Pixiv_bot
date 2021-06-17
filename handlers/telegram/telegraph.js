@@ -1,6 +1,7 @@
 const fetch = require('node-fetch')
 const config = require('../../config.json')
-const { asyncForEach, ugoira_to_mp4 } = require('../common')
+const { asyncForEach } = require('../common')
+const { head_url, ugoira_to_mp4 } = require('../pixiv/tools')
 const br = { tag: 'br' }
 /**
  * mediagroup to telegraph
@@ -15,10 +16,19 @@ async function mg2telegraph(mg) {
     let t_data_id = 0
     try {
         await asyncForEach(mg, async d => {
-            if (d.type == 'video') {
-                d.media_o = await ugoira_to_mp4(d.id)
+            let url = ''
+            if (d.type == 'photo') {
+                let img_length = await head_url(d.media_o)
+                // 5242880 = 5MB
+                if (img_length > 5242880) {
+                    url = d.media_r
+                } else {
+                    url = d.media_o
+                }
+                url = url.replace('i-cf.pximg.net', config.pixiv.pximgproxy)
+            } else if (d.type == 'video') {
+                url = await ugoira_to_mp4(d.id)
             }
-            let url = d.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)
             // caption = '' = -> muilt images
             if (d.caption == '') {
                 t_data[t_data_id].content.push({
@@ -52,7 +62,7 @@ async function mg2telegraph(mg) {
                 return `${p.id}_${p.q_id}` == `${d.id}_${d.q_id}`
             })
             // content (Array of Node, up to 64 KB)
-            if (((JSON.stringify(t_data[t_data_id].content).length + same_illust.length * JSON.stringify(dd).length)) + (t_data[t_data_id].ids.join(' ').length + 25)  > 60000) {
+            if (((JSON.stringify(t_data[t_data_id].content).length + same_illust.length * JSON.stringify(dd).length)) + (t_data[t_data_id].ids.join(' ').length + 25) > 60000) {
                 t_data_id = t_data_id + 1
                 t_data[t_data_id] = {
                     content: [],

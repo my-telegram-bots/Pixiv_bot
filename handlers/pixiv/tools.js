@@ -3,7 +3,7 @@ const r_p = require('./r_p')
 const exec = require('util').promisify((require('child_process')).exec)
 const fs = require('fs')
 const config = require('../../config.json')
-const { download_file, sleep, honsole } = require('../common')
+const { download_file, sleep, honsole, asyncForEach } = require('../common')
 // ugoira queue
 let ugoira_queue_list = []
 /**
@@ -17,31 +17,22 @@ async function thumb_to_all(illust) {
         thumb_urls: [],
         regular_urls: [],
         original_urls: [],
-        size: []
+        size: [],
+        fsize: []
     }
     illust.url = illust.url.replace('i.pximg.net', 'i-cf.pximg.net')
     let url = illust.url.replace('/c/250x250_80_a2/custom-thumb', '∏a∏').replace('_custom1200', '∏b∏')
         .replace('/c/250x250_80_a2/img-master', '∏a∏').replace('_square1200', '∏b∏')
     let original_url = url.replace('∏a∏', '/img-original').replace('∏b∏', '')
     let regular_url = url.replace('∏a∏', '/img-master').replace('∏b∏', '_master1200')
-    try {
-        // original may be a .png file
-        // send head reqeust to check.
-        honsole.log('trying', original_url)
-        await axios.head(original_url, {
-            headers: {
-                'User-Agent': config.pixiv.ua,
-                'Referer': 'https://www.pixiv.net'
-            }
-        })
-    } catch (error) {
-        if (error.response.status == 404) {
-            original_url = original_url.replace('.jpg', '.png')
-        } else {
-            console.warn(error)
-        }
+    let original_img_length = await head_url(original_url)
+    if (!original_img_length) {
+        original_url = original_url.replace('.jpg', '.png')
+        // maybe 404 again ? LOL
+        original_img_length = await head_url(original_url)
     }
-    for (let i = 0; i < illust.pageCount; i++) {
+    await asyncForEach(Array(illust.pageCount), async (_d, i) => {
+        console.log(i)
         imgs_.thumb_urls[i] = illust.url.replace('p0', `p${i}`)
         imgs_.regular_urls[i] = regular_url.replace('p0', `p${i}`)
         imgs_.original_urls[i] = original_url.replace('p0', `p${i}`)
@@ -49,9 +40,14 @@ async function thumb_to_all(illust) {
             width: illust.width,
             height: illust.height
         }
-    }
+        if (i > 0) {
+            original_img_length = await head_url(imgs_.original_urls[i])
+        }
+        imgs_.fsize[i] = original_img_length
+    })
     return { ...imgs_ }
 }
+
 /**
  * ugoira to mp4
  * @param {*} id illustId
@@ -117,7 +113,32 @@ async function ugoira_to_mp4(id, force = false) {
         return false
     }
 }
+async function head_url(url, try_time = 0) {
+    if (try_time > 2) {
+        honsole.error('cant connect', url)
+        return false
+    }
+    try {
+        // original may be a .png file
+        // send head reqeust to check.
+        honsole.log('trying', try_time, url)
+        let res = await axios.head(url, {
+            headers: {
+                'User-Agent': config.pixiv.ua,
+                'Referer': 'https://www.pixiv.net'
+            }
+        })
+        return parseInt(res.headers['content-length'])
+    } catch (error) {
+        if (error.response.status == 404) {
+            return false
+        } else {
+            return await head_url(url, try_time++)
+        }
+    }
+}
 module.exports = {
     thumb_to_all,
+    head_url,
     ugoira_to_mp4
 }

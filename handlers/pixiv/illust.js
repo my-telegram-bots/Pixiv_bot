@@ -9,7 +9,6 @@ const { honsole } = require('../common')
  */
 async function get_illust(id, mode = 'p') {
     if (typeof id == 'object') {
-        console.warn(id)
         return id
     }
     id = typeof id == 'number' ? id.toString() : id

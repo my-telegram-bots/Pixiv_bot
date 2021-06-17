@@ -1,6 +1,7 @@
 const { format } = require("./format")
-const { asyncForEach, download_file, honsole, ugoira_to_mp4 } = require("../common")
+const { asyncForEach, download_file, honsole } = require("../common")
 const { ugoiraurl } = require('../../config.json').pixiv
+const { ugoira_to_mp4 } = require("../pixiv/tools")
 function mg_create(td, flag, url = false) {
     let mediagroups = []
     if (td) {
@@ -45,7 +46,7 @@ function mg_create(td, flag, url = false) {
             mediagroups.push(mediagroup_data)
         })
     }
-    honsole.log('mg_create', mediagroups)
+    honsole.dev('mg_create', mediagroups)
     return mediagroups
 }
 function mg_albumize(mg, single_caption = false) {
@@ -93,7 +94,7 @@ function mg_albumize(mg, single_caption = false) {
             delete t[gid][0].sc
         })
     }
-    honsole.log('mg_create', t)
+    honsole.dev('mg_create', t)
     return t
 }
 async function mg_filter(mg, type = 't') {

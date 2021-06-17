@@ -236,7 +236,6 @@ bot.on('text', async (ctx) => {
     }
     let ids = get_pixiv_ids(ctx.rtext)
     let illusts = []
-
     if (ids.author.length > 0) {
         timer_type[3] = 'typing'
         if (ctx.from.id == config.tg.master_id) {
@@ -446,7 +445,7 @@ bot.on('inline_query', async (ctx) => {
         if (res.splice((offset + 1) * 20 - 1, 20))
             res_options.next_offset = offset + 1
         res = res.splice(offset * 20, 20)
-    } else if (query.replace(/ /g, '') == '') {
+    } else if (query.replaceAll(' ', '') == '') {
         let data = await handle_ranking([offset], ctx.flag)
         res = data.data
         if (data.next_offset) {
