@@ -16,19 +16,17 @@ async function mg2telegraph(mg) {
     let t_data_id = 0
     try {
         await asyncForEach(mg, async d => {
-            let url = ''
+            let url = d.media_o
             if (d.type == 'photo') {
-                let img_length = await head_url(d.media_o)
-                // 5242880 = 5MB
-                if (img_length > 5242880) {
+                // image too large and telegram will disable the instat view in telegraph
+                if (d.fsize > 3000000) {
+                    // 5242880 = 5MB
                     url = d.media_r
-                } else {
-                    url = d.media_o
                 }
-                url = url.replace('i-cf.pximg.net', config.pixiv.pximgproxy)
             } else if (d.type == 'video') {
                 url = await ugoira_to_mp4(d.id)
             }
+            url = url.replace('i-cf.pximg.net', config.pixiv.pximgproxy)
             // caption = '' = -> muilt images
             if (d.caption == '') {
                 t_data[t_data_id].content.push({
@@ -62,7 +60,7 @@ async function mg2telegraph(mg) {
                 return `${p.id}_${p.q_id}` == `${d.id}_${d.q_id}`
             })
             // content (Array of Node, up to 64 KB)
-            if (((JSON.stringify(t_data[t_data_id].content).length + same_illust.length * JSON.stringify(dd).length)) + (t_data[t_data_id].ids.join(' ').length + 25) > 60000) {
+            if (JSON.stringify(dd).length + JSON.stringify(dd).length * same_illust.length + JSON.stringify(t_data[t_data_id].content).length + t_data[t_data_id].ids.join(' ').length * 30 > 63000) {
                 t_data_id = t_data_id + 1
                 t_data[t_data_id] = {
                     content: [],

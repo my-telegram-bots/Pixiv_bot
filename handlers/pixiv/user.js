@@ -1,7 +1,8 @@
 const r_p = require('./r_p')
 const { asyncForEach, sleep, honsole } = require('../common')
-const db = require('../../db')
-const { thumb_to_all, ugoira_to_mp4 } = require('./tools')
+let db = require('../../db')
+const { ugoira_to_mp4 } = require('./tools')
+const { update_illust } = require('./illust')
 /**
  * get user data
  * save illust data to MongoDB
@@ -60,55 +61,12 @@ async function get_user_illusts(author_id, page = 0, try_time = 0) {
             })
         }
         await asyncForEach(illusts, async (illust, id) => {
-            let extra = {}
             if (illust.type == 2) {
                 ugoira_to_mp4(illust.id)
             }
-            if (!illust.flag) {
-
+            if (illust.flag) {
+                illusts[id] = await update_illust(illust)
             }
-            extra.type = illust.illustType
-            extra.imgs_ = {
-                thumb_urls: [],
-                regular_urls: [],
-                original_urls: [],
-                size: [],
-                fszie: []
-            }
-            if (illust.illustType <= 1) {
-                extra.imgs_ = await thumb_to_all(illust) // only query original url
-            } else if (illust.illustType == 2) {
-                extra.imgs_ = {
-                    size: [{
-                        width: illust.width,
-                        height: illust.height
-                    }],
-                    fsize: [0]
-                }
-            }
-            illust = {
-                id: illust.id,
-                title: illust.title,
-                description: illust.description,
-                type: illust.illustType,
-                userName: illust.userName,
-                userId: illust.userId,
-                restrict: illust.restrict,
-                xRestrict: illust.xRestrict,
-                tags: illust.tags,
-                createDate: illust.createDate,
-                imgs_: extra.imgs_
-            }
-            try {
-                db.collection.illust.insertOne(illust)
-            } catch (error) {
-                console.warn(error)
-            }
-            illusts[id] = {
-                ...illust,
-                ...illust.imgs_
-            }
-            delete illusts[id].imgs_
         })
         return illusts
     } catch (e) {
@@ -144,7 +102,7 @@ async function get_user_illusts_id(author_id, page = 0, try_time = 0) {
                     illust_id_list_p.push([])
                 }
             } else {
-                illusts_id.push(id)
+                illusts_id.push(parseInt(id))
             }
         }
         if (page > 0) {

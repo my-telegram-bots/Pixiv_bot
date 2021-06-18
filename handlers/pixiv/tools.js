@@ -9,10 +9,21 @@ let ugoira_queue_list = []
 /**
  * thumb url to regular and original url
  * @param {string} thumb_url 
- * @param {number} pageCount 
+ * @param {number} page_count 
  * @returns 
  */
-async function thumb_to_all(illust) {
+async function thumb_to_all(illust, try_time = 0) {
+    if (try_time > 3) {
+        return false
+    }
+    if (illust.type == 2) {
+        return {
+            size: [{
+                width: illust.width ? illust.width : illust.imgs_.size[0].width,
+                height: illust.height ? illust.height : illust.imgs_.size[0].height
+            }]
+        }
+    }
     let imgs_ = {
         thumb_urls: [],
         regular_urls: [],
@@ -20,32 +31,70 @@ async function thumb_to_all(illust) {
         size: [],
         fsize: []
     }
-    illust.url = illust.url.replace('i.pximg.net', 'i-cf.pximg.net')
-    let url = illust.url.replace('/c/250x250_80_a2/custom-thumb', '∏a∏').replace('_custom1200', '∏b∏')
-        .replace('/c/250x250_80_a2/img-master', '∏a∏').replace('_square1200', '∏b∏')
-    let original_url = url.replace('∏a∏', '/img-original').replace('∏b∏', '')
-    let regular_url = url.replace('∏a∏', '/img-master').replace('∏b∏', '_master1200')
-    let original_img_length = await head_url(original_url)
-    if (!original_img_length) {
-        original_url = original_url.replace('.jpg', '.png')
-        // maybe 404 again ? LOL
-        original_img_length = await head_url(original_url)
+    let base_url = illust.url ? illust.url : ((illust.imgs_ && illust.imgs_.thumb_urls) ? illust.imgs_.thumb_urls[0] : illust.urls.thumb)
+    base_url = base_url
+        .replace('/c/250x250_80_a2/custom-thumb', '∏a∏')
+        .replace('/c/128x128/img-master', '∏a∏')
+        .replace('/c/128x128/custom-thumb', '∏a∏')
+        .replace('/c/250x250_80_a2/img-master', '∏a∏')
+        .replace('_square1200', '∏b∏').replace('_custom1200', '∏b∏')
+    let thumb_url = base_url.replace('∏a∏', '/c/250x250_80_a2/img-master').replace('∏b∏', '_square1200')
+    let original_url = base_url.replace('∏a∏', '/img-original').replace('∏b∏', '')
+    let regular_url = base_url.replace('∏a∏', '/img-master').replace('∏b∏', '_master1200')
+    if (process.argv[1].includes('update')) {
+        console.log(thumb_url)
+        console.log(original_url)
+        console.log(regular_url)
     }
-    await asyncForEach(Array(illust.pageCount), async (_d, i) => {
-        console.log(i)
-        imgs_.thumb_urls[i] = illust.url.replace('p0', `p${i}`)
-        imgs_.regular_urls[i] = regular_url.replace('p0', `p${i}`)
-        imgs_.original_urls[i] = original_url.replace('p0', `p${i}`)
-        imgs_.size[i] = {
-            width: illust.width,
-            height: illust.height
+    if (!original_url.includes('orig')) {
+        process.exit()
+    }
+    try {
+        let original_img_length = await head_url(original_url)
+        if (!original_img_length) {
+            original_url = original_url.replace('.jpg', '.png')
         }
-        if (i > 0) {
-            original_img_length = await head_url(imgs_.original_urls[i])
+        if ((illust.page_count && illust.page_count > 1) || (illust.pageCount && illust.pageCount > 1) || (illust.imgs_ && illust.imgs_.size && illust.imgs_.size.length > 1)) {
+            honsole.dev('query pages from pixiv', illust.id)
+            illust.page = (await r_p('illust/' + illust.id + '/pages')).data.body.map((x, p) => {
+                x.urls.thumb = thumb_url.replace(`p0`, `p${p}`)
+                delete x.urls.thumb_mini
+                return x
+            })
+        } else {
+            illust.page = [{
+                urls: {
+                    original: original_url.replace('i.pximg.net', 'i-cf.pximg.net'),
+                    regular: regular_url.replace('i.pximg.net', 'i-cf.pximg.net'),
+                    thumb: thumb_url.replace('i.pximg.net', 'i-cf.pximg.net'),
+                },
+                width: illust.width ? illust.width : illust.imgs_.size[0].width,
+                height: illust.height ? illust.height : illust.imgs_.size[0].height
+            }]
         }
-        imgs_.fsize[i] = original_img_length
-    })
-    return { ...imgs_ }
+        await asyncForEach(illust.page, async (l, i) => {
+            imgs_.thumb_urls[i] = l.urls.thumb.replace('i.pximg.net', 'i-cf.pximg.net')
+            imgs_.regular_urls[i] = l.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net')
+            imgs_.original_urls[i] = l.urls.original.replace('i.pximg.net', 'i-cf.pximg.net')
+            imgs_.size[i] = {
+                width: l.width,
+                height: l.height
+            }
+            if (!original_img_length || i > 0) {
+                original_img_length = await head_url(imgs_.original_urls[i])
+            }
+            imgs_.fsize[i] = original_img_length
+            console.log(imgs_)
+        })
+        return { ...imgs_ }
+    } catch (error) {
+        if (error.response.status == 404) {
+            return false
+        }
+        console.warn(error)
+        await sleep(500)
+        return await thumb_to_all(illust, try_time++)
+    }
 }
 
 /**
@@ -64,7 +113,7 @@ async function ugoira_to_mp4(id, force = false) {
     }
     ugoira_queue_list.push(id)
     try {
-        id = parseInt(id).toString()
+        id = parseInt(id)
         let ud = (await r_p(`/illust/${id}/ugoira_meta`)).data
         if (ud.error)
             return false

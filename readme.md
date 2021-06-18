@@ -21,6 +21,12 @@ Document: https://pixiv-bot.pages.dev
     pm2 start --name pixiv_bot app.js
     pm2 save
     sudo pm2 startup
+## upgrade
+version 2.0.2 edit the illust collection in local database, you need exec the following command.
+
+    node update update_db_2021_june
+
+
 ## config
 ### cookie
 To access R18(guro) contents and subscribe the author, You must fill the cookie field.  

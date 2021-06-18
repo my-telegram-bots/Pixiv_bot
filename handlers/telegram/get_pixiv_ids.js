@@ -31,7 +31,7 @@ function get_pixiv_ids(text) {
                 try {
                     let uu = new URL(u).searchParams
                     if (uu.get('illust_id')) {
-                        ids.illust.push(uu.get('illust_id'))
+                        ids.illust.push(parseInt(uu.get('illust_id')))
                     }
                 } catch (error) {
 
@@ -52,7 +52,7 @@ function get_pixiv_ids(text) {
                 // match text only have id (may resulted spam)
                 let t = u.replaceAll('https://', '').replace('pixiv.net', '').replace('artworks', '').replace('i', '').replaceAll('/', '').split('?')[0].split('#')[0]
                 if (!isNaN(t) && t && t.length == 8) {
-                    ids.illust.push(t)
+                    ids.illust.push(parseInt(t))
                 }
             }
             honsole.dev('url:', u, ids)

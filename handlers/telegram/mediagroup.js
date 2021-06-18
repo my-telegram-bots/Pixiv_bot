@@ -2,18 +2,18 @@ const { format } = require("./format")
 const { asyncForEach, download_file, honsole } = require("../common")
 const { ugoiraurl } = require('../../config.json').pixiv
 const { ugoira_to_mp4 } = require("../pixiv/tools")
-function mg_create(td, flag, url = false) {
+function mg_create(illust, flag, url = false) {
     let mediagroups = []
-    if (td) {
-        if (td.type == 2) {
-            ugoira_to_mp4(td.id)
+    if (illust) {
+        if (illust.type == 2) {
+            ugoira_to_mp4(illust.id)
         }
-        td.size.forEach((size, pid) => {
+        illust.imgs_.size.forEach((size, pid) => {
             let mediagroup_data = {
                 type: 'photo',
-                caption: format(td, flag, 'message', pid),
+                caption: format(illust, flag, 'message', pid),
                 parse_mode: 'MarkdownV2',
-                id: td.id,
+                id: illust.id,
                 p: pid
             }
             // mg2telegraph 还需要作品的 id
@@ -21,26 +21,27 @@ function mg_create(td, flag, url = false) {
                 mediagroup_data.q_id = flag.q_id
             }
             if (flag.single_caption) {
-                mediagroup_data.scaption = format(td, flag, 'message', -1)
+                mediagroup_data.scaption = format(illust, flag, 'message', -1)
             }
-            if (td.tg_file_id) {
-                if (typeof td.tg_file_id == 'string') {
-                    mediagroup_data.media_t = td.tg_file_id
+            if (illust.tg_file_id) {
+                if (typeof illust.tg_file_id == 'string') {
+                    mediagroup_data.media_t = illust.tg_file_id
                 } else {
-                    mediagroup_data.media_t = td.tg_file_id[pid]
+                    mediagroup_data.media_t = illust.tg_file_id[pid]
                 }
             }
-            if (td.type <= 1) {
-                mediagroup_data.media_o = td.original_urls[pid]
-                mediagroup_data.media_r = td.regular_urls[pid]
-            } else if (td.type == 2) {
+            if (illust.type <= 1) {
+                mediagroup_data.fsize = illust.imgs_.fsize[pid]
+                mediagroup_data.media_o = illust.imgs_.original_urls[pid]
+                mediagroup_data.media_r = illust.imgs_.regular_urls[pid]
+            } else if (illust.type == 2) {
                 mediagroup_data = {
                     ...mediagroup_data,
                     type: 'video',
                     media: {
-                        url: ugoiraurl + td.id + '.mp4'
+                        url: ugoiraurl + illust.id + '.mp4'
                     },
-                    media_o: ugoiraurl + td.id + '.mp4'
+                    media_o: ugoiraurl + illust.id + '.mp4'
                 }
             }
             mediagroups.push(mediagroup_data)
@@ -100,28 +101,39 @@ function mg_albumize(mg, single_caption = false) {
 async function mg_filter(mg, type = 't') {
     let t = []
     await asyncForEach(mg, async x => {
-        let xx = { ...x }
-        if (!x.media) xx.media = xx.media_t ? xx.media_t : xx.media_o
+        let xx = {
+            type: x.type
+        }
+        if (x.caption) {
+            xx.caption = x.caption
+        }
+        if (x.media) {
+            xx.media = x.media
+
+        } else {
+            xx.media = x.media_t ? x.media_t : x.media_o
+        }
         if (mg.type == 'video') {
             // nothing download in ugoira
-            xx.media = await ugoira_to_mp4(xx.id)
+            xx.media = await ugoira_to_mp4(x.id)
         } else {
-            if (type.includes('dl') && !xx.media_t) {
+            if (type.includes('o')) {
+                if (x.fsize > 4999999 && type == 'o') {
+                    type = 'r'
+                } else if (x.fsize > 9999999 && type == 'dlo') {
+                    type = 'dlr'
+                }
+            }
+            if (type.includes('dl') && !x.media_t) {
                 xx.media = {
                     // dlo => download media_o file
                     // dlr => download media_r file
-                    source: await download_file(xx['media_' + type.replace('dl', '')])
+                    source: await download_file(x['media_' + type.replace('dl', '')])
                 }
             } else if (type == 'r') {
-                xx.media = xx.media_r ? xx.media_r : xx.media_o
+                xx.media = x.media_r ? x.media_r : x.media_o
             }
         }
-        delete xx.sc
-        delete xx.media_o
-        delete xx.media_r
-        delete xx.media_t
-        delete xx.id
-        delete xx.p
         t.push(xx)
     })
     return t

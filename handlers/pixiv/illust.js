@@ -1,117 +1,136 @@
 const r_p = require('./r_p')
 const db = require('../../db')
 const { honsole } = require('../common')
+const { thumb_to_all } = require('./tools')
 /**
  * get illust data
  * save illust data to MongoDB
  * @param {number} id illust_id
  * @param {object} flag configure
  */
-async function get_illust(id, mode = 'p') {
+async function get_illust(id, mode = 'p', try_time = 0) {
+    if (try_time > 4) {
+        return false
+    }
     if (typeof id == 'object') {
         return id
     }
-    id = typeof id == 'number' ? id.toString() : id
-    if (id.length < 6 || id.length > 8)
+    id = typeof id == 'string' ? id : id.toString()
+    if (id.length < 6 || id.length > 8 || id == 'NaN') {
         return false
-    honsole.log('i', id)
-    let col = db.collection.illust
-    let illust = await col.findOne({
-        id: id.toString()
-    })
-    let update_p_flag = true
-    if (mode == 'local') {
-        return illust
     }
+    id = parseInt(id)
+    let illust = await db.collection.illust.findOne({
+        id: id
+    })
     if (!illust) {
         try {
             // data example https://paste.huggy.moe/mufupocomo.json
             illust = (await r_p.get('illust/' + id)).data
-            // 应该是没有检索到 直接返回 false 得了
+            honsole.log('fetch_raw_illust', illust)
+            // Work has been deleted or the ID does not exist.
             if (illust.error) {
                 return 404
             }
-            illust = illust.body
+            illust = await update_illust(illust.body)
+            return illust
         } catch (error) {
             // network or session
-            // to prevent cache attack the 404 illust will not in database.
-            console.warn(error)
+            // to prevent cache attack the 404 result will be not in database.
+            honsole.warn(error)
             return 404
         }
-        update_p_flag = false
-    }
-    if (illust.type == undefined) {
-        illust.type = illust.illustType
-    }
-    if (!illust.imgs_) {
-        let urls = {
-            thumb_urls: [],
-            regular_urls: [],
-            original_urls: [],
-            size: []
-        }
-        if (illust.pageCount == 1) {
-            urls = {
-                thumb_urls: [illust.urls.thumb.replace('i.pximg.net', 'i-cf.pximg.net')],
-                regular_urls: [illust.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net')],
-                original_urls: [illust.urls.original.replace('i.pximg.net', 'i-cf.pximg.net')],
-                size: [{
-                    width: illust.width,
-                    height: illust.height
-                }]
-            }
-        } else if (illust.pageCount > 1) {
-            // 多p处理
-            //     for (let i = 0; i < illust.pageCount; i++) {
-            //     // 通过观察url规律 图片链接只是 p0 -> p1 这样的
-            //     // 不过没有 weight 和 height 放弃了
-            //     illust.imgs_.thumb_urls.push(illust.urls.thumb.replace('p0', 'p' + i))
-            //     illust.imgs_.regular_urls.push(illust.urls.regular.replace('p0', 'p' + i))
-            //     illust.imgs_.original_urls.push(illust.urls.original.replace('p0', 'p' + i))
-            // }
-            try {
-                let pages = (await r_p('illust/' + id + '/pages')).data.body
-                // 应该不会有 error 就不做错误处理了
-                pages.forEach(p => {
-                    urls.thumb_urls.push(p.urls.thumb_mini.replace('i.pximg.net', 'i-cf.pximg.net'))
-                    urls.regular_urls.push(p.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net'))
-                    urls.original_urls.push(p.urls.original.replace('i.pximg.net', 'i-cf.pximg.net'))
-                    urls.size.push({
-                        width: p.width,
-                        height: p.height
-                    })
-                })
-            } catch (error) {
-                console.warn(error)
-            }
-        }
-        illust.imgs_ = urls
-    }
-    if (update_p_flag) {
-        col.updateOne({
-            id: illust.id.toString()
-        }, {
-            $set: {
-                imgs_: illust.imgs_
-            }
-        })
     } else {
-        col.insertOne({
-            id: illust.id,
-            title: illust.title,
-            description: illust.description,
-            type: illust.illustType,
-            userName: illust.userName,
-            userId: illust.userId,
-            restrict: illust.restrict,
-            xRestrict: illust.xRestrict,
-            tags: illust.tags,
-            storableTags: illust.storableTags,
-            createDate: illust.createDate,
-            imgs_: illust.imgs_
-        })
+        delete illust._id
     }
     honsole.log('illust', illust)
     return illust
 }
-module.exports = get_illust
+
+/**
+ * fetch image url and size and update in database
+ * @param {*} illust 
+ * @returns object
+ */
+async function update_illust(illust, update_flag = true) {
+    if (typeof illust != 'object') return false
+    let real_illust = {}
+    for (let key in illust) {
+        // string -> number
+        if (['id', 'illustId', 'userId', 'sl', 'illustType', 'illust_page_count', 'illust_id', 'illust_type', 'user_id'].includes(key) && typeof illust[key] == 'string') {
+            illust[key] = parseInt(illust[key])
+        }
+        // _ syntax
+        ['Id', 'Title', 'Type', 'Date', 'Restrict', 'Comment', 'Promotion', 'Data', 'Count', 'Original', 'Illust', 'Url', 'Name', 'userAccount', 'Name', 'ImageUrl'].forEach(k1 => {
+            if (key.includes(k1)) {
+                let k2 = key.replace(k1, `_${k1.toLowerCase()}`)
+                illust[k2] = illust[key]
+                delete illust[key]
+                key = k2
+            }
+        })
+        if (key.includes('illust_')) {
+            if (!illust[key.replace('illust_', '')]) {
+                illust[key.replace('illust_', '')] = illust[key]
+            }
+        }
+        if (key.includes('user_')) {
+            if (!illust[key.replace('user_', 'author_')]) {
+                illust[key.replace('user_', 'author_')] = illust[key]
+            }
+        }
+    }
+    if (illust.tags) {
+        if (illust.tags.tags) {
+            let tags = []
+            illust.tags.tags.forEach(tag => {
+                tags.push(tag.tag)
+            })
+            illust.tags = tags
+        }
+    }
+    if (new Date(illust.create_date)) {
+        illust.create_date = +new Date(illust.create_date) / 1000
+    }
+    if (illust.type == 2) {
+        illust.imgs_ = {
+            size: [{
+                width: illust.width ? illust.width : illust.imgs_.size[0].width,
+                height: illust.height ? illust.height : illust.imgs_.size[0].height
+            }]
+        }
+    } else if (!illust.imgs_ || !illust.imgs_.fsize || !illust.imgs_.fsize[0]) {
+        illust.imgs_ = await thumb_to_all(illust)
+        if (!illust.imgs_) {
+            console.warn(illust.id, 'deleted')
+            return
+        }
+    }
+    ['id', 'title', 'type', 'comment', 'description', 'author_id', 'author_name', 'imgs_', 'tags', 'sl', 'restrict', 'x_restrict', 'create_date', 'tg_file_id'].forEach(x => {
+        // I think pixiv isn't pass me a object function ?
+        if (illust[x] !== undefined) {
+            real_illust[x] = illust[x]
+        }
+    })
+    if (!update_flag) {
+        try {
+            await db.collection.illust.deleteOne({
+                id: illust.id
+            })
+            await db.collection.illust.deleteOne({
+                id: illust.id.toString()
+            })
+        } catch (error) {
+            console.warn(error)
+        }
+    }
+    await db.collection.illust.updateOne({
+        id: illust.id,
+    }, {
+        $set: real_illust
+    }, {
+        upsert: true
+    })
+    return real_illust
+}
+module.exports = { get_illust, update_illust }

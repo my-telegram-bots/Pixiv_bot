@@ -204,7 +204,7 @@ bot.use(async (ctx, next) => {
         }
         return
     }
-    await next()
+    next()
 })
 bot.on('text', async (ctx) => {
     let timer_type = []
@@ -246,14 +246,17 @@ bot.on('text', async (ctx) => {
         timer_type[3] = ''
     }
     if (ids.illust.length > 0) {
-        illusts = [...illusts, ...ids.illust]
+        await asyncForEach(ids.illust, async id => {
+            let d = await handle_illust(id, ctx.flag)
+            illusts.push(d)
+        })
     }
     if (ctx.flag.desc) {
         illusts = illusts.reverse()
     }
     if (illusts.length > 0) {
-        await asyncForEach(illusts, async id => {
-            let d = await handle_illust(id, ctx.flag)
+        await asyncForEach(illusts, async illust => {
+            let d = illust
             if (d == 404) {
                 if (ctx.chat.id > 0) {
                     await ctx.reply(_l(ctx.l, 'illust_404'), { ...default_extra, parse_mode: 'Markdown' })
@@ -291,7 +294,7 @@ bot.on('text', async (ctx) => {
             } else {
                 if (d.type <= 1) timer_type[0] = 'photo'
                 if (d.type == 2) timer_type[1] = 'video'
-                if (ctx.flag.album) {
+                if (ctx.flag.telegraph || (ctx.flag.album && (ids.illust.length > 1 || d.imgs_.size.length > 1))) {
                     ctx.temp_data.mg = [...ctx.temp_data.mg, ...mg]
                 } else {
                     let extra = {
@@ -307,19 +310,22 @@ bot.on('text', async (ctx) => {
                                     await catchily(e, ctx)
                                 })
                             } else {
-                                await ctx.replyWithPhoto(mg[0].media_o, extra).catch(async e => {
-                                    if (await catchily(e, ctx)) {
-                                        await ctx.replyWithPhoto(mg[0].media_r, extra).catch(async e => {
-                                            await ctx.replyWithPhoto(await download_file(mg[0].media_o), extra).catch(async e => {
-                                                await ctx.replyWithPhoto(await download_file(mg[0].media_r), extra).catch(async e => {
-                                                    if (await catchily(e, ctx)) {
-                                                        ctx.reply(_l(ctx.l, 'error'), default_extra)
-                                                    }
-                                                })
+                                if (mg.fsize < 6000000) {
+                                    await ctx.replyWithPhoto(mg[0].media_o, extra).catch(async e => {
+                                        if (await catchily(e, ctx)) {
+                                        }
+                                    })
+                                } else {
+                                    await ctx.replyWithPhoto(mg[0].media_r, extra).catch(async e => {
+                                        await ctx.replyWithPhoto(await download_file(mg[0].media_o), extra).catch(async e => {
+                                            await ctx.replyWithPhoto(await download_file(mg[0].media_r), extra).catch(async e => {
+                                                if (await catchily(e, ctx)) {
+                                                    ctx.reply(_l(ctx.l, 'error'), default_extra)
+                                                }
                                             })
                                         })
-                                    }
-                                })
+                                    })
+                                }
                             }
                         } else {
                             ctx.temp_data.mg = [...ctx.temp_data.mg, ...mg_albumize(mg)]
@@ -336,8 +342,8 @@ bot.on('text', async (ctx) => {
                             // save ugoira file_id and next time bot can reply without send file
                             if (!d.tg_file_id && data.document) {
                                 let col = db.collection.illust
-                                col.updateOne({
-                                    id: d.id.toString()
+                                await col.updateOne({
+                                    id: d.id
                                 }, {
                                     $set: {
                                         tg_file_id: data.document.file_id
@@ -436,7 +442,7 @@ bot.on('inline_query', async (ctx) => {
                     switch_pm_parameter: ids.illust.join('-_-').toString(), // ref to handlers/telegram/get_pixiv_ids.js#L12
                     cache_time: 0
                 }).catch(async e => {
-                    await catchily(e)
+                    await catchily(e, ctx)
                 })
                 return true
             }
@@ -453,7 +459,7 @@ bot.on('inline_query', async (ctx) => {
         }
     }
     await ctx.answerInlineQuery(res, res_options).catch(async e => {
-        await catchily(e)
+        await catchily(e, ctx)
     })
 })
 bot.catch(async (e, ctx) => {

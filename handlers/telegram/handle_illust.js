@@ -1,7 +1,7 @@
 
 const { k_os } = require('../telegram/keyboard')
-const { asyncForEach } = require('../common')
-const get_illust = require('../pixiv/illust')
+const { asyncForEach, honsole } = require('../common')
+const { get_illust } = require('../pixiv/illust')
 const { format } = require('./format')
 const { ugoira_to_mp4 } = require('../pixiv/tools')
 async function handle_illusts(ids, flag) {
@@ -21,67 +21,40 @@ async function handle_illusts(ids, flag) {
  */
 async function handle_illust(id, flag) {
     let illust = id
-    if (typeof id == 'object') {
-        if (id.imgs_ && !id.original_urls) {
-            illust = await get_illust(id)
-        } else {
-            return id
-        }
-    } else {
+    if (typeof illust !== 'object' && !isNaN(parseInt(id))) {
         illust = await get_illust(id)
     }
-    if (typeof illust == 'number' || !illust)
+    honsole.dev('i', illust.id)
+    if (typeof illust == 'number' || !illust) {
         return illust
-    let td = {
-        ...illust.imgs_,
-        id: illust.id,
-        title: illust.title,
-        type: illust.type,
-        author_name: illust.userName,
-        author_id: illust.userId,
-        inline: [],
-        tags: [],
-        nsfw: illust.xRestrict > 0,
-        tg_file_id: illust.tg_file_id
     }
-    if (illust.tags) {
-        if (illust.tags.tags) {
-            illust.tags.tags.forEach(tag => {
-                td.tags.push(tag.tag)
-            })
-        } else {
-            td.tags = illust.tags
-        }
+    illust = {
+        ...illust,
+        nsfw: illust.xRestrict > 0,
+        inline: []
     }
     if (illust.type <= 1) {
-        td.size.forEach((size, pid) => {
-            td.inline[pid] = {
+        illust.imgs_.size.forEach((size, pid) => {
+            illust.inline[pid] = {
                 type: 'photo',
                 id: 'p_' + illust.id + '-' + pid,
-                photo_url: td.regular_urls[pid],
-                thumb_url: td.thumb_urls[pid],
-                caption: format(td, flag, 'inline', pid, flag.setting.format.inline),
-                parse_mode: 'MarkdownV2',
+                photo_url: illust.imgs_.regular_urls[pid],
+                thumb_url: illust.imgs_.thumb_urls[pid],
+                caption: format(illust, flag, 'inline', pid),
                 photo_width: size.width,
                 photo_height: size.height,
+                parse_mode: 'MarkdownV2',
                 ...k_os(illust.id, flag)
             }
         })
     } else if (illust.type == 2) {
         // inline + ugoira 只有在现存动图的情况下有意义
         if (illust.tg_file_id) {
-            td = {
-                ...td,
-                size: [{
-                    width: illust.width,
-                    height: illust.height
-                }]
-            }
-            td.inline[0] = {
+            illust.inline[0] = {
                 type: 'mpeg4_gif',
                 id: 'p' + illust.id,
                 mpeg4_file_id: illust.tg_file_id,
-                caption: format(td, flag, 'inline', 1, flag.setting.format.inline),
+                caption: format(illust, flag, 'inline', 1),
                 parse_mode: 'MarkdownV2',
                 ...k_os(illust.id, flag)
             }
@@ -89,9 +62,9 @@ async function handle_illust(id, flag) {
             ugoira_to_mp4(illust.id)
         }
     }
-    return td
+    return illust
 }
 module.exports = {
     handle_illusts,
-    handle_illust,
+    handle_illust
 }
