@@ -252,6 +252,9 @@ bot.on('text', async (ctx) => {
     if (ids.illust.length > 0) {
         await asyncForEach(ids.illust, async id => {
             let d = await handle_illust(id, ctx.flag)
+            if (d.type <= 1) timer_type[0] = 'photo'
+            if (d.type == 2) timer_type[1] = 'video'
+            illusts.push(d)
         })
     }
     if (ctx.flag.desc) {
@@ -260,7 +263,6 @@ bot.on('text', async (ctx) => {
     if (illusts.length > 0) {
         await asyncForEach(illusts, async illust => {
             let d = illust
-            console.log(d)
             if (d == 404) {
                 if (ctx.chat.id > 0) {
                     await ctx.reply(_l(ctx.l, 'illust_404'), { ...default_extra, parse_mode: 'Markdown' })
@@ -296,8 +298,6 @@ bot.on('text', async (ctx) => {
                 })
                 timer_type[2] = ''
             } else {
-                if (d.type <= 1) timer_type[0] = 'photo'
-                if (d.type == 2) timer_type[1] = 'video'
                 if (ctx.flag.telegraph || (ctx.flag.album && (ids.illust.length > 1 || d.imgs_.size.length > 1))) {
                     ctx.temp_data.mg = [...ctx.temp_data.mg, ...mg]
                 } else {
@@ -401,7 +401,6 @@ bot.on('text', async (ctx) => {
                     })
                 })
             }
-            timer_type = []
         }
         timer_type = []
     }

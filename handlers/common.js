@@ -104,6 +104,8 @@ async function catchily(e, ctx) {
         if (e.response.description.includes('MEDIA_CAPTION_TOO_LONG')) {
             await ctx.reply(_l(ctx.l, 'error_text_too_long'))
             return false
+        } else if (e.response.description.includes('Forbidden:')) {
+            return false
         }
     }
     return true
