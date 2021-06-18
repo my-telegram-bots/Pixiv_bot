@@ -31,8 +31,8 @@ async function get_user_illusts(author_id, page = 0, try_time = 0) {
                     id: id
                 }
             })
-        }))
-        await local_illust_data.forEach(illust => {
+        })).toArray()
+        local_illust_data.forEach(illust => {
             // s**t code
             illusts[illusts_id.indexOf(illust.id)] = illust
         })
@@ -52,19 +52,23 @@ async function get_user_illusts(author_id, page = 0, try_time = 0) {
             honsole.dev('query from pixiv', p)
             await asyncForEach(p, async pp => {
                 let illusts_data = (await r_p.get(`user/${author_id}/profile/illusts?ids%5B%5D=${pp.join('&ids%5B%5D=')}&work_category=illustManga&is_first_page=1`)).data
-                for (const id in illusts_data.body.works) {
-                    illusts[illusts_id.indexOf(id)] = {
+                honsole.dev(illusts_data.body.works)
+                for (let id in illusts_data.body.works) {
+                    id = parseInt(id)
+                    illusts[illusts.indexOf(id)] = {
                         ...illusts_data.body.works[id],
                         flag: true // flag this data is from pixiv
                     }
                 }
             })
+
         }
         await asyncForEach(illusts, async (illust, id) => {
             if (illust.type == 2) {
                 ugoira_to_mp4(illust.id)
             }
             if (illust.flag) {
+                console.log('test', illust)
                 illusts[id] = await update_illust(illust)
             }
         })

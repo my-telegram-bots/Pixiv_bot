@@ -167,6 +167,7 @@ async function head_url(url, try_time = 0) {
         honsole.error('cant connect', url)
         return false
     }
+    url = url.replace('i-cf', 'i')
     try {
         // original may be a .png file
         // send head reqeust to check.
@@ -177,11 +178,15 @@ async function head_url(url, try_time = 0) {
                 'Referer': 'https://www.pixiv.net'
             }
         })
+        if (!res.headers['content-length']) {
+            throw 'not have content-length'
+        }
         return parseInt(res.headers['content-length'])
     } catch (error) {
-        if (error.response.status == 404) {
+        if (error.response && error.response.status == 404) {
             return false
         } else {
+            honsole.warn('ggggg try again')
             return await head_url(url, try_time++)
         }
     }

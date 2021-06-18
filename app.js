@@ -204,7 +204,11 @@ bot.use(async (ctx, next) => {
         }
         return
     }
-    next()
+    if (process.env.dev) {
+        await next()
+    } else {
+        next()
+    }
 })
 bot.on('text', async (ctx) => {
     let timer_type = []
@@ -240,7 +244,7 @@ bot.on('text', async (ctx) => {
         timer_type[3] = 'typing'
         if (ctx.from.id == config.tg.master_id) {
             await asyncForEach(ids.author, async id => {
-                illusts = await get_user_illusts(id)
+                illusts = [...illusts, ...await get_user_illusts(id)]
             })
         }
         timer_type[3] = ''
@@ -248,7 +252,6 @@ bot.on('text', async (ctx) => {
     if (ids.illust.length > 0) {
         await asyncForEach(ids.illust, async id => {
             let d = await handle_illust(id, ctx.flag)
-            illusts.push(d)
         })
     }
     if (ctx.flag.desc) {
@@ -257,6 +260,7 @@ bot.on('text', async (ctx) => {
     if (illusts.length > 0) {
         await asyncForEach(illusts, async illust => {
             let d = illust
+            console.log(d)
             if (d == 404) {
                 if (ctx.chat.id > 0) {
                     await ctx.reply(_l(ctx.l, 'illust_404'), { ...default_extra, parse_mode: 'Markdown' })

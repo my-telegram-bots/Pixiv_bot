@@ -99,6 +99,7 @@ function mg_albumize(mg, single_caption = false) {
     return t
 }
 async function mg_filter(mg, type = 't') {
+    honsole.dev('filter_type', type)
     let t = []
     await asyncForEach(mg, async x => {
         let xx = {
@@ -106,6 +107,7 @@ async function mg_filter(mg, type = 't') {
         }
         if (x.caption) {
             xx.caption = x.caption
+            xx.parse_mode = x.parse_mode
         }
         if (x.media) {
             xx.media = x.media
@@ -113,9 +115,14 @@ async function mg_filter(mg, type = 't') {
         } else {
             xx.media = x.media_t ? x.media_t : x.media_o
         }
-        if (mg.type == 'video') {
+        if (x.type == 'video') {
             // nothing download in ugoira
-            xx.media = await ugoira_to_mp4(x.id)
+            xx.media = {
+                url: await ugoira_to_mp4(x.id)
+            }
+            if (type.includes('dl') || type.includes('r')) {
+                xx.media.url = `${xx.media.url}?${+new Date()}`
+            }
         } else {
             if (type.includes('o')) {
                 if (x.fsize > 4999999 && type == 'o') {

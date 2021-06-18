@@ -7,6 +7,13 @@ async function update_original_file_extension() {
     let d = await db.collection.illust.find({}).toArray()
     console.log('load illusts from local database', d.length)
     await asyncForEach(d, async (illust, id) => {
+        if (illust.imgs_.fsize) {
+            illust.imgs_.fsize.forEach(x => {
+                if (isNaN(x) || !x) {
+                    illust.imgs_.fsize = false
+                }
+            })
+        }
         if ((illust.type < 2) && (!illust.imgs_.fsize || !illust.imgs_.fsize[0])) {
             console.log('converting', id, illust.id, illust.title)
             await update_illust(illust, false)
