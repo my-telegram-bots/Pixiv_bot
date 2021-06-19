@@ -88,7 +88,7 @@ async function thumb_to_all(illust, try_time = 0) {
         })
         return { ...imgs_ }
     } catch (error) {
-        if (error.response.status == 404) {
+        if (error.response && error.response.status == 404) {
             return false
         }
         console.warn(error)

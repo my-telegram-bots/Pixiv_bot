@@ -96,6 +96,14 @@ bot.use(async (ctx, next) => {
             id: ctx.from.id
         })
         if (setting) {
+            if (!setting.default) {
+                setting.default = ctx.flag.setting.default
+            }
+            for (const key in ctx.flag.setting.default) {
+                if (typeof setting.default[key] == undefined) {
+                    setting.default[key] = ctx.flag.setting.default[key]
+                }
+            }
             ctx.flag.setting = setting
             ctx.flag.setting.dbless = false
             delete ctx.flag.setting._id
