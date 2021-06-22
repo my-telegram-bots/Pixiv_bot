@@ -76,7 +76,7 @@ async function get_user_illusts(author_id, page = 0, try_time = 0) {
     } catch (e) {
         console.warn(e)
         await sleep(500)
-        return get_user_illusts_by_id(id, page, try_time++)
+        return get_user_illusts_by_id(id, page, try_time + 1)
     }
 }
 /**
@@ -115,7 +115,7 @@ async function get_user_illusts_id(author_id, page = 0, try_time = 0) {
     } catch (e) {
         honsole.warn(e)
         await sleep(500)
-        get_user_illusts_id(author_id, page, try_time++)
+        get_user_illusts_id(author_id, page, try_time + 1)
         return []
     }
     return illusts_id

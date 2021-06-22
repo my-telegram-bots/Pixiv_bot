@@ -84,7 +84,7 @@ function download_file(url, id, force = false, try_time = 0) {
             console.warn(error)
             await sleep(1000)
             dw_queue_list.splice(dw_queue_list.indexOf(id), 1)
-            resolve(await download_file(url, id, try_time++))
+            resolve(await download_file(url, id, try_time + 1))
 
         }
     })

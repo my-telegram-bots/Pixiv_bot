@@ -93,7 +93,7 @@ async function thumb_to_all(illust, try_time = 0) {
         }
         console.warn(error)
         await sleep(500)
-        return await thumb_to_all(illust, try_time++)
+        return await thumb_to_all(illust, try_time + 1)
     }
 }
 
@@ -187,7 +187,7 @@ async function head_url(url, try_time = 0) {
             return false
         } else {
             honsole.warn('ggggg try again')
-            return await head_url(url, try_time++)
+            return await head_url(url, try_time + 1)
         }
     }
 }

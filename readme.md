@@ -55,6 +55,7 @@ see more https://telegra.ph
     4. bookmarks (1%)
     5. Group / Channel support
     6. Download author's all illusts
+    7. clean the code (with code style and comment)
 # License
 MIT
 
