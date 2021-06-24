@@ -8,7 +8,7 @@ A Telegram bot that helps you send pixiv illust on telegeam.
 [Get started!](tg://resolve?domain=pixiv_bot&start=67953985)  
 
 
-! [r_1](... /img/r_1.jpg)  
+![r_1](./img/r_1.jpg)  
 
 
 The following Pixiv links are currently supported:
