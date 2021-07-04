@@ -1,4 +1,4 @@
-const r_p = require('./r_p')
+const { r_p_ajax } = require('./request')
 const db = require('../../db')
 const { honsole } = require('../common')
 const { thumb_to_all } = require('./tools')
@@ -26,7 +26,7 @@ async function get_illust(id, mode = 'p', try_time = 0) {
     if (!illust) {
         try {
             // data example https://paste.huggy.moe/mufupocomo.json
-            illust = (await r_p.get('illust/' + id)).data
+            illust = (await r_p_ajax.get('illust/' + id)).data
             honsole.log('fetch_raw_illust', illust)
             // Work has been deleted or the ID does not exist.
             if (illust.error) {
@@ -43,7 +43,7 @@ async function get_illust(id, mode = 'p', try_time = 0) {
     } else {
         delete illust._id
     }
-    honsole.log('illust', illust)
+    honsole.dev('illust', illust)
     return illust
 }
 
@@ -89,9 +89,9 @@ async function update_illust(illust, update_flag = true) {
             illust.tags = tags
         }
     }
-    if (new Date(illust.create_date)) {
-        illust.create_date = +new Date(illust.create_date) / 1000
-    }
+    // if (new Date(illust.create_date)) {
+    //     illust.create_date = +new Date(illust.create_date) / 1000
+    // }
     if (illust.type == 2) {
         illust.imgs_ = {
             size: [{
@@ -106,7 +106,7 @@ async function update_illust(illust, update_flag = true) {
             return
         }
     }
-    ['id', 'title', 'type', 'comment', 'description', 'author_id', 'author_name', 'imgs_', 'tags', 'sl', 'restrict', 'x_restrict', 'create_date', 'tg_file_id'].forEach(x => {
+    ['id', 'title', 'type', 'comment', 'description', 'author_id', 'author_name', 'imgs_', 'tags', 'sl', 'restrict', 'x_restrict',/* 'create_date',*/'tg_file_id'].forEach(x => {
         // I think pixiv isn't pass me a object function ?
         if (illust[x] !== undefined) {
             real_illust[x] = illust[x]
@@ -131,6 +131,7 @@ async function update_illust(illust, update_flag = true) {
     }, {
         upsert: true
     })
+    honsole.dev(real_illust)
     return real_illust
 }
 module.exports = { get_illust, update_illust }

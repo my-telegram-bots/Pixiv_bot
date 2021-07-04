@@ -5,21 +5,21 @@
  * @param {number} id novel_id
  * @param {object} flag configure
  */
-const r_p = require('./r_p')
+const { r_p_ajax } = require('./request')
 const db = require('../../db')
 const { honsole } = require('../common')
 
 async function get_novel(id) {
     if (id.toString().length < 6 || id.toString().length > 8)
         return false
-    honsole.log('n', id)
+    honsole.dev('n', id)
     let col = db.collection.novel
     let novel = await col.findOne({
         id: id.toString()
     })
     if (!novel) {
         try {
-            novel = (await r_p.get('novel/' + id)).data.body
+            novel = (await r_p_ajax.get('novel/' + id)).data.body
             if (novel.error) {
                 return 404
             }
@@ -43,7 +43,7 @@ async function get_novel(id) {
             return 404
         }
     }
-    honsole.log('novel', novel)
+    honsole.dev('novel', novel)
     return novel
 }
 module.exports = get_novel

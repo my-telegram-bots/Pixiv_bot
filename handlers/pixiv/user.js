@@ -1,4 +1,4 @@
-const r_p = require('./r_p')
+const { r_p, r_p_ajax } = require('./request')
 const { asyncForEach, sleep, honsole } = require('../common')
 let db = require('../../db')
 const { ugoira_to_mp4 } = require('./tools')
@@ -51,7 +51,7 @@ async function get_user_illusts(author_id, page = 0, try_time = 0) {
             }
             honsole.dev('query from pixiv', p)
             await asyncForEach(p, async pp => {
-                let illusts_data = (await r_p.get(`user/${author_id}/profile/illusts?ids%5B%5D=${pp.join('&ids%5B%5D=')}&work_category=illustManga&is_first_page=1`)).data
+                let illusts_data = (await r_p_ajax.get(`user/${author_id}/profile/illusts?ids%5B%5D=${pp.join('&ids%5B%5D=')}&work_category=illustManga&is_first_page=1`)).data
                 honsole.dev(illusts_data.body.works)
                 for (let id in illusts_data.body.works) {
                     id = parseInt(id)
@@ -92,7 +92,7 @@ async function get_user_illusts_id(author_id, page = 0, try_time = 0) {
     }
     let illusts_id = []
     try {
-        let illust_id_list_all = (await r_p.get(`user/${author_id}/profile/all`)).data
+        let illust_id_list_all = (await r_p_ajax.get(`user/${author_id}/profile/all`)).data
         if (illust_id_list_all.error || !illust_id_list_all.body || !illust_id_list_all.body.illusts) {
             throw illust_id_list_all
         }
@@ -132,8 +132,63 @@ async function get_user_illusts_id(author_id, page = 0, try_time = 0) {
 async function get_user_illusts_by_id(author_id, illusts_id = [], try_time = 0) {
 
 }
+
+async function follow_user(author_id, try_time = 0) {
+    if (!author_id || try_time > 3) {
+        return false
+    }
+    try {
+        let data = await r_p.post('bookmark_add.php', `mode=del&type=user&user_id=${author_id}&tag=&restrict=0&format=json`)
+        if (data.data.length < 2) {
+            return true
+        } else {
+            honsole.error('follow_user_error', data.data)
+            return false
+        }
+    } catch (error) {
+        honsole.error(error)
+        if (error.response && error.response.status == 404) {
+            return false
+        }
+        await sleep(500)
+        return await follow_user(author_id, try_time + 1)
+    }
+}
+async function unfollow_user(author_id) {
+    return await group_setting('del', 'bookuser', author_id)
+}
+/**
+ * group setting 
+ * https://www.pixiv.net/rpc_group_setting.php
+ * @param {*} mode mode
+ * @param {*} type type
+ * @param {*} id (author) id
+ */
+async function group_setting(mode, type, id, retry_time = 0) {
+    if (!mode || !type || !id || retry_time > 3) {
+        return false
+    }
+    try {
+        let data = await r_p.post('rpc_group_setting.php', `mode=${encodeURIComponent(mode)}&type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}`)
+        if (data.data.length < 2) {
+            return true
+        } else {
+            honsole.error(mode + '_user_error', data.data)
+            return false
+        }
+    } catch (error) {
+        honsole.error(error.response)
+        if (error.response && error.response.status == 404) {
+            return false
+        }
+        await sleep(500)
+        return await group_setting(mode, type, id, retry_time + 1)
+    }
+}
 module.exports = {
     get_user,
     get_user_illusts_id,
-    get_user_illusts
+    get_user_illusts,
+    follow_user,
+    unfollow_user
 }

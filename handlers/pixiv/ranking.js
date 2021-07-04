@@ -1,5 +1,5 @@
 const db = require("../../db")
-const r_p = require("./r_p")
+const { r_p_ajax } = require("./request")
 /**
  * 获取每日/每周/每月排行榜 当然 会缓存啦
  * @param {int} 页数
@@ -29,7 +29,7 @@ async function ranking(page = 1, mode = 'daily', date = false, filter_type = [0,
         id: mode + date + '_' + page
     })
     if (!data) {
-        data = (await r_p({
+        data = (await r_p_ajax({
             baseURL: "https://www.pixiv.net/ranking.php",
             params: params
         })).data

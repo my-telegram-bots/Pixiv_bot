@@ -1,4 +1,4 @@
-const { Markup } = require("telegraf");
+const { Markup } = require("telegraf")
 /**
  * 打开和分享 用得比较多，所以就简写了
  * @param {*} id illust id

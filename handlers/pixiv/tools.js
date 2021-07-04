@@ -1,5 +1,5 @@
 const { default: axios } = require("axios")
-const r_p = require('./r_p')
+const { r_p_ajax } = require('./request')
 const exec = require('util').promisify((require('child_process')).exec)
 const fs = require('fs')
 const config = require('../../config.json')
@@ -34,10 +34,13 @@ async function thumb_to_all(illust, try_time = 0) {
     let base_url = illust.url ? illust.url : ((illust.imgs_ && illust.imgs_.thumb_urls) ? illust.imgs_.thumb_urls[0] : illust.urls.thumb)
     base_url = base_url
         .replace('/c/250x250_80_a2/custom-thumb', '∏a∏')
+        .replace('/c/240x240/img-master', '∏a∏')
         .replace('/c/128x128/img-master', '∏a∏')
         .replace('/c/128x128/custom-thumb', '∏a∏')
         .replace('/c/250x250_80_a2/img-master', '∏a∏')
-        .replace('_square1200', '∏b∏').replace('_custom1200', '∏b∏')
+        .replace('_square1200', '∏b∏')
+        .replace('_custom1200', '∏b∏')
+        .replace('_master1200.jpg', '∏b∏')
     let thumb_url = base_url.replace('∏a∏', '/c/250x250_80_a2/img-master').replace('∏b∏', '_square1200')
     let original_url = base_url.replace('∏a∏', '/img-original').replace('∏b∏', '')
     let regular_url = base_url.replace('∏a∏', '/img-master').replace('∏b∏', '_master1200')
@@ -56,7 +59,7 @@ async function thumb_to_all(illust, try_time = 0) {
         }
         if ((illust.page_count && illust.page_count > 1) || (illust.pageCount && illust.pageCount > 1) || (illust.imgs_ && illust.imgs_.size && illust.imgs_.size.length > 1)) {
             honsole.dev('query pages from pixiv', illust.id)
-            illust.page = (await r_p('illust/' + illust.id + '/pages')).data.body.map((x, p) => {
+            illust.page = (await r_p_ajax('illust/' + illust.id + '/pages')).data.body.map((x, p) => {
                 x.urls.thumb = thumb_url.replace(`p0`, `p${p}`)
                 delete x.urls.thumb_mini
                 return x
@@ -114,7 +117,7 @@ async function ugoira_to_mp4(id, force = false) {
     ugoira_queue_list.push(id)
     try {
         id = parseInt(id)
-        let ud = (await r_p(`/illust/${id}/ugoira_meta`)).data
+        let ud = (await r_p_ajax(`/illust/${id}/ugoira_meta`)).data
         if (ud.error)
             return false
         ud = ud.body
