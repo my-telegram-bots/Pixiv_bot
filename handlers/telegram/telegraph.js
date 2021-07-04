@@ -19,8 +19,8 @@ async function mg2telegraph(mg) {
             let url = d.media_o
             if (d.type == 'photo') {
                 // image too large and telegram will disable the instat view in telegraph
-                if (d.fsize > 3000000) {
-                    // 5242880 = 5MB
+                if (d.fsize > 2048000) {
+                    // 2048000 = 2MB
                     url = d.media_r
                 }
             } else if (d.type == 'video') {

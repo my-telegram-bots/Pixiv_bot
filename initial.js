@@ -10,12 +10,12 @@ async function handle() {
     fs.mkdirSync('./tmp/mp4_1')
     fs.mkdirSync('./tmp/ugoira')
     await db.db_initial()
-    await db.collection.illust.createIndex({
+    await db.collection.author.createIndex({
         id: 1
     }, {
         unique: true,
     });
-    await db.collection.user.createIndex({
+    await db.collection.illust.createIndex({
         id: 1
     }, {
         unique: true,
@@ -31,11 +31,6 @@ async function handle() {
         unique: true,
     });
     await db.collection.chat_setting.createIndex({
-        id: 1
-    }, {
-        unique: true,
-    });
-    await db.collection.chat_bookmark.createIndex({
         id: 1
     }, {
         unique: true,

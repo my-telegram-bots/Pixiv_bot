@@ -5,7 +5,9 @@ let col = {
     illust: () => { },
     chat_setting: () => { },
     novel: () => { },
-    ranking: () => { }
+    ranking: () => { },
+    author: () => { },
+    telegraph: () => { }
 }
 async function db_initial() {
     db = (await MongoClient.connect(config.mongodb.uri, { useUnifiedTopology: true })).db(config.mongodb.dbname)
