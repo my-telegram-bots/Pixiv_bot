@@ -11,6 +11,7 @@ The actions that trigger the recording of user ids are currently the following.
 
 - Customize the reply format
 - Generate telegraph pages
+- Export author's all illusts
 - Favorites colloction (coming soon)
 - New illust push (coming soon)
 
