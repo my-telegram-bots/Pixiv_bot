@@ -60,8 +60,8 @@ function format(td, flag, mode = 'message', p) {
             ['author_name', td.author_name]
         ]
         if (td) {
-            if (td.imgs_.original_urls && td.imgs_.original_urls.length > 1 && p !== -1) {
-                replace_list.push(['p', `${(p + 1)}/${td.imgs_.original_urls.length}`])
+            if (td.imgs_ && td.imgs_.size && td.imgs_.size.length > 1 && p !== -1) {
+                replace_list.push(['p', `${(p + 1)}/${td.imgs_.size.length}`])
             } else {
                 replace_list.push(['p', ''])
             }

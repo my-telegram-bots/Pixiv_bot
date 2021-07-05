@@ -27,7 +27,7 @@ async function get_illust(id, mode = 'p', try_time = 0) {
         try {
             // data example https://paste.huggy.moe/mufupocomo.json
             illust = (await r_p_ajax.get('illust/' + id)).data
-            honsole.log('fetch_raw_illust', illust)
+            honsole.dev('fetch_raw_illust', illust)
             // Work has been deleted or the ID does not exist.
             if (illust.error) {
                 return 404

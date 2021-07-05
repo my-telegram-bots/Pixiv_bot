@@ -51,8 +51,12 @@ bot.start(async (ctx, next) => {
 bot.help(async (ctx) => {
     await ctx.reply('https://pixiv-bot.pages.dev')
 })
-
-
+bot.command('/id',async (ctx, next) => {
+    await ctx.reply(ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : '' + `#userid: \`${ctx.from.id}\`\n`,{
+        reply_to_message_id: ctx.message.message_id,
+        parse_mode: 'Markdown'
+    })
+})
 bot.use(async (ctx, next) => {
     // simple i18n
     ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code
@@ -96,8 +100,9 @@ bot.use(async (ctx, next) => {
             id: ctx.from.id
         })
         if (setting) {
-            if (!setting.default) {
-                setting.default = ctx.flag.setting.default
+            setting.default = {
+                ...ctx.flag.setting.default,
+                ...setting.default
             }
             for (const key in ctx.flag.setting.default) {
                 if (typeof setting.default[key] == undefined) {
@@ -237,7 +242,11 @@ bot.on('text', async (ctx) => {
             ctx.replyWithChatAction('typing')
         }
     }
-    let timer = setInterval(f_timer, 2000)
+    let timer = null
+    setTimeout(() => {
+        f_timer()
+        timer = setInterval(f_timer, 3500)
+    }, 500)
     setTimeout(() => {
         clearInterval(timer)
     }, 30000)
@@ -342,6 +351,7 @@ bot.on('text', async (ctx) => {
                         } else {
                             ctx.temp_data.mg = [...ctx.temp_data.mg, ...mg_albumize(mg)]
                         }
+                        timer_type[0] = ''
                     } else if (d.type == 2) {
                         let media = mg.media_t
                         if (!media) {
@@ -367,11 +377,13 @@ bot.on('text', async (ctx) => {
                                 ctx.reply(_l(ctx.l, 'error'), default_extra)
                             }
                         })
+                        timer_type[1] = ''
                     }
                 }
             }
         })
         if (ctx.temp_data.mg.length == 0) {
+            clearInterval(timer)
             return
         }
         // eslint-disable-next-line no-empty
