@@ -35,7 +35,7 @@ function format(td, flag, mode = 'message', p) {
         switch (mode) {
             case 'message':
             case 'inline':
-                template = '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%'
+                template = '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%'
                 template += '%\n|tags%'
                 break
             case 'mediagroup_message':
@@ -60,8 +60,8 @@ function format(td, flag, mode = 'message', p) {
             ['author_name', td.author_name]
         ]
         if (td) {
-            if (td.original_urls && td.original_urls.length > 1 && p !== -1) {
-                replace_list.push(['p', `${(p + 1)}/${td.original_urls.length}`])
+            if (td.imgs_.original_urls && td.imgs_.original_urls.length > 1 && p !== -1) {
+                replace_list.push(['p', `${(p + 1)}/${td.imgs_.original_urls.length}`])
             } else {
                 replace_list.push(['p', ''])
             }
