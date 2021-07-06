@@ -46,11 +46,15 @@ bot.start(async (ctx, next) => {
         next()
     } else {
         // reply start help command
-        await ctx.reply(_l(ctx.l, 'start'))
+        await ctx.reply(_l(ctx.l, 'start'), {
+            reply_to_message_id: ctx.message.message_id
+        })
     }
 })
 bot.help(async (ctx) => {
-    await ctx.reply('https://pixiv-bot.pages.dev')
+    await ctx.reply('https://pixiv-bot.pages.dev', {
+        reply_to_message_id: ctx.message.message_id
+    })
 })
 bot.command('/id', async (ctx, next) => {
     await ctx.reply((ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : '') + `#userid: \`${ctx.from.id}\`\n`, {
@@ -79,7 +83,7 @@ bot.use(async (ctx, next) => {
         configuration_mode = true
     }
     ctx.ids = get_pixiv_ids(ctx.rtext)
-    if(ctx.ids.author.length == 0 && ctx.ids.illust.length == 0 && ctx.ids.novel.length == 0 & !configuration_mode){
+    if (ctx.ids.author.length == 0 && ctx.ids.illust.length == 0 && ctx.ids.novel.length == 0 & !configuration_mode) {
         // bot have nothing to do
         return
     }
@@ -105,7 +109,7 @@ bot.use(async (ctx, next) => {
             ])
         })
         return
-    }else if (configuration_mode && ctx.chat.id > 0) {
+    } else if (configuration_mode && ctx.chat.id > 0) {
         if (ctx.rtext == '/s reset') {
             await ctx.reply(_l(ctx.l, 'setting_reset'))
             await db.delete_setting(ctx.chat.id)

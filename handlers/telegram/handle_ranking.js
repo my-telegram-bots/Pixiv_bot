@@ -27,4 +27,6 @@ async function handle_ranking([...rank], flag) {
         next_offset: data.next_page
     }
 }
-module.exports = handle_ranking
+module.exports = {
+    handle_ranking
+}
