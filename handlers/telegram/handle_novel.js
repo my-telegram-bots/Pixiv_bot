@@ -12,7 +12,7 @@ async function handle_novel(id) {
         if (!novel.telegraph_url) {
             let data = await novel2telegraph(novel)
             if (data.ok) {
-                novel.telegraph_url = data.result.url
+                novel.telegraph_url = data.result.telegraph_url
                 let col = db.collection.novel
                 col.updateOne({
                     _id: novel._id

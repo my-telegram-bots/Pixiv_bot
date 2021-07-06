@@ -8,7 +8,6 @@ const {
     handle_ranking,
     handle_novel,
     get_pixiv_ids,
-    get_values,
     get_user_illusts,
     ugoira_to_mp4,
     download_file,
@@ -17,6 +16,7 @@ const {
     k_os,
     mg_create, mg_albumize, mg_filter,
     mg2telegraph,
+    flagger,
     honsole
 } = require('./handlers')
 const db = require('./db')
@@ -43,17 +43,17 @@ bot.start(async (ctx, next) => {
     // see more https://core.telegram.org/bots#deep-linking
     if (ctx.startPayload) {
         // callback to bot.on function
-        await next()
+        next()
     } else {
         // reply start help command
-        await ctx.reply(_l(ctx.l, 'start', ctx.message.message_id))
+        await ctx.reply(_l(ctx.l, 'start'))
     }
 })
 bot.help(async (ctx) => {
     await ctx.reply('https://pixiv-bot.pages.dev')
 })
 bot.command('/id', async (ctx, next) => {
-    await ctx.reply(ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : '' + `#userid: \`${ctx.from.id}\`\n`, {
+    await ctx.reply((ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : '') + `#userid: \`${ctx.from.id}\`\n`, {
         reply_to_message_id: ctx.message.message_id,
         parse_mode: 'Markdown'
     })
@@ -74,131 +74,19 @@ bot.use(async (ctx, next) => {
     } catch (error) {
         ctx.rtext = ''
     }
-
-    ctx.flag = {
-        // I don't wanna save the 'string' data in default (maybe the format will be changed in the future)
-        // see telegram/fotmat.js to get real data
-        setting: {
-            format: {
-                message: false,
-                mediagroup_message: false,
-                inline: false
-            },
-            default: {
-                open: true,
-                share: true,
-                album: true
-            },
-            dbless: true, // the user isn't in chat_setting
-        },
-        q_id: 0 // telegraph albumized value
+    let configuration_mode = false
+    if ((ctx.rtext.substr(0, 2) == '/s' || ctx.rtext.substr(0, 3) == 'eyJ')) {
+        configuration_mode = true
     }
-    ctx.temp_data = {
-        mg: []
+    ctx.ids = get_pixiv_ids(ctx.rtext)
+    if(ctx.ids.author.length == 0 && ctx.ids.illust.length == 0 && ctx.ids.novel.length == 0 & !configuration_mode){
+        // bot have nothing to do
+        return
     }
-    if (ctx.from) {
-        let setting = await db.collection.chat_setting.findOne({
-            id: ctx.from.id
-        })
-        if (setting) {
-            setting.default = {
-                ...ctx.flag.setting.default,
-                ...setting.default
-            }
-            for (const key in ctx.flag.setting.default) {
-                if (typeof setting.default[key] == undefined) {
-                    setting.default[key] = ctx.flag.setting.default[key]
-                }
-            }
-            ctx.flag.setting = setting
-            ctx.flag.setting.dbless = false
-            delete ctx.flag.setting._id
-            delete ctx.flag.setting.id
-        }
-    }
+    ctx.flag = await flagger(ctx)
     honsole.dev('input ->', ctx.chat, ctx.rtext, ctx.flag)
-
-    // default flag -> d_f
-    let d_f = ctx.flag.setting.default ? ctx.flag.setting.default : {}
-    ctx.flag = {
-        ...ctx.flag,
-
-        // caption start
-        tags: (d_f.tags && !ctx.rtext.includes('-tag')) || ctx.rtext.includes('+tag'),
-        open: (d_f.open && !ctx.rtext.includes('-open')) || ctx.rtext.includes('+open'),
-        share: (d_f.share && !ctx.rtext.includes('-share')) || ctx.rtext.includes('+share'),
-        remove_keyboard: (d_f.remove_keyboard && !ctx.rtext.includes('+kb')) || ctx.rtext.includes('-kb'),
-        remove_caption: (d_f.remove_caption && !ctx.rtext.includes('+cp')) || ctx.rtext.includes('-cp'),
-        single_caption: (!ctx.inlineQuery && ((d_f.single_caption && !ctx.rtext.includes('-sc'))) || ctx.rtext.includes('+sc')),
-        show_id: !ctx.rtext.includes('-id'),
-        // caption end
-
-        // send all illusts as mediagroup
-        album: (d_f.album && !ctx.rtext.includes('-album')) || ctx.rtext.includes('+album'),
-
-        // descending order 
-        desc: (d_f.desc && !ctx.rtext.includes('-desc')) || ctx.rtext.includes('+desc'),
-
-        // send as telegraph
-        telegraph: ctx.rtext.includes('+graph') || ctx.rtext.includes('+telegraph'),
-        // send as file
-        asfile: ctx.rtext.includes('+file'),
-
-    }
-
-    if (ctx.flag.telegraph) {
-        ctx.flag.album = true
-        ctx.flag.tags = true
-    }
-
-    if (ctx.flag.single_caption) {
-        ctx.flag.album = true
-    }
-    let otext = ctx.rtext
-
-    if (ctx.rtext.includes('+rm')) {
-        ctx.flag.remove_caption = ctx.flag.remove_keyboard = false
-    }
-    if (ctx.rtext.includes('-rm')) {
-        ctx.flag.remove_caption = ctx.flag.remove_keyboard = true
-    }
-    if (ctx.flag.remove_keyboard) {
-        ctx.flag.open = ctx.flag.share = false
-    }
-    let value_update_flag = false
-    if (ctx.message !== undefined) {
-        let {
-            title,
-            author_name,
-            author_url
-        } = get_values(ctx.rtext.substr(0, 3) == '/s ' ? ctx.rtext.replace('/s ','') : ctx.rtext)
-        let v = {}
-        if (title && title.length >= 256) {
-            ctx.reply(_l(ctx.l, 'error_tlegraph_title_too_long'))
-            return
-        }
-        try {
-            //                                                                  check vaild url wuth 'new URL' if author_url is not a real url will throw error
-            if ((author_name && author_name.length >= 128) || (author_url && new URL(author_url) && author_url.length >= 512)) {
-                throw 'e'
-            }
-        } catch (error) {
-            ctx.reply(_l(ctx.l, 'error_tlegraph_author'))
-            return
-        }
-        if (title) v.telegraph_title = title
-        if (author_name) v.telegraph_author_name = author_name
-        if (author_url) v.telegraph_author_url = author_url
-        if (JSON.stringify(v).length > 2) {
-            ctx.flag = {
-                ...ctx.flag,
-                ...v
-            }
-            value_update_flag = true
-        }
-    }
     // only support user
-    if (otext == '/s') {
+    if (ctx.rtext == '/s') {
         // lazy....
         ctx.flag.setting = {
             format: {
@@ -217,15 +105,14 @@ bot.use(async (ctx, next) => {
             ])
         })
         return
-    }
-    if ((otext.substr(0, 3) == '/s ' || ctx.rtext.substr(0, 3) == 'eyJ') && ctx.chat.id > 0) {
-        if (otext == '/s reset') {
+    }else if (configuration_mode && ctx.chat.id > 0) {
+        if (ctx.rtext == '/s reset') {
             await ctx.reply(_l(ctx.l, 'setting_reset'))
             await db.delete_setting(ctx.chat.id)
             return
         }
         let new_setting = {}
-        if (otext.length > 2 && (otext.includes('+') || otext.includes('-') || value_update_flag)) {
+        if (ctx.rtext.length > 2 && (ctx.rtext.includes('+') || ctx.rtext.includes('-') || ctx.flag.value_update_flag)) {
             new_setting = {
                 default: ctx.flag
             }
@@ -289,7 +176,7 @@ bot.on('text', async (ctx) => {
         reply_to_message_id: ctx.message.message_id,
         allow_sending_without_reply: true
     }
-    let ids = get_pixiv_ids(ctx.rtext)
+    let ids = ctx.ids
     let illusts = []
     if (ids.author.length > 0) {
         timer_type[3] = 'typing'
@@ -486,7 +373,7 @@ bot.on('inline_query', async (ctx) => {
         cache_time: 20, // maybe update format
         is_personal: ctx.flag.setting.dbless ? false : true // personal result
     }
-    let ids = get_pixiv_ids(ctx.rtext)
+    let ids = ctx.ids
     if (ids.illust.length > 0) {
         await asyncForEach([...ids.illust.reverse()], async id => {
             let d = await handle_illust(id, ctx.flag)

@@ -37,6 +37,17 @@ async function update_db_2021_june() {
     })
     process.exit()
 }
+
+async function update_db_2021_july() {
+    await db.db_initial()
+    await db.collection.dropIndexes()
+    await db.collection.telegraph.createIndex({
+        telegraph_url: 1
+    }, {
+        unique: true,
+    })
+    process.exit()
+}
 try {
     // just some expliot ? LOL
     eval(process.argv[2] + '()')

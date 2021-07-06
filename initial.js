@@ -36,7 +36,7 @@ async function handle() {
         unique: true,
     });
     await db.collection.telegraph.createIndex({
-        id: 1
+        telegraph_url: 1
     }, {
         unique: true,
     });
