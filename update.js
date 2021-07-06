@@ -16,7 +16,7 @@ async function update_original_file_extension() {
         }
         if ((illust.type < 2) && (!illust.imgs_.fsize || !illust.imgs_.fsize[0])) {
             console.log('converting', id, illust.id, illust.title)
-            await update_illust(illust, false)
+            await update_illust(illust, {}, false)
             await sleep(10)
         }
     })
@@ -29,7 +29,7 @@ async function update_db_2021_june() {
     await asyncForEach(d, async (illust, id) => {
         if (illust.storableTags || illust.userName || illust.createDate || !illust.imgs_ || !illust.imgs_.fsize) {
             console.log('converting', id, illust.id, illust.title)
-            await update_illust(illust, false)
+            await update_illust(illust, {}, false)
             await sleep(10)
         } else {
             console.log('skip', id)

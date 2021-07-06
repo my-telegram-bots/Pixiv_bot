@@ -16,5 +16,7 @@ module.exports = {
     error_text_too_long: "发送失败，回复文本太长，请尝试以下操作减少文本量\n" +
         "1. 在 /s 中减少格式量（如果您自定义了的话）\n" +
         "2. -tags (不显示 tags )\n" +
-        "3. 减少一次发送的作品数量"
+        "3. 减少一次发送的作品数量",
+    error_tlegraph_title_too_long: '生成失败，标题太长。',
+    error_tlegraph_author: '生成失败，作者相关信息太长或者有误。'
 }

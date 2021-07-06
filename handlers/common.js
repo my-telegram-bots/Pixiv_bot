@@ -2,7 +2,7 @@ const { default: axios } = require("axios")
 const config = require('../config.json')
 const fs = require('fs')
 const { _l } = require("./telegram/i18n")
-
+const { createHash } = require('crypto')
 /**
  * ForEach with async
  * @param {Array} array 
@@ -110,10 +110,14 @@ async function catchily(e, ctx) {
     }
     return true
 }
+function generate_token(user_id, time = +new Date()) {
+    return createHash('sha1').update(`${config.tg.salt}${user_id}${time}`).digest('hex').toString()
+}
 module.exports = {
     asyncForEach,
     download_file,
     catchily,
     sleep,
+    generate_token,
     honsole
 }

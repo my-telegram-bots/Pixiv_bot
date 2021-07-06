@@ -60,4 +60,24 @@ function get_pixiv_ids(text) {
     }
     return { ...ids }
 }
-module.exports = get_pixiv_ids
+
+function get_values(text = ''){
+    let list = {}
+    text.split('\n').forEach(t => {
+        if(t.includes('=')){
+            let st = t.replace('=','\uff69').split('\uff69')
+            st[0] = st[0].toLowerCase() // may be Title or Author
+            if(['title','author_name','author_url','an','au'].includes(st[0])){
+                if(st[0] == 'an')   list['author_name'] = st[1]
+                if(st[0] == 'au')   list['author_url'] = st[1]
+                list[st[0]] = st[1]
+            }
+        }
+    })
+    return list
+
+}
+module.exports = {
+    get_pixiv_ids,
+    get_values
+}

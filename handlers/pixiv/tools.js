@@ -40,7 +40,7 @@ async function thumb_to_all(illust, try_time = 0) {
         .replace('/c/250x250_80_a2/img-master', '∏a∏')
         .replace('_square1200', '∏b∏')
         .replace('_custom1200', '∏b∏')
-        .replace('_master1200.jpg', '∏b∏')
+        .replace('_master1200', '∏b∏')
     let thumb_url = base_url.replace('∏a∏', '/c/250x250_80_a2/img-master').replace('∏b∏', '_square1200')
     let original_url = base_url.replace('∏a∏', '/img-original').replace('∏b∏', '')
     let regular_url = base_url.replace('∏a∏', '/img-master').replace('∏b∏', '_master1200')

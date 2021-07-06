@@ -50,9 +50,11 @@ async function get_illust(id, mode = 'p', try_time = 0) {
 /**
  * fetch image url and size and update in database
  * @param {*} illust 
+ * @param {object} extra_data extra data stored in database
+ * @param {boolean} id_update_flag true => will delete 'id' (string) and create id (number)
  * @returns object
  */
-async function update_illust(illust, update_flag = true) {
+async function update_illust(illust, extra_data = false, id_update_flag = true) {
     if (typeof illust != 'object') return false
     let real_illust = {}
     for (let key in illust) {
@@ -112,7 +114,13 @@ async function update_illust(illust, update_flag = true) {
             real_illust[x] = illust[x]
         }
     })
-    if (!update_flag) {
+    if (extra_data) {
+        real_illust = {
+            ...real_illust,
+            ...extra_data
+        }
+    }
+    if (!id_update_flag) {
         try {
             await db.collection.illust.deleteOne({
                 id: illust.id

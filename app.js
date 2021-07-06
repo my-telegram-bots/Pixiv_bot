@@ -8,6 +8,7 @@ const {
     handle_ranking,
     handle_novel,
     get_pixiv_ids,
+    get_values,
     get_user_illusts,
     ugoira_to_mp4,
     download_file,
@@ -16,7 +17,7 @@ const {
     k_os,
     mg_create, mg_albumize, mg_filter,
     mg2telegraph,
-    honsole,
+    honsole
 } = require('./handlers')
 const db = require('./db')
 const throttler = telegrafThrottler({
@@ -51,8 +52,8 @@ bot.start(async (ctx, next) => {
 bot.help(async (ctx) => {
     await ctx.reply('https://pixiv-bot.pages.dev')
 })
-bot.command('/id',async (ctx, next) => {
-    await ctx.reply(ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : '' + `#userid: \`${ctx.from.id}\`\n`,{
+bot.command('/id', async (ctx, next) => {
+    await ctx.reply(ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : '' + `#userid: \`${ctx.from.id}\`\n`, {
         reply_to_message_id: ctx.message.message_id,
         parse_mode: 'Markdown'
     })
@@ -164,14 +165,46 @@ bot.use(async (ctx, next) => {
     if (ctx.flag.remove_keyboard) {
         ctx.flag.open = ctx.flag.share = false
     }
+    let value_update_flag = false
+    if (ctx.message !== undefined) {
+        let {
+            title,
+            author_name,
+            author_url
+        } = get_values(ctx.rtext.substr(0, 3) == '/s ' ? ctx.rtext.replace('/s ','') : ctx.rtext)
+        let v = {}
+        if (title && title.length >= 256) {
+            ctx.reply(_l(ctx.l, 'error_tlegraph_title_too_long'))
+            return
+        }
+        try {
+            //                                                                  check vaild url wuth 'new URL' if author_url is not a real url will throw error
+            if ((author_name && author_name.length >= 128) || (author_url && new URL(author_url) && author_url.length >= 512)) {
+                throw 'e'
+            }
+        } catch (error) {
+            ctx.reply(_l(ctx.l, 'error_tlegraph_author'))
+            return
+        }
+        if (title) v.telegraph_title = title
+        if (author_name) v.telegraph_author_name = author_name
+        if (author_url) v.telegraph_author_url = author_url
+        if (JSON.stringify(v).length > 2) {
+            ctx.flag = {
+                ...ctx.flag,
+                ...v
+            }
+            value_update_flag = true
+        }
+    }
     // only support user
     if (otext == '/s') {
         // lazy....
         ctx.flag.setting = {
             format: {
-                message: ctx.flag.setting.format.message ? ctx.flag.setting.format.message : '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%',
+                message: ctx.flag.setting.format.message ? ctx.flag.setting.format.message : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%',
                 mediagroup_message: ctx.flag.setting.format.mediagroup_message ? ctx.flag.setting.format.mediagroup_message : '%[%mid% %title%% |p%%](%url%)%\n|tags%',
-                inline: ctx.flag.setting.format.inline ? ctx.flag.setting.format.inline : '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%)% |p%%\n|tags%'
+                inline: ctx.flag.setting.format.inline ? ctx.flag.setting.format.inline : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%'
             },
             default: ctx.flag.setting.default
         }
@@ -192,10 +225,11 @@ bot.use(async (ctx, next) => {
             return
         }
         let new_setting = {}
-        if (otext.length > 2 && (otext.includes('+') || otext.includes('-'))) {
+        if (otext.length > 2 && (otext.includes('+') || otext.includes('-') || value_update_flag)) {
             new_setting = {
                 default: ctx.flag
             }
+            console.log(new_setting.default)
         } else if (ctx.rtext.substr(0, 3) == 'eyJ') {
             try {
                 new_setting = JSON.parse(Buffer.from(ctx.rtext, 'base64').toString('utf8'))
@@ -391,10 +425,10 @@ bot.on('text', async (ctx) => {
 
         } else if (ctx.flag.telegraph) {
             try {
-                let res_data = await mg2telegraph(ctx.temp_data.mg)
+                let res_data = await mg2telegraph(ctx.temp_data.mg, ctx.flag.telegraph_title, ctx.from.id, ctx.flag.telegraph_author_name, ctx.flag.telegraph_author_url)
                 if (res_data) {
                     await asyncForEach(res_data, async (d) => {
-                        await ctx.reply(d.ids.join('\n') + '\n' + d.url)
+                        await ctx.reply(d.ids.join('\n') + '\n' + d.telegraph_url)
                     })
                     await ctx.reply(_l(ctx.l, 'telegraph_iv'))
                 }

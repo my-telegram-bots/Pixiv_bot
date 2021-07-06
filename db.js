@@ -34,6 +34,13 @@ async function update_setting(value, chat_id, flag) {
         }
         if (value.default) {
             for (const i in value.default) {
+                if (['telegraph_title', 'telegraph_author_name', 'telegraph_author_url'].includes(i)) {
+                    if (typeof value.default[i] == 'string') {
+                        s.default[i] = value.default[i]
+                    } else {
+                        // throw 'e'
+                    }
+                }
                 if (['tags', 'open', 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album', 'desc'].includes(i)) {
                     if (typeof value.default[i] == 'boolean') {
                         s.default[i] = value.default[i]

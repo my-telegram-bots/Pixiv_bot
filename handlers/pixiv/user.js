@@ -68,13 +68,13 @@ async function get_user_illusts(author_id, page = 0, try_time = 0) {
                 ugoira_to_mp4(illust.id)
             }
             if (illust.flag) {
-                console.log('test', illust)
+                honsole.log('test', illust)
                 illusts[id] = await update_illust(illust)
             }
         })
         return illusts
     } catch (e) {
-        console.warn(e)
+        honsole.warn(e)
         await sleep(500)
         return get_user_illusts_by_id(id, page, try_time + 1)
     }

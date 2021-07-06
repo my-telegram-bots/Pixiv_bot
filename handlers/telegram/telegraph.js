@@ -1,14 +1,15 @@
 const fetch = require('node-fetch')
 const config = require('../../config.json')
-const { asyncForEach } = require('../common')
-const { head_url, ugoira_to_mp4 } = require('../pixiv/tools')
+const db = require('../../db')
+const { asyncForEach, generate_token, honsole } = require('../common')
+const { ugoira_to_mp4 } = require('../pixiv/tools')
 const br = { tag: 'br' }
 /**
  * mediagroup to telegraph
  * @param {} mg mediagroup
  * @returns 
  */
-async function mg2telegraph(mg) {
+async function mg2telegraph(mg, title, user_id, author_name, author_url) {
     let t_data = [{
         content: [],
         ids: []
@@ -78,10 +79,17 @@ async function mg2telegraph(mg) {
                 tag: 'p',
                 children: [d.ids.join(' ')]
             }
-            let data = await publish2telegraph('Pixiv collection', d.content)
+            let data = await publish2telegraph(
+                title,
+                user_id,
+                d.content,
+                author_name,
+                author_url,
+            )
             if (data.ok) {
                 res_data.push({
-                    url: data.result.url,
+                    telegraph_url: data.result.url,
+                    token: data.token,
                     ids: d.ids
                 })
             } else {
@@ -93,15 +101,21 @@ async function mg2telegraph(mg) {
         console.warn(error)
     }
 }
-async function novel2telegraph(novel) {
+async function novel2telegraph(novel, user_id) {
     let content = novel.content.split('\n')
     for (let i = content.length; i > 0; i--) {
         content.splice(i, 0, br)
     }
-    return await publish2telegraph(novel.title, [{
-        "tag": "p",
-        "children": content
-    }])
+    return await publish2telegraph(
+        novel.title,
+        user_id,
+        [{
+            "tag": "p",
+            "children": content
+        }],
+        novel.userName,
+        `https://www.pixiv.net/users/${novel.userId}`
+    )
 }
 
 /**
@@ -111,24 +125,49 @@ async function novel2telegraph(novel) {
  * @param {String} type type
  * @returns 
  */
-async function publish2telegraph(title = 'Pixiv collection', content, type) {
+async function publish2telegraph(
+    title = 'Pixiv collection',
+    user_id,
+    content,
+    author_name = 'Pixiv_bot',
+    author_url = 'https://t.me/pixiv_bot'
+) {
     try {
-        //let data = await (await fetch('https://api.telegra.ph/editPage',{
+        let contentify = JSON.stringify(content)
+        let time = +new Date()
+        honsole.dev('tcontent', content)
+        // see more https://telegra.ph/api
+        //let data = await (await fetch('https://api.telegra.ph/editPage', {
         let data = await (await fetch('https://api.telegra.ph/createPage', {
             method: 'post',
             body: JSON.stringify({
                 title: title,
-                content: JSON.stringify(content),
+                content: contentify,
                 access_token: config.tg.access_token,
-                author_name: 'Pixiv', // 感觉还是要自定义 等 db.chat_setting 搞了后再来把
-                author_url: 'https://t.me/Pixiv_bot' // 写死了 后面想想要怎么改
+                author_name: author_name,
+                author_url: author_url
             }),
             headers: {
                 'Content-Type': 'application/json'
             }
         })).json()
-        console.log(data)
-        return data
+        if (data.ok) {
+            console.log(data)
+            await db.collection.telegraph.replaceOne({
+                telegraph_url: data.result.url
+            }, {
+                telegraph_url: data.result.url,
+                user_id: user_id,
+                content: contentify,
+                time: time
+            }, {
+                upsert: true
+            })
+        }
+        return {
+            ...data,
+            token: generate_token(user_id,time)
+        }
     } catch (error) {
         console.warn(error)
         return {

@@ -7,11 +7,13 @@
         "cookie": "",
         "ua": "",
         "pximgproxy": "",
+        "csrf": "",
         "ugoiraurl": ""
     },
     "tg": {
         "master_id": 1,
         "token": "",
-        "access_token": ""
+        "access_token": "",
+        "salt": ""
     }
 }

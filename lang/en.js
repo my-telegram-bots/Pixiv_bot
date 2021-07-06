@@ -16,5 +16,7 @@ module.exports = {
     error_text_too_long: "Sending failed, text is too long, try the following actions to cut the text \n" +
         "1. cut the reply format in /s (if you customized it) \n" +
         "2. try -tags (not show in text)\n" +
-        "3. reduce the number of illusts you sent at once"
+        "3. reduce the number of illusts you sent at once",
+    error_tlegraph_title_too_long: 'Error: title is too long.',
+    error_tlegraph_author: 'Error, author\'s information is too long or incorrect.'
 }
