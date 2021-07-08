@@ -54,7 +54,7 @@ async function thumb_to_all(illust, try_time = 0) {
     }
     try {
         let original_img_length = await head_url(original_url)
-        if (!original_img_length) {
+        if (original_img_length == 404) {
             original_url = original_url.replace('.jpg', '.png')
         }
         if ((illust.page_count && illust.page_count > 1) || (illust.pageCount && illust.pageCount > 1) || (illust.imgs_ && illust.imgs_.size && illust.imgs_.size.length > 1)) {
@@ -166,7 +166,7 @@ async function ugoira_to_mp4(id, force = false) {
     }
 }
 async function head_url(url, try_time = 0) {
-    if (try_time > 2) {
+    if (try_time > 5) {
         honsole.error('cant connect', url)
         return false
     }
@@ -182,15 +182,16 @@ async function head_url(url, try_time = 0) {
             }
         })
         if (!res.headers['content-length']) {
-            throw 'not have content-length'
+            throw 'n_cl' // no have content-length
         }
         return parseInt(res.headers['content-length'])
     } catch (error) {
         if (error.response && error.response.status == 404) {
-            return false
+            return 404
         } else {
             honsole.warn('ggggg try again')
-            return await head_url(url, try_time + 1)
+            await sleep(500)
+            return await head_url(url, try_time + (error == 'n_cl' ? 0.3 : 1))
         }
     }
 }
