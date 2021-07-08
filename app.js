@@ -243,6 +243,12 @@ bot.on('text', async (ctx) => {
                 if (ctx.flag.telegraph || (ctx.flag.album && (ids.illust.length > 1 || d.imgs_.size.length > 1))) {
                     ctx.temp_data.mg = [...ctx.temp_data.mg, ...mg]
                 } else {
+                    if (d.type == 2 && ctx.startPayload) {
+                        // see https://core.telegram.org/bots/api#inlinekeyboardbutton
+                        // Especially useful when combined with switch_pm… actions – in this case the user will be automatically returned to the chat they switched from, skipping the chat selection screen.
+                        // So we need share button to switch chat window even if user don't want share button
+                        ctx.flag.share = true
+                    }
                     let extra = {
                         ...default_extra,
                         caption: mg[0].caption.replaceAll('%mid%', '').trim(),
@@ -313,7 +319,6 @@ bot.on('text', async (ctx) => {
         }
         // eslint-disable-next-line no-empty
         if (ctx.flag.asfile) {
-
         } else if (ctx.flag.telegraph) {
             try {
                 let res_data = await mg2telegraph(ctx.temp_data.mg, ctx.flag.telegraph_title, ctx.from.id, ctx.flag.telegraph_author_name, ctx.flag.telegraph_author_url)
@@ -347,7 +352,6 @@ bot.on('text', async (ctx) => {
                 })
             }
         }
-        timer_type = []
     }
     if (ids.novel.length > 0) {
         try {
@@ -364,6 +368,7 @@ bot.on('text', async (ctx) => {
     if (ctx.rtext.includes('fanbox.cc/') && ctx.chat.id > 0) {
         await ctx.reply(_l(ctx.l, 'fanbox_not_support'))
     }
+    timer_type = []
 })
 bot.on('inline_query', async (ctx) => {
     let res = []
@@ -381,13 +386,13 @@ bot.on('inline_query', async (ctx) => {
     if (ids.illust.length > 0) {
         await asyncForEach([...ids.illust.reverse()], async id => {
             let d = await handle_illust(id, ctx.flag)
-            // 动图目前还是要私聊机器人生成
+            // There is no enough time to convert ugoira, so need switch_pm to bot's chat window convert
             if (d.type == 2 && d.inline.length == 0) {
-                // 这个时候就偷偷开始处理了 所以不加 await
+                // pre convert (without await)
                 ugoira_to_mp4(d.id)
                 await ctx.answerInlineQuery([], {
                     switch_pm_text: _l(ctx.l, 'pm_to_generate_ugoira'),
-                    switch_pm_parameter: ids.illust.join('-_-').toString(), // ref to handlers/telegram/get_pixiv_ids.js#L12
+                    switch_pm_parameter: ids.illust.join('-_-').toString(),
                     cache_time: 0
                 }).catch(async e => {
                     await catchily(e, ctx)
@@ -396,8 +401,9 @@ bot.on('inline_query', async (ctx) => {
             }
             res = d.inline.concat(res)
         })
-        if (res.splice((offset + 1) * 20 - 1, 20))
+        if (res.splice((offset + 1) * 20 - 1, 20)) {
             res_options.next_offset = offset + 1
+        }
         res = res.splice(offset * 20, 20)
     } else if (query.replaceAll(' ', '') == '') {
         let data = await handle_ranking([offset], ctx.flag)

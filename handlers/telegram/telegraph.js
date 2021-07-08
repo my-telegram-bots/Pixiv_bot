@@ -17,14 +17,15 @@ async function mg2telegraph(mg, title, user_id, author_name, author_url) {
     let t_data_id = 0
     try {
         await asyncForEach(mg, async d => {
-            let url = d.media_o
-            if (d.type == 'photo') {
-                // image too large and telegram will disable the instat view in telegraph
-                if (d.fsize > 2048000) {
-                    // 2048000 = 2MB
-                    url = d.media_r
-                }
-            } else if (d.type == 'video') {
+            let url = d.media_r
+            // if (d.type == 'photo') {
+            //     // image too large and telegram will disable the instat view in telegraph
+            //     if (d.fsize > 2048000) {
+            //         // 2048000 = 2MB
+            //         url = d.media_r
+            //     }
+            // } else 
+            if (d.type == 'video') {
                 url = await ugoira_to_mp4(d.id)
             }
             url = url.replace('i-cf.pximg.net', config.pixiv.pximgproxy)
@@ -85,6 +86,7 @@ async function mg2telegraph(mg, title, user_id, author_name, author_url) {
                 d.content,
                 author_name,
                 author_url,
+                d.ids.join(' '),
             )
             if (data.ok) {
                 res_data.push({
@@ -114,7 +116,8 @@ async function novel2telegraph(novel, user_id) {
             "children": content
         }],
         novel.userName,
-        `https://www.pixiv.net/users/${novel.userId}`
+        `https://www.pixiv.net/users/${novel.userId}`,
+        ''
     )
 }
 
@@ -130,7 +133,8 @@ async function publish2telegraph(
     user_id,
     content,
     author_name = 'Pixiv_bot',
-    author_url = 'https://t.me/pixiv_bot'
+    author_url = 'https://t.me/pixiv_bot',
+    raw_content = ''
 ) {
     try {
         let contentify = JSON.stringify(content)
@@ -158,7 +162,7 @@ async function publish2telegraph(
             }, {
                 telegraph_url: data.result.url,
                 user_id: user_id,
-                content: contentify,
+                content: raw_content,
                 time: time
             }, {
                 upsert: true
@@ -166,7 +170,7 @@ async function publish2telegraph(
         }
         return {
             ...data,
-            token: generate_token(user_id,time)
+            token: generate_token(user_id, time)
         }
     } catch (error) {
         console.warn(error)

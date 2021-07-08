@@ -83,7 +83,7 @@ async function thumb_to_all(illust, try_time = 0) {
                 width: l.width,
                 height: l.height
             }
-            if (!original_img_length || i > 0) {
+            if (!original_img_length || original_img_length == 404 || i > 0) {
                 original_img_length = await head_url(imgs_.original_urls[i])
             }
             imgs_.fsize[i] = original_img_length
