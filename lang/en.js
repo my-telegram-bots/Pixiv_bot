@@ -1,3 +1,4 @@
+// translate by deepl and me(huggy)
 module.exports = {
     start: "Welcome to use Pixiv bot\n" +
         "I can send pixiv illust / manga / ugoira quickly to you via the link you sent\n" +
@@ -18,5 +19,6 @@ module.exports = {
         "2. try -tags (not show in text)\n" +
         "3. reduce the number of illusts you sent at once",
     error_tlegraph_title_too_long: 'Error: title is too long.',
-    error_tlegraph_author: 'Error, author\'s information is too long or incorrect.'
+    error_tlegraph_author: 'Error, author\'s information is too long or incorrect.',
+    error_not_a_administrator: 'Configuration failed, you are not a group administrator :('
 }

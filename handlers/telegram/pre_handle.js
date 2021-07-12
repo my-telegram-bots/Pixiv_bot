@@ -59,15 +59,15 @@ function get_pixiv_ids(text) {
     return { ...ids }
 }
 
-function get_values(text = ''){
+function get_values(text = '') {
     let list = {}
     text.split('\n').forEach(t => {
-        if(t.includes('=')){
-            let st = t.replace('=','\uff69').split('\uff69')
+        if (t.includes('=')) {
+            let st = t.replace('=', '\uff69').split('\uff69')
             st[0] = st[0].toLowerCase() // may be Title or Author
-            if(['title','author_name','author_url','an','au'].includes(st[0])){
-                if(st[0] == 'an')   list['author_name'] = st[1]
-                if(st[0] == 'au')   list['author_url'] = st[1]
+            if (['title', 'author_name', 'author_url', 'an', 'au'].includes(st[0])) {
+                if (st[0] == 'an') list['author_name'] = st[1]
+                if (st[0] == 'au') list['author_url'] = st[1]
                 list[st[0]] = st[1]
             }
         }
@@ -76,7 +76,7 @@ function get_values(text = ''){
 
 }
 
-async function flagger(ctx){
+async function flagger(ctx) {
     ctx.flag = {
         // I don't wanna save the 'string' data in default (maybe the format will be changed in the future)
         // see telegram/fotmat.js to get real data
@@ -98,64 +98,77 @@ async function flagger(ctx){
     ctx.temp_data = {
         mg: []
     }
-    if (ctx.from) {
-        let setting = await db.collection.chat_setting.findOne({
+    let setting = false
+    if (ctx.chat) {
+        setting = await db.collection.chat_setting.findOne({
+            id: ctx.chat.id
+        })
+    }
+    if (ctx.rtext.includes('+god') || (!setting || (setting.default && !setting.default.overwrite))) {
+        let setting_user = await db.collection.chat_setting.findOne({
             id: ctx.from.id
         })
-        if (setting) {
-            setting.default = {
-                ...ctx.flag.setting.default,
-                ...setting.default
-            }
-            for (const key in ctx.flag.setting.default) {
-                if (typeof setting.default[key] == undefined) {
-                    setting.default[key] = ctx.flag.setting.default[key]
-                }
-            }
-            ctx.flag.setting = setting
-            ctx.flag.setting.dbless = false
-            delete ctx.flag.setting._id
-            delete ctx.flag.setting.id
+        if(setting_user){
+            setting = setting_user
         }
     }
-    
+    if (setting) {
+        setting.default = {
+            ...ctx.flag.setting.default,
+            ...setting.default
+        }
+        for (const key in ctx.flag.setting.default) {
+            if (typeof setting.default[key] == undefined) {
+                setting.default[key] = ctx.flag.setting.default[key]
+            }
+        }
+        ctx.flag.setting = setting
+        ctx.flag.setting.dbless = false
+        delete ctx.flag.setting._id
+        delete ctx.flag.setting.id
+    }
+
     // default flag -> d_f
     let d_f = ctx.flag.setting.default ? ctx.flag.setting.default : {}
     ctx.flag = {
         ...ctx.flag,
-    
+
         // caption start
         tags: (d_f.tags && !ctx.rtext.includes('-tag')) || ctx.rtext.includes('+tag'),
         open: (d_f.open && !ctx.rtext.includes('-open')) || ctx.rtext.includes('+open'),
         share: (d_f.share && !ctx.rtext.includes('-share')) || ctx.rtext.includes('+share'),
         remove_keyboard: (d_f.remove_keyboard && !ctx.rtext.includes('+kb')) || ctx.rtext.includes('-kb'),
         remove_caption: (d_f.remove_caption && !ctx.rtext.includes('+cp')) || ctx.rtext.includes('-cp'),
+        // inline mode doesn't support mediagroup single_caption mode is useless
         single_caption: (!ctx.inlineQuery && ((d_f.single_caption && !ctx.rtext.includes('-sc'))) || ctx.rtext.includes('+sc')),
         show_id: !ctx.rtext.includes('-id'),
         // caption end
-    
+
         // send all illusts as mediagroup
         album: (d_f.album && !ctx.rtext.includes('-album')) || ctx.rtext.includes('+album'),
-    
+
         // descending order 
         desc: (d_f.desc && !ctx.rtext.includes('-desc')) || ctx.rtext.includes('+desc'),
-    
+
         // send as telegraph
         telegraph: ctx.rtext.includes('+graph') || ctx.rtext.includes('+telegraph'),
         // send as file
-        asfile: ctx.rtext.includes('+file'),
-    
+        asfile: ctx.rtext.includes('+file')
+
     }
-    
+    // group only value
+    if(ctx.chat && ctx.chat.id < 0){
+        ctx.flag.overwrite = (d_f.overwrite && !ctx.rtext.includes('-overwrite')) || ctx.rtext.includes('+overwrite')
+    }
     if (ctx.flag.telegraph) {
         ctx.flag.album = true
         ctx.flag.tags = true
     }
-    
+
     if (ctx.flag.single_caption) {
         ctx.flag.album = true
     }
-    
+
     if (ctx.rtext.includes('+rm')) {
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = false
     }
@@ -170,7 +183,7 @@ async function flagger(ctx){
             title,
             author_name,
             author_url
-        } = get_values(ctx.rtext.substr(0, 3) == '/s ' ? ctx.rtext.replace('/s ','') : ctx.rtext)
+        } = get_values(ctx.rtext.substr(0, 3) == '/s ' ? ctx.rtext.replace('/s ', '') : ctx.rtext)
         let v = {}
         if (title && title.length >= 256) {
             ctx.reply(_l(ctx.l, 'error_tlegraph_title_too_long'))

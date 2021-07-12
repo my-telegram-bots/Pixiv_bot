@@ -41,7 +41,7 @@ async function update_setting(value, chat_id, flag) {
                         // throw 'e'
                     }
                 }
-                if (['tags', 'open', 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album', 'desc'].includes(i)) {
+                if (['tags', 'open', 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album', 'desc', 'overwrite'].includes(i)) {
                     if (typeof value.default[i] == 'boolean') {
                         s.default[i] = value.default[i]
                     } else {
@@ -50,18 +50,13 @@ async function update_setting(value, chat_id, flag) {
                 }
             }
         }
-        if (flag.setting.dbless) {
-            await col.chat_setting.insertOne({
-                id: chat_id,
-                ...s
-            })
-        } else {
-            await col.chat_setting.updateOne({
-                id: chat_id,
-            }, {
-                $set: s
-            })
-        }
+        await col.chat_setting.updateOne({
+            id: chat_id,
+        }, {
+            $set: s
+        }, {
+            upsert: true
+        })
         return true
     } catch (error) {
         console.warn(error)

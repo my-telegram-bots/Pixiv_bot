@@ -90,57 +90,69 @@ bot.use(async (ctx, next) => {
     ctx.flag = await flagger(ctx)
     honsole.dev('input ->', ctx.chat, ctx.rtext, ctx.flag)
     // only support user
-    if (ctx.rtext == '/s') {
-        // lazy....
-        ctx.flag.setting = {
-            format: {
-                message: ctx.flag.setting.format.message ? ctx.flag.setting.format.message : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%',
-                mediagroup_message: ctx.flag.setting.format.mediagroup_message ? ctx.flag.setting.format.mediagroup_message : '%[%mid% %title%% |p%%](%url%)%\n|tags%',
-                inline: ctx.flag.setting.format.inline ? ctx.flag.setting.format.inline : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%'
-            },
-            default: ctx.flag.setting.default
+    if(ctx.rtext == '/s' || configuration_mode){
+        if(ctx.chat.id < 0 && ctx.from.id !== 1087968824){
+            let u = await bot.telegram.getChatMember(ctx.chat.id,ctx.from.id)
+            if(u.status !== 'administrator'){
+                await ctx.reply(_l(ctx.l, 'error_not_a_administrator'),{
+                    reply_to_message_id: ctx.message.message_id
+                })
+                return
+            }
         }
-        // alert who open old config (based on configuration generate time)
-        ctx.flag.setting.time = +new Date()
-        delete ctx.flag.setting.dbless
-        await ctx.reply(_l(ctx.l, 'setting_open_link'), {
-            ...Markup.inlineKeyboard([
-                Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', ''))
-            ])
-        })
-        return
-    } else if (configuration_mode && ctx.chat.id > 0) {
-        if (ctx.rtext == '/s reset') {
-            await ctx.reply(_l(ctx.l, 'setting_reset'))
-            await db.delete_setting(ctx.chat.id)
+        if (ctx.rtext == '/s') {
+            // lazy....
+            ctx.flag.setting = {
+                format: {
+                    message: ctx.flag.setting.format.message ? ctx.flag.setting.format.message : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%',
+                    mediagroup_message: ctx.flag.setting.format.mediagroup_message ? ctx.flag.setting.format.mediagroup_message : '%[%mid% %title%% |p%%](%url%)%\n|tags%',
+                    inline: ctx.flag.setting.format.inline ? ctx.flag.setting.format.inline : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%'
+                },
+                default: ctx.flag.setting.default
+            }
+            // alert who open old config (based on configuration generate time)
+            ctx.flag.setting.time = +new Date()
+            delete ctx.flag.setting.dbless
+            await ctx.reply(_l(ctx.l, 'setting_open_link'), {
+                ...Markup.inlineKeyboard([
+                    Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', ''))
+                ])
+            })
+            return
+        } else {
+            if (ctx.rtext == '/s reset') {
+                await ctx.reply(_l(ctx.l, 'setting_reset'))
+                await db.delete_setting(ctx.chat.id)
+                return
+            }
+            let new_setting = {}
+            if (ctx.rtext.length > 2 && (ctx.rtext.includes('+') || ctx.rtext.includes('-') || ctx.flag.value_update_flag)) {
+                new_setting = {
+                    default: ctx.flag
+                }
+            } else if (ctx.rtext.substr(0, 3) == 'eyJ') {
+                try {
+                    new_setting = JSON.parse(Buffer.from(ctx.rtext, 'base64').toString('utf8'))
+                } catch (error) {
+                    // message type is doesn't base64
+                    await ctx.reply(_l(ctx.l, 'error'))
+                    honsole.warn(ctx.rtext, error)
+                }
+            }
+            if (JSON.stringify(new_setting).length > 2) {
+                if (await db.update_setting(new_setting, ctx.chat.id, ctx.flag)) {
+                    await ctx.reply(_l(ctx.l, 'setting_saved'), {
+                        reply_to_message_id: ctx.message.message_id,
+                        allow_sending_without_reply: true
+                    })
+                } else {
+                    await ctx.reply(_l(ctx.l, 'error'),{
+                        reply_to_message_id: ctx.message.message_id,
+                    })
+                }
+            }
             return
         }
-        let new_setting = {}
-        if (ctx.rtext.length > 2 && (ctx.rtext.includes('+') || ctx.rtext.includes('-') || ctx.flag.value_update_flag)) {
-            new_setting = {
-                default: ctx.flag
-            }
-            console.log(new_setting.default)
-        } else if (ctx.rtext.substr(0, 3) == 'eyJ') {
-            try {
-                new_setting = JSON.parse(Buffer.from(ctx.rtext, 'base64').toString('utf8'))
-            } catch (error) {
-                // message type is doesn't base64
-                await ctx.reply(_l(ctx.l, 'error'))
-                honsole.warn(ctx.rtext, error)
-            }
-        }
-        if (JSON.stringify(new_setting).length > 2) {
-            if (await db.update_setting(new_setting, ctx.from.id, ctx.flag)) {
-                await ctx.reply(_l(ctx.l, 'setting_saved'), {
-                    reply_to_message_id: ctx.message.message_id,
-                    allow_sending_without_reply: true
-                })
-            } else {
-                await ctx.reply(_l(ctx.l, 'error'))
-            }
-        }
-        return
     }
     if (process.env.dev) {
         await next()
