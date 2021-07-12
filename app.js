@@ -79,7 +79,7 @@ bot.use(async (ctx, next) => {
         ctx.rtext = ''
     }
     let configuration_mode = false
-    if ((ctx.rtext.substr(0, 2) == '/s' || ctx.rtext.substr(0, 3) == 'eyJ')) {
+    if (((ctx.rtext.substr(0, 2) == '/s' && ctx.rtext.substr(0, 6) !== '/start') || ctx.rtext.substr(0, 3) == 'eyJ')) {
         configuration_mode = true
     }
     ctx.ids = get_pixiv_ids(ctx.rtext)
@@ -89,12 +89,12 @@ bot.use(async (ctx, next) => {
     }
     ctx.flag = await flagger(ctx)
     honsole.dev('input ->', ctx.chat, ctx.rtext, ctx.flag)
-    // only support user
-    if(ctx.rtext == '/s' || configuration_mode){
-        if(ctx.chat.id < 0 && ctx.from.id !== 1087968824){
-            let u = await bot.telegram.getChatMember(ctx.chat.id,ctx.from.id)
-            if(u.status !== 'administrator'){
-                await ctx.reply(_l(ctx.l, 'error_not_a_administrator'),{
+    if (ctx.rtext == '/s' || configuration_mode) {
+        //                                    1087968824 is a anonymous admin account
+        if (ctx.chat.id < 0 && ctx.from.id !== 1087968824) {
+            let u = await bot.telegram.getChatMember(ctx.chat.id, ctx.from.id)
+            if (u.status !== 'administrator' && u.status !== 'creator') {
+                await ctx.reply(_l(ctx.l, 'error_not_a_administrator'), {
                     reply_to_message_id: ctx.message.message_id
                 })
                 return
@@ -146,7 +146,7 @@ bot.use(async (ctx, next) => {
                         allow_sending_without_reply: true
                     })
                 } else {
-                    await ctx.reply(_l(ctx.l, 'error'),{
+                    await ctx.reply(_l(ctx.l, 'error'), {
                         reply_to_message_id: ctx.message.message_id,
                     })
                 }
@@ -154,6 +154,7 @@ bot.use(async (ctx, next) => {
             return
         }
     }
+    // add await => next query is await
     if (process.env.dev) {
         await next()
     } else {
