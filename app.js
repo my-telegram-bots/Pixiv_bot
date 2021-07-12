@@ -83,7 +83,7 @@ bot.use(async (ctx, next) => {
         configuration_mode = true
     }
     ctx.ids = get_pixiv_ids(ctx.rtext)
-    if (ctx.ids.author.length == 0 && ctx.ids.illust.length == 0 && ctx.ids.novel.length == 0 & !configuration_mode) {
+    if (!ctx.inlineQuery && ctx.ids.author.length == 0 && ctx.ids.illust.length == 0 && ctx.ids.novel.length == 0 & !configuration_mode) {
         // bot have nothing to do
         return
     }

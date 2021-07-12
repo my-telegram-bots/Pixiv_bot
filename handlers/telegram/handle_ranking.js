@@ -12,8 +12,8 @@ async function handle_ranking([...rank], flag) {
         inline.push({
             type: 'photo',
             id: 'p_' + p.id,
-            photo_url: (p.width >= 2000 || p.height >= 2000) ? p.murl : p.ourl,
-            // 图片太多 加载好慢 先用小图preview
+            // only show regualar url
+            photo_url: p.murl,
             thumb_url: p.turl,
             caption: format(p, flag, 'inline', 1, flag.setting.format.inline),
             parse_mode: 'MarkdownV2',
