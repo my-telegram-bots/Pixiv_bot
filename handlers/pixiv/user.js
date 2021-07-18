@@ -3,6 +3,8 @@ const { asyncForEach, sleep, honsole } = require('../common')
 let db = require('../../db')
 const { ugoira_to_mp4 } = require('./tools')
 const { update_illust } = require('./illust')
+let csrf = null
+
 /**
  * get user data
  * save illust data to MongoDB
@@ -185,10 +187,31 @@ async function group_setting(mode, type, id, retry_time = 0) {
         return await group_setting(mode, type, id, retry_time + 1)
     }
 }
+/**
+ * get user's latest csrf token
+ * may be use in the future
+ **/
+async function get_user_csrf(try_time = 0) {
+    if (try_time > 3) {
+        honsole.error('get csrf error')
+        return false
+    }
+    try {
+        let html = (await r_p.get()).data
+        csrf = html.split('{"token":"')[1].split('"')[0]
+        honsole.log('new csrf token:', csrf)
+        return csrf
+    } catch (error) {
+        honsole.error(error)
+        await sleep(500)
+        return await get_user_csrf(try_time + 1)
+    }
+}
 module.exports = {
     get_user,
     get_user_illusts_id,
     get_user_illusts,
     follow_user,
-    unfollow_user
+    unfollow_user,
+    get_user_csrf
 }
