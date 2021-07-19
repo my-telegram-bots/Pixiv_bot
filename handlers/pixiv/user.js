@@ -173,10 +173,10 @@ async function group_setting(mode, type, id, retry_time = 0) {
     try {
         let data = await r_p.post('rpc_group_setting.php', `mode=${encodeURIComponent(mode)}&type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}`)
         if (data.data.length < 2) {
-            return true
-        } else {
             honsole.error(mode + '_user_error', data.data)
             return false
+        } else {
+            return true
         }
     } catch (error) {
         honsole.error(error.response)

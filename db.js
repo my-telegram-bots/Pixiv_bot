@@ -21,6 +21,7 @@ async function update_setting(value, chat_id, flag) {
             format: {},
             default: {}
         }
+        let u = {}
         if (value.format) {
             for (const i in value.format) {
                 if (['message', 'mediagroup_message', 'inline'].includes(i)) {
@@ -50,11 +51,24 @@ async function update_setting(value, chat_id, flag) {
                 }
             }
         }
+        for (const i in value) {
+            if (['add_subscribe_author'].includes(i)) {
+                s[`${i.replace('add_', '')}_list.${value[i]}`] = +new Date()
+            }
+            if (['del_subscribe_author'].includes(i)) {
+                u[`${i.replace('del_', '')}_list.${value[i]}`] = { $exists: true }
+            }
+        }
+        let update_data = {
+            $set: s,
+        }
+        if (JSON.stringify(u).length > 2) {
+            update_data.$unset = u
+        }
+        console.log(update_data )
         await col.chat_setting.updateOne({
             id: chat_id,
-        }, {
-            $set: s
-        }, {
+        }, update_data, {
             upsert: true
         })
         return true

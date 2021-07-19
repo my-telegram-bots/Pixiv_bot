@@ -10,6 +10,7 @@ const mediagroup = require('./telegram/mediagroup')
 const telegraph = require('./telegram/telegraph')
 const handle_novel = require('./telegram/handle_novel')
 const pre_handle = require('./telegram/pre_handle')
+const tg_user = require('./telegram/user')
 module.exports = {
     ...handle_illust,
     ...handle_ranking,
@@ -22,5 +23,6 @@ module.exports = {
     ...format,
     ...mediagroup,
     ...telegraph,
-    ...pre_handle
+    ...pre_handle,
+    ...tg_user
 }
