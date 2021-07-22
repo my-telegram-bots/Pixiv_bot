@@ -50,6 +50,31 @@ async function unsubscribe_pixiv_author(chat_id, author_id) {
     return true
     // maybe not have `return false` ?
 }
+/**
+ * subscribe author's bookmarks
+ * url: https://www.pixiv.net/en/users/17819621/bookmarks/artworks
+ * only support public bookmarks(`like`)
+ * @param {*} chat_id 
+ * @param {*} author_id 
+ */
+async function subscribe_pixiv_bookmarks(chat_id, author_id){
+    await db.update_setting({
+        add_subscribe_author_bookmarks: author_id
+    }, chat_id)
+    return true
+}
+
+/**
+ * unsubscribe author's bookmarks
+ * @param {*} chat_id 
+ * @param {*} author_id 
+ */
+ async function subscribe_pixiv_bookmarks(chat_id, author_id){
+    await db.update_setting({
+        add_subscribe_author_bookmarks: author_id
+    }, chat_id)
+    return true
+}
 module.exports = {
     subscribe_pixiv_author,
     unsubscribe_pixiv_author

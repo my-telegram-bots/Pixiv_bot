@@ -165,9 +165,15 @@ async function ugoira_to_mp4(id, force = false) {
         return false
     }
 }
+
+/**
+ * get url's file size (content-length)
+ * @param {*} url 
+ * @returns number / boolean
+ */
 async function head_url(url, try_time = 0) {
     if (try_time > 5) {
-        honsole.error('cant connect', url)
+        honsole.error('can\'t get ', url, 'content-length')
         return false
     }
     url = url.replace('i-cf', 'i')

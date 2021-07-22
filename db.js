@@ -52,11 +52,13 @@ async function update_setting(value, chat_id, flag) {
             }
         }
         for (const i in value) {
-            if (['add_subscribe_author'].includes(i)) {
-                s[`${i.replace('add_', '')}_list.${value[i]}`] = +new Date()
-            }
-            if (['del_subscribe_author'].includes(i)) {
-                u[`${i.replace('del_', '')}_list.${value[i]}`] = { $exists: true }
+            // only match add_ and del_ prefix
+            if (['subscribe_author', 'subscribe_author_bookmarks'].includes(i.replace('add_', '').replace('del_', ''))) {
+                if(i.substr(0,4) == 'add_'){
+                    s[`${i.replace('add_', '')}_list.${value[i]}`] = +new Date()
+                }else if(i.substr(0,4) == 'del_'){
+                    u[`${i.replace('del_', '')}_list.${value[i]}`] = { $exists: true }
+                }
             }
         }
         let update_data = {
@@ -65,7 +67,6 @@ async function update_setting(value, chat_id, flag) {
         if (JSON.stringify(u).length > 2) {
             update_data.$unset = u
         }
-        console.log(update_data )
         await col.chat_setting.updateOne({
             id: chat_id,
         }, update_data, {
@@ -79,8 +80,13 @@ async function update_setting(value, chat_id, flag) {
 }
 async function delete_setting(chat_id) {
     try {
-        await col.chat_setting.deleteOne({
+        await col.chat_setting.updateOne({
             id: chat_id
+        },{
+            $unset: {
+                default: { $exists: true },
+                format: { $exists: true }
+            }
         })
         return true
     } catch (error) {
