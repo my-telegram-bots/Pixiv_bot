@@ -243,9 +243,11 @@ async function handle_new_configuration(bot, ctx, default_extra) {
         ctx.flag.setting.time = +new Date()
         delete ctx.flag.setting.dbless
         await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_open_link'), {
+            ...default_extra,
             ...Markup.inlineKeyboard([
                 Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', ''))
-            ])
+            ]),
+            reply_to_message_id: ctx.message.message_id
         })
         return
     } else {

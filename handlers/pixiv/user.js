@@ -207,10 +207,55 @@ async function get_user_csrf(try_time = 0) {
         return await get_user_csrf(try_time + 1)
     }
 }
+async function get_user_bookmarks(author_id, page = 1, try_time = 0) {
+    try {
+        let data = (await r_p_ajax(`user/${author_id}/illusts/bookmarks?tag=&offset=${(page - 1) * 100}&limit=100&rest=show`)).data
+        if (!data.error) {
+            let illusts = data.body.works
+            let illusts_id = []
+            // query from local database
+            let local_illust_data = await (db.collection.illust.find({
+                $or: illusts.map(illust => {
+                    let id = parseInt(illust.id)
+                    illusts_id.push(id)
+                    return {
+                        id: id
+                    }
+                })
+            })).toArray()
+            local_illust_data.forEach(illust => {
+                // s**t code
+                illusts[illusts_id.indexOf(illust.id)] = {
+                    ...illust,
+                    local_flag: true
+                }
+            })
+            await asyncForEach(illusts, async (illust, id) => {
+                if (!illust.local_flag) {
+                    // illust don't exist and database not have cache -> ignore
+                    console.log(illust)
+                    if (illust.url.includes('limit_unknown_s')) {
+                        illusts.splice(id,1)
+                    } else {
+                        illusts[id] = await update_illust(illust)
+                    }
+                }else{
+                    delete illusts[id].local_flag
+                }
+            })
+            return illusts
+        } else {
+            return false
+        }
+    } catch (error) {
+        honsole.error(error)
+    }
+}
 module.exports = {
     get_user,
     get_user_illusts_id,
     get_user_illusts,
+    get_user_bookmarks,
     follow_user,
     unfollow_user,
     get_user_csrf

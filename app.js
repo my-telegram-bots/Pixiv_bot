@@ -4,9 +4,7 @@ const exec = require('util').promisify((require('child_process')).exec)
 let config = require('./config.json')
 const {
     asyncForEach,
-    handle_illust,
-    handle_ranking,
-    handle_novel,
+    handle_illust, handle_ranking, handle_novel,
     get_pixiv_ids,
     get_user_illusts,
     ugoira_to_mp4,
@@ -48,7 +46,7 @@ bot.start(async (ctx, next) => {
         // reply start help command
         await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'start'), {
             parse_mode: 'MarkdownV2',
-            reply_to_message_id: message_id,
+            reply_to_message_id: ctx.message.message_id,
             allow_sending_without_reply: true
         })
     }
