@@ -66,16 +66,16 @@ bot.command('/id', async (ctx, next) => {
 bot.use(async (ctx, next) => {
     // simple i18n
     ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code
+    ctx.rtext = ''
     try {
         if (ctx.message && ctx.message.text) {
             // remove command[@username] : /start@Pixiv_bot -> /start
             ctx.rtext = ctx.message.text.replace('@' + ctx.botInfo.username, '')
         }
         if (ctx.inlineQuery && ctx.inlineQuery.query) {
-            text = ctx.inlineQuery.query
+            ctx.rtext = ctx.inlineQuery.query
         }
     } catch (error) {
-        ctx.rtext = ''
     }
     let configuration_mode = false
     if (((ctx.rtext.substr(0, 2) == '/s' && ctx.rtext.substr(0, 6) !== '/start') || ctx.rtext.substr(0, 3) == 'eyJ')) {
