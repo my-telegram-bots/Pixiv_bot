@@ -228,7 +228,7 @@ bot.on('text', async (ctx) => {
             let mg = mg_create(d, ctx.flag)
             // send as file
             if (ctx.flag.asfile) {
-                timer_type[2] = 'document'
+                timer_type = ['','','document']
                 await asyncForEach(mg, async (o) => {
                     let extra = {
                         ...default_extra,
@@ -240,7 +240,7 @@ bot.on('text', async (ctx) => {
                     await ctx.replyWithDocument(o.media_o, extra).catch(async e => {
                         if (catchily(e, ctx)) {
                             if (d.type <= 2) {
-                                await ctx.replyWithDocument({ source: await download_file(o.media_o, o.id) }, { ...extra, thumb: { source: await download_file(o.media_r ? o.media_r : o.media_o, o.id) } }).catch(e => {
+                                await ctx.replyWithDocument({ source: await download_file(o.media_o, o.id) }, { ...extra, thumb: { source: await download_file(o.media_r ? o.media_r : o.media_o, o.id) } }).catch(async e => {
                                     if (catchily(e, ctx)) {
                                         await ctx.reply(_l(ctx.l, 'file_too_large', o.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)), default_extra)
                                     }
