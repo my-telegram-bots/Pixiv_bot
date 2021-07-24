@@ -1,4 +1,5 @@
 const fs = require('fs')
+const { escape_strings } = require('./format')
 const l = {}
 fs.readdirSync('./lang/').map(file_name => {
     if (file_name.includes('.js'))
@@ -16,14 +17,16 @@ function _l(lang, item, ...value) {
     if (!item) {
         return lang
     }
-    if (!l[lang][item].includes('{}'))
+    if (!l[lang][item].includes('\\{\\}'))
         return l[lang][item]
-    let splite_text = l[lang][item].split('{}')
+    let splite_text = l[lang][item].split('\\{\\}')
     return splite_text.map((x, id) => {
-        if (id == splite_text.length - 1)
+        if (id == splite_text.length - 1){
             return x
-        if (x)
-            return x += value[id]
+        }
+        if (x){
+            return x += escape_strings(value[id])
+        }
     }).join('')
 }
 module.exports = {

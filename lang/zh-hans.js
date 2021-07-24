@@ -1,4 +1,6 @@
-module.exports = {
+const { escape_strings } = require("../handlers/telegram/format")
+
+let l = {
     start: "欢迎使用 Pixiv bot\n" +
         "我可以通过链接帮助你快速发送各类插图与动图\n" +
         "文档： https://pixiv-bot.pages.dev\n" +
@@ -21,3 +23,9 @@ module.exports = {
     error_tlegraph_author: '生成失败，作者相关信息太长或者有误。',
     error_not_a_administrator: '配置操作失败，您不是群组的管理员。'
 }
+
+
+for (const v in l) {
+    l[v] = escape_strings(l[v])
+}
+module.exports = l

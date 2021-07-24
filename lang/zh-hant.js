@@ -1,5 +1,7 @@
+const { escape_strings } = require("../handlers/telegram/format")
+
 // 繁体化来自繁化姬 zhconvert.org
-module.exports = {
+let l = {
     start: "歡迎使用 Pixiv bot\n" +
         "我可以通過連結幫助你快速發送各類插圖與動圖\n" +
         "文檔: https://pixiv-bot.pages.dev\n" +
@@ -22,3 +24,9 @@ module.exports = {
     error_tlegraph_author: '生成失敗，作者相關訊息太長或者有誤。',
     error_not_a_administrator: '配置操作失敗，您不是群組的管理員。'
 }
+
+
+for (const v in l) {
+    l[v] = escape_strings(l[v])
+}
+module.exports = l
