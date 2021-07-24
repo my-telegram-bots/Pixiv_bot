@@ -42,7 +42,7 @@ async function update_setting(value, chat_id, flag) {
                         // throw 'e'
                     }
                 }
-                if (['tags', 'open', 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album', 'desc', 'overwrite'].includes(i)) {
+                if (['tags', 'open', 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album', 'desc', 'overwrite', 'asfile'].includes(i)) {
                     if (typeof value.default[i] == 'boolean') {
                         s.default[i] = value.default[i]
                     } else {

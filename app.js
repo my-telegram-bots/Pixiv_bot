@@ -242,11 +242,11 @@ bot.on('text', async (ctx) => {
                             if (d.type <= 2) {
                                 await ctx.replyWithDocument({ source: await download_file(o.media_o, o.id) }, { ...extra, thumb: { source: await download_file(o.media_r ? o.media_r : o.media_o, o.id) } }).catch(e => {
                                     if (catchily(e, ctx)) {
-                                        ctx.reply(_l(ctx.l, 'file_too_large', o.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)), default_extra)
+                                        await ctx.reply(_l(ctx.l, 'file_too_large', o.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)), default_extra)
                                     }
                                 })
                             } else {
-                                ctx.reply(_l(ctx.l, 'error'), default_extra)
+                                await ctx.reply(_l(ctx.l, 'error'), default_extra)
                             }
                         }
                     })

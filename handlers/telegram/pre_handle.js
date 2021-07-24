@@ -153,7 +153,7 @@ async function flagger(ctx) {
         // send as telegraph
         telegraph: ctx.rtext.includes('+graph') || ctx.rtext.includes('+telegraph'),
         // send as file
-        asfile: ctx.rtext.includes('+file')
+        asfile: (d_f.asfile && !ctx.rtext.includes('-file')) || ctx.rtext.includes('+file')
 
     }
     // group only value
