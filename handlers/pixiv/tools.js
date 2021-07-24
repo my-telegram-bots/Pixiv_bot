@@ -173,7 +173,7 @@ async function ugoira_to_mp4(id, force = false) {
  */
 async function head_url(url, try_time = 0) {
     if (try_time > 5) {
-        honsole.error('can\'t get ', url, 'content-length')
+        honsole.error('can\'t get', url, 'content-length')
         return false
     }
     url = url.replace('i-cf', 'i')
@@ -181,7 +181,9 @@ async function head_url(url, try_time = 0) {
         // original may be a .png file
         // send head reqeust to check.
         honsole.log('trying', try_time, url)
-        let res = await axios.head(url, {
+        let res = await axios({
+            url: url,
+            method: try_time > 2 ? 'GET' : 'HEAD',
             headers: {
                 'User-Agent': config.pixiv.ua,
                 'Referer': 'https://www.pixiv.net'
@@ -197,7 +199,7 @@ async function head_url(url, try_time = 0) {
         } else {
             honsole.warn('ggggg try again')
             await sleep(500)
-            return await head_url(url, try_time + (error == 'n_cl' ? 0.3 : 1))
+            return await head_url(url, try_time + 1)
         }
     }
 }
