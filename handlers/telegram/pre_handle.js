@@ -1,7 +1,13 @@
 // there is no comment in this file
 // may be next version will be added
+const { Markup } = require("telegraf")
 const db = require("../../db")
 const { honsole } = require("../common")
+const { _l } = require("./i18n")
+let default_extra = {
+    parse_mode: 'MarkdownV2',
+    allow_sending_without_reply: true
+}
 function get_pixiv_ids(text) {
     let ids = {
         illust: [],
@@ -76,7 +82,7 @@ function get_values(text = '') {
 
 }
 
-async function flagger(ctx) {
+async function flagger(bot, ctx) {
     ctx.flag = {
         // I don't wanna save the 'string' data in default (maybe the format will be changed in the future)
         // see telegram/fotmat.js to get real data
@@ -95,9 +101,6 @@ async function flagger(ctx) {
         },
         q_id: 0 // telegraph albumized value
     }
-    ctx.temp_data = {
-        mg: []
-    }
     let setting = false
     if (ctx.chat) {
         setting = await db.collection.chat_setting.findOne({
@@ -108,7 +111,7 @@ async function flagger(ctx) {
         let setting_user = await db.collection.chat_setting.findOne({
             id: ctx.from.id
         })
-        if(setting_user){
+        if (setting_user) {
             setting = setting_user
         }
     }
@@ -157,7 +160,7 @@ async function flagger(ctx) {
 
     }
     // group only value
-    if(ctx.chat && ctx.chat.id < 0){
+    if (ctx.chat && ctx.chat.id < 0) {
         ctx.flag.overwrite = (d_f.overwrite && !ctx.rtext.includes('-overwrite')) || ctx.rtext.includes('+overwrite')
     }
     if (ctx.flag.telegraph) {
@@ -186,7 +189,10 @@ async function flagger(ctx) {
         } = get_values(ctx.rtext.substr(0, 3) == '/s ' ? ctx.rtext.replace('/s ', '') : ctx.rtext)
         let v = {}
         if (title && title.length >= 256) {
-            ctx.reply(_l(ctx.l, 'error_tlegraph_title_too_long'))
+            bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_title_too_long'), {
+                ...default_extra,
+                reply_to_message_id: ctx.message.message_id
+            })
             return
         }
         try {
@@ -195,7 +201,10 @@ async function flagger(ctx) {
                 throw 'e'
             }
         } catch (error) {
-            ctx.reply(_l(ctx.l, 'error_tlegraph_author'))
+            bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_author'), {
+                ...default_extra,
+                reply_to_message_id: ctx.message.message_id
+            })
             return
         }
         if (title) v.telegraph_title = title
@@ -211,8 +220,67 @@ async function flagger(ctx) {
     }
     return ctx.flag
 }
+async function handle_new_configuration(bot, ctx, default_extra) {
+    //                                     1087968824 is a anonymous admin account
+    if (ctx.chat.id < 0 && ctx.from.id !== 1087968824) {
+        let u = await bot.telegram.getChatMember(ctx.chat.id, ctx.from.id)
+        if (u.status !== 'administrator' && u.status !== 'creator') {
+            await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_administrator'), default_extra)
+            return
+        }
+    }
+    if (ctx.rtext == '/s') {
+        // lazy....
+        ctx.flag.setting = {
+            format: {
+                message: ctx.flag.setting.format.message ? ctx.flag.setting.format.message : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%',
+                mediagroup_message: ctx.flag.setting.format.mediagroup_message ? ctx.flag.setting.format.mediagroup_message : '%[%mid% %title%% |p%%](%url%)%\n|tags%',
+                inline: ctx.flag.setting.format.inline ? ctx.flag.setting.format.inline : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%'
+            },
+            default: ctx.flag.setting.default
+        }
+        // alert who open old config (based on configuration generate time)
+        ctx.flag.setting.time = +new Date()
+        delete ctx.flag.setting.dbless
+        await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_open_link'), {
+            ...Markup.inlineKeyboard([
+                Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', ''))
+            ])
+        })
+        return
+    } else {
+        if (ctx.rtext == '/s reset') {
+            await db.delete_setting(ctx.chat.id)
+            await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_reset'), default_extra)
+            return
+        }
+        let new_setting = {}
+        if (ctx.rtext.length > 2 && (ctx.rtext.includes('+') || ctx.rtext.includes('-') || ctx.flag.value_update_flag)) {
+            new_setting = {
+                default: ctx.flag
+            }
+        } else if (ctx.rtext.substr(0, 3) == 'eyJ') {
+            try {
+                new_setting = JSON.parse(Buffer.from(ctx.rtext, 'base64').toString('utf8'))
+            } catch (error) {
+                // message type is doesn't base64
+                await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error'))
+                honsole.warn(ctx.rtext, error)
+            }
+        }
+        if (JSON.stringify(new_setting).length > 2) {
+            if (await db.update_setting(new_setting, ctx.chat.id, ctx.flag)) {
+                await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_saved'), default_extra)
+            } else {
+                await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error'), default_extra)
+            }
+        }
+        return
+    }
+}
 module.exports = {
     get_pixiv_ids,
     get_values,
-    flagger
+    flagger,
+    handle_new_configuration
 }
