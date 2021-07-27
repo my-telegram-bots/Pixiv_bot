@@ -6,16 +6,45 @@ const { update_illust } = require('./illust')
 let csrf = null
 
 /**
- * get user data
- * save illust data to MongoDB
- * @param {number} id illust_id
- * @param {object} flag configure
+ * get user's profile
+ * @param {number} author_id illust_id
  */
-async function get_user(id) {
-    if (id.toString().length > 8 && id > 80000000)
+async function get_user_profile(author_id, try_time = 0) {
+    if (id.toString().length > 8 && id > 80000000) {
         return false
+    }
+    if (try_time > 5) {
+        honsole.error('max try time in get_user_profile')
+        return false
+    }
+    try {
+        let data = (await r_p_ajax(`user/${author_id}/?full=1`)).data
+        if (data.error) {
+            return 404
+        } else {
+            return {
+                author_id,
+                author_name: data.name,
+                author_avatar_url: data.imageBig,
+                comment: data.comment,
+                comment_html: data.comment_html
+            }
+        }
+    } catch (error) {
+        honsole.error(error)
+        await sleep(500)
+        return await get_user_profile(author_id, try_time + 1)
+    }
     honsole.log('u', id)
 }
+
+/**
+ * get user's illusts (per page)
+ * @param {*} author_id 
+ * @param {*} page 
+ * @param {*} try_time 
+ * @returns 
+ */
 async function get_user_illusts(author_id, page = 0, try_time = 0) {
     if (try_time > 5) {
         return false
@@ -207,7 +236,20 @@ async function get_user_csrf(try_time = 0) {
         return await get_user_csrf(try_time + 1)
     }
 }
+/**
+ * get user's bookmarks (per page)
+ * @param {*} author_id 
+ * @param {*} page 
+ * @returns {
+ * total: number,
+ * illusts: []
+ * }
+ */
 async function get_user_bookmarks(author_id, page = 1, try_time = 0) {
+    if (try_time > 5) {
+        honsole.error('can\'t get author', author_id, 'bookmarks')
+        return false
+    }
     try {
         let data = (await r_p_ajax(`user/${author_id}/illusts/bookmarks?tag=&offset=${(page - 1) * 100}&limit=100&rest=show`)).data
         if (!data.error) {
@@ -233,26 +275,35 @@ async function get_user_bookmarks(author_id, page = 1, try_time = 0) {
             await asyncForEach(illusts, async (illust, id) => {
                 if (!illust.local_flag) {
                     // illust don't exist and database not have cache -> ignore
-                    console.log(illust)
-                    if (illust.url.includes('limit_unknown_s')) {
-                        illusts.splice(id,1)
+                    // delete
+                    if (JSON.stringify(illust).includes('limit_unknown_s')) {
+                        illusts.splice(id, 1)
                     } else {
                         illusts[id] = await update_illust(illust)
                     }
-                }else{
+                } else {
                     delete illusts[id].local_flag
                 }
             })
-            return illusts
+            return {
+                total: data.body.total,
+                illusts: illusts
+            }
         } else {
-            return false
+            // user not exist ?
+            return {
+                total: 0,
+                illusts: []
+            }
         }
     } catch (error) {
         honsole.error(error)
+        await sleep(500)
+        return await get_user_bookmarks(author_id, page, try_time + 1)
     }
 }
 module.exports = {
-    get_user,
+    get_user_profile,
     get_user_illusts_id,
     get_user_illusts,
     get_user_bookmarks,
