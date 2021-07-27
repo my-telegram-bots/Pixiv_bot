@@ -172,7 +172,7 @@ async function ugoira_to_mp4(id, force = false) {
  * @returns number / boolean
  */
 async function head_url(url, try_time = 0) {
-    if (try_time > 5) {
+    if (try_time > 6) {
         honsole.error('can\'t get', url, 'content-length')
         return false
     }
@@ -183,21 +183,30 @@ async function head_url(url, try_time = 0) {
         honsole.log('trying', try_time, url)
         let res = await axios({
             url: url,
-            method: try_time > 2 ? 'GET' : 'HEAD',
+            method: try_time > 1 ? 'GET' : 'HEAD',
             headers: {
                 'User-Agent': config.pixiv.ua,
                 'Referer': 'https://www.pixiv.net'
             }
         })
         if (!res.headers['content-length']) {
-            throw 'n_cl' // no have content-length
+            if (try_time > 4){
+                // real content-length
+                return res.data.length
+            }else{
+                throw 'n_cl' // no have content-length
+            }
         }
+        // Warning, Pixiv return content-length value is not a real file size
+        // it less than real_value
+        // pixiv's content-length * .1.05 ≈ real_value
         return parseInt(res.headers['content-length'])
     } catch (error) {
         if (error.response && error.response.status == 404) {
             return 404
         } else {
             honsole.warn('ggggg try again')
+            honsole.dev(error)
             await sleep(500)
             return await head_url(url, try_time + 1)
         }
