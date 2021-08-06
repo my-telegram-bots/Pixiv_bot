@@ -28,16 +28,12 @@ async function get_illust(id, mode = 'p', try_time = 0) {
             // data example https://paste.huggy.moe/mufupocomo.json
             illust = (await r_p_ajax.get('illust/' + id)).data
             honsole.dev('fetch_raw_illust', illust)
-            // Work has been deleted or the ID does not exist.
-            if (illust.error) {
-                return 404
-            }
             illust = await update_illust(illust.body)
             return illust
         } catch (error) {
-            // network or session
+            // network, session or Work has been deleted or the ID does not exist.
             // to prevent cache attack the 404 result will be not in database.
-            honsole.warn(error)
+            console.warn(error)
             return 404
         }
     } else {

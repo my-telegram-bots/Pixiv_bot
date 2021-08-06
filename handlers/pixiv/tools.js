@@ -166,31 +166,66 @@ async function ugoira_to_mp4(id, retry_time = 0, force = false) {
     } catch (error) {
         honsole.warn(error)
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
-        return await ugoira_to_gif(id, retry_time + 1, force)
+        return await ugoira_to_mp4(id, retry_time + 1, force)
     }
 }
-// /**
-//  * ugoira mp4 to gif
-//  * @param {*} id 
-//  */
-async function ugoira_to_gif(id, quality = 'high') {
-    if (fs.existsSync(`./tmp/mp4_1/${id}.gif`) && !force) {
-        return `${config.pixiv.ugoiraurl.replace('mp4_1', 'gif')}/${id}.gif`
+/**
+ * ugoira mp4 to gif
+ * ~~ why not apng to gif ? ~~ -> lazy
+ * @param {*} id 
+ */
+async function ugoira_to_gif(id, quality = 'high', real_width = 0, real_height = 0, retry_time = 0, force = false) {
+    let height = 0
+    let width = 0
+    if (!['high', 'medium', 'small'].includes(quality)) {
+        quality = 'high'
+    }
+    if (fs.existsSync(`./tmp/gif/${id}-${quality}.gif`) && !force) {
+        return `${config.pixiv.ugoiraurl.replace('mp4_1', 'gif')}/${id}-${quality}.gif`
     }
     if (ugoira_gif_queue_list.length > 4 || ugoira_gif_queue_list.includes(id)) {
         await sleep(1000)
-        return await ugoira_to_gif(id, false)
+        return await ugoira_to_gif(id, quality, real_width, real_height, retry_time, force)
     }
     ugoira_gif_queue_list.push(id)
     await ugoira_to_mp4(id)
-    if (!fs.existsSync(`./tmp/palette/${id}.png`)) {
-        await exec(`ffmpeg -y -i ./tmp/mp4_1/${id}.mp4 -vf "fps=22,scale=1024:-1:flags=lanczos,palettegen" ./tmp/palette/${id}.png`)
+    try {
+        if (!real_width || !real_height) {
+            let e = (await exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 './tmp/mp4_1/${id}.mp4'`)).stdout.replace('\n', '').split('x')
+            real_width = e[0]
+            real_height = e[1]
+        }
+        switch (quality) {
+            case 'high':
+                width = real_width
+                height = real_height
+                break
+            case 'medium':
+                width = Math.round(real_width / 2)
+                height = Math.round(real_height / 2)
+                break
+            case 'small':
+                width = Math.round(real_width / 4)
+                height = Math.round(real_height / 4)
+                break
+        }
+        console.log(width, height)
+        // ffmpeg configuration from 
+        // https://bhupesh-v.github.io/convert-videos-high-quality-gif-ffmpeg/
+        // and who from ACGN taiwan
+        if (!fs.existsSync(`./tmp/palette/${id}-${quality}.png`)) {
+            await exec(`ffmpeg -y -i ./tmp/mp4_1/${id}.mp4 -vf "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos,palettegen" ./tmp/palette/${id}-${quality}.png`)
+        }
+        await exec(`ffmpeg -y -t 30 -i ./tmp/mp4_1/${id}.mp4 -i ./tmp/palette/${id}.png  -filter_complex "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos[x];[x][1:v]paletteuse" ./tmp/gif/${id}-${quality}-processing.gif`)
+        fs.renameSync(`./tmp/gif/${id}-${quality}-processing.gif`, `./tmp/gif/${id}-${quality}.gif`)
+        ugoira_gif_queue_list.splice(ugoira_gif_queue_list.indexOf(id), 1)
+    } catch (error) {
+        console.warn(error)
+        ugoira_gif_queue_list.splice(ugoira_gif_queue_list.indexOf(id), 1)
+        await sleep(500)
+        return await ugoira_to_gif(id, quality, real_width, real_height, retry_time + 1, force)
     }
-    if(quality === 'high'){
-        await exec(`ffmpeg -y -t 29 -i ./tmp/mp4_1/${id}.mp4 -i ./tmp/palette/${id}.png  -filter_complex "fps=22,scale=1024:-1:flags=lanczos[x];[x][1:v]paletteuse" ./tmp/gif/${id}.gif`)
-    }
-    ugoira_gif_queue_list.splice(ugoira_gif_queue_list.indexOf(id), 1)
-    return `${config.pixiv.ugoiraurl.replace('mp4_1', 'gif')}/${id}.gif`
+    return `${config.pixiv.ugoiraurl.replace('mp4_1', 'gif')}/${id}-${quality}.gif`
 }
 /**
  * get url's file size (content-length)

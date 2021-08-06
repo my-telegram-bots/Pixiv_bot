@@ -6,7 +6,7 @@ const Router = require('koa-router')
 const app = new Koa()
 let config = require('./config.json')
 const { db_initial } = require('./db')
-const { get_pixiv_ids, ugoira_to_mp4, asyncForEach, honsole, exec, ugoira_to_gif } = require('./handlers')
+const { get_pixiv_ids, ugoira_to_mp4, ugoira_to_gif, asyncForEach, honsole } = require('./handlers')
 const { get_illust } = require('./handlers/pixiv/illust')
 const router = new Router()
 app.use(bodyParser())
@@ -52,21 +52,21 @@ router.post('/api/illusts', async (ctx) => {
     ctx.body = body
 })
 
-// router.get('/api/gif/:id', async (ctx) => {
-//     let body = {
-//         ok: false
-//     }
-//     let data = await get_illust(ctx.params.id)
-//     if (data) {
-//         let url = await ugoira_to_gif(data.id)
-//         body = {
-//             ok: true,
-//             url
-//         }
-//         ctx.redirect(`https://${config.pixiv.ugoiraurl.replace('/mp4_1','gif')}`)
-//     }
-//     ctx.body = body
-// })
+router.get('/api/gif/:id/:quality', async (ctx) => {
+    let body = {
+        ok: false
+    }
+    let data = await get_illust(ctx.params.id)
+    if (data) {
+        let url = await ugoira_to_gif(data.id, ctx.params.quality, data.imgs_.size[0].width, data.imgs_.size[0].height)
+        body = {
+            ok: true,
+            url
+        }
+        // ctx.redirect(`https://${config.pixiv.ugoiraurl.replace('/mp4_1','gif')}`)
+    }
+    ctx.body = body
+})
 app.use(router.routes()).use(router.allowedMethods())
 if (process.argv[1].includes('web.js')) {
     db_initial().then(() => {
