@@ -1,11 +1,11 @@
 const { default: axios } = require("axios")
 const { r_p_ajax } = require('./request')
-const exec = require('util').promisify((require('child_process')).exec)
 const fs = require('fs')
 const config = require('../../config.json')
-const { download_file, sleep, honsole, asyncForEach } = require('../common')
+const { download_file, sleep, honsole, asyncForEach, exec } = require('../common')
 // ugoira queue
-let ugoira_queue_list = []
+let ugoira_mp4_queue_list = []
+let ugoira_gif_queue_list = []
 /**
  * thumb url to regular and original url
  * @param {string} thumb_url 
@@ -106,20 +106,24 @@ async function thumb_to_all(illust, try_time = 0) {
  * @param {*} force ignore exist file 
  * @returns 
  */
-async function ugoira_to_mp4(id, force = false) {
+async function ugoira_to_mp4(id, retry_time = 0, force = false) {
     if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`) && !force) {
         return `${config.pixiv.ugoiraurl}/${id}.mp4`
     }
-    if (ugoira_queue_list.length > 4 || ugoira_queue_list.includes(id)) {
+    if (retry_time > 3) {
+        return false
+    }
+    if (ugoira_mp4_queue_list.length > 4 || ugoira_mp4_queue_list.includes(id)) {
         await sleep(1000)
         return await ugoira_to_mp4(id, false)
     }
-    ugoira_queue_list.push(id)
+    ugoira_mp4_queue_list.push(id)
     try {
         id = parseInt(id)
         let ud = (await r_p_ajax(`/illust/${id}/ugoira_meta`)).data
-        if (ud.error)
+        if (ud.error) {
             return false
+        }
         ud = ud.body
         // 确定每一帧出现的时长
         let frame = '# timecode format v2\n0\n'
@@ -154,18 +158,40 @@ async function ugoira_to_mp4(id, force = false) {
         // copy last frame
         fs.copyFileSync(`./tmp/ugoira/${id}/${(ud.frames.length - 1).toString().padStart(6, 0)}.jpg`, `./tmp/ugoira/${id}/${(ud.frames.length).toString().padStart(6, 0)}.jpg`)
         // jpg -> mp4 (no fps metadata)
-        await exec(`ffmpeg -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
+        await exec(`ffmpeg -y -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         // add time metadata via mp4fpsmod
         await exec(`mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
-        ugoira_queue_list.splice(ugoira_queue_list.indexOf(id), 1)
+        ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
         return `${config.pixiv.ugoiraurl}/${id}.mp4`
     } catch (error) {
-        console.warn(error)
-        ugoira_queue_list.splice(ugoira_queue_list.indexOf(id), 1)
-        return false
+        honsole.warn(error)
+        ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
+        return await ugoira_to_gif(id, retry_time + 1, force)
     }
 }
-
+// /**
+//  * ugoira mp4 to gif
+//  * @param {*} id 
+//  */
+async function ugoira_to_gif(id, quality = 'high') {
+    if (fs.existsSync(`./tmp/mp4_1/${id}.gif`) && !force) {
+        return `${config.pixiv.ugoiraurl.replace('mp4_1', 'gif')}/${id}.gif`
+    }
+    if (ugoira_gif_queue_list.length > 4 || ugoira_gif_queue_list.includes(id)) {
+        await sleep(1000)
+        return await ugoira_to_gif(id, false)
+    }
+    ugoira_gif_queue_list.push(id)
+    await ugoira_to_mp4(id)
+    if (!fs.existsSync(`./tmp/palette/${id}.png`)) {
+        await exec(`ffmpeg -y -i ./tmp/mp4_1/${id}.mp4 -vf "fps=22,scale=1024:-1:flags=lanczos,palettegen" ./tmp/palette/${id}.png`)
+    }
+    if(quality === 'high'){
+        await exec(`ffmpeg -y -t 29 -i ./tmp/mp4_1/${id}.mp4 -i ./tmp/palette/${id}.png  -filter_complex "fps=22,scale=1024:-1:flags=lanczos[x];[x][1:v]paletteuse" ./tmp/gif/${id}.gif`)
+    }
+    ugoira_gif_queue_list.splice(ugoira_gif_queue_list.indexOf(id), 1)
+    return `${config.pixiv.ugoiraurl.replace('mp4_1', 'gif')}/${id}.gif`
+}
 /**
  * get url's file size (content-length)
  * @param {*} url 
@@ -190,10 +216,10 @@ async function head_url(url, try_time = 0) {
             }
         })
         if (!res.headers['content-length']) {
-            if (try_time > 4){
+            if (try_time > 4) {
                 // real content-length
                 return res.data.length
-            }else{
+            } else {
                 throw 'n_cl' // no have content-length
             }
         }
@@ -215,5 +241,6 @@ async function head_url(url, try_time = 0) {
 module.exports = {
     thumb_to_all,
     head_url,
-    ugoira_to_mp4
+    ugoira_to_mp4,
+    ugoira_to_gif
 }

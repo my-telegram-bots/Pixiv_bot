@@ -3,43 +3,47 @@ const fs = require('fs')
 const db = require('./db')
 
 async function handle() {
-    fs.mkdirSync('./tmp')
-    fs.mkdirSync('./tmp/file')
-    fs.mkdirSync('./tmp/timecode')
-    fs.mkdirSync('./tmp/mp4_0')
-    fs.mkdirSync('./tmp/mp4_1')
-    fs.mkdirSync('./tmp/ugoira')
+    mkdir('./tmp')
+    mkdir('./tmp/file')
+    mkdir('./tmp/timecode')
+    mkdir('./tmp/mp4_0')
+    mkdir('./tmp/mp4_1')
+    mkdir('./tmp/ugoira')
+    mkdir('./tmp/palette')
+    mkdir('./tmp/gif')
     await db.db_initial()
-    await db.collection.author.createIndex({
-        id: 1
-    }, {
-        unique: true,
-    });
-    await db.collection.illust.createIndex({
-        id: 1
-    }, {
-        unique: true,
-    });
-    await db.collection.novel.createIndex({
-        id: 1
-    }, {
-        unique: true,
-    });
-    await db.collection.ranking.createIndex({
-        id: 1
-    }, {
-        unique: true,
-    });
-    await db.collection.chat_setting.createIndex({
-        id: 1
-    }, {
-        unique: true,
-    });
+    await create_unique_index('author')
+    await create_unique_index('illust')
+    await create_unique_index('novel')
+    await create_unique_index('ranking')
+    await create_unique_index('chat_setting')
     await db.collection.telegraph.createIndex({
         telegraph_url: 1
     }, {
         unique: true,
     });
     process.exit()
+}
+/**
+ * mkdir
+ * @param {*} path 
+ */
+async function mkdir(path) {
+    try {
+        fs.mkdirSync(path)
+    } catch (error) {
+
+    }
+}
+async function create_unique_index(collection) {
+    try {
+        await db.collection[collection].createIndex({
+            id: 1
+        }, {
+            unique: true,
+        });
+    } catch (error) {
+        console.error(error)
+    }
 }
 handle()

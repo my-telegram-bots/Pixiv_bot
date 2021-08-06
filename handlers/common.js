@@ -95,10 +95,12 @@ function sleep(ms) {
 function generate_token(user_id, time = +new Date()) {
     return createHash('sha1').update(`${config.tg.salt}${user_id}${time}`).digest('hex').toString()
 }
+const exec = require('util').promisify((require('child_process')).exec)
 module.exports = {
     asyncForEach,
     download_file,
     sleep,
     generate_token,
-    honsole
+    honsole,
+    exec
 }

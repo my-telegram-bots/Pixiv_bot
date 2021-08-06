@@ -55,10 +55,10 @@ async function update_png_file_error() {
     let d = (await db.collection.illust.find({}).toArray()).reverse()
     console.log('load illusts from local database', d.length)
     await asyncForEach(d, async (illust, id) => {
-        if(illust.imgs_.original_urls || typeof illust.imgs_.original_urls[0] == 'number' || illust.imgs_.original_urls[0].includes('.png')){
-            if(typeof illust.imgs_.original_urls[0] == 'string')    illust.imgs_.original_urls[0] = await head_url(illust.imgs_.original_urls[0])
-            if(illust.imgs_.original_urls[0] == 404 || typeof illust.imgs_.original_urls[0] == 'number'){
-                console.log(illust.id,'png',404)
+        if (illust.imgs_.original_urls || typeof illust.imgs_.original_urls[0] == 'number' || illust.imgs_.original_urls[0].includes('.png')) {
+            if (typeof illust.imgs_.original_urls[0] == 'string') illust.imgs_.original_urls[0] = await head_url(illust.imgs_.original_urls[0])
+            if (illust.imgs_.original_urls[0] == 404 || typeof illust.imgs_.original_urls[0] == 'number') {
+                console.log(illust.id, 'png', 404)
                 illust.url = illust.imgs_.thumb_urls[0]
                 illust.imgs_ = await thumb_to_all(illust)
             }
@@ -68,6 +68,34 @@ async function update_png_file_error() {
     })
     process.exit()
 }
+
+async function update_ugoira_null_size_data() {
+    await db.db_initial()
+    let d = (await db.collection.illust.find({}).toArray())
+    console.log('load illusts from local database', d.length)
+    await asyncForEach(d, async (illust, id) => {
+        try {
+            if (JSON.stringify(illust.imgs_.size).includes('null') && illust.type === 2) {
+                let e = (await exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 './tmp/mp4_1/${illust.id}.mp4'`)).stdout.replace('\n', '').split('x')
+                console.log(id, illust.id, illust.type, illust.imgs_.size, e)
+                await db.collection.illust.updateOne({
+                    id: illust.id
+                }, {
+                    $set: {
+                        'imgs_.size': [{
+                            width: parseInt(e[0]),
+                            height: parseInt(e[1])
+                        }]
+                    }
+                })
+            }
+        } catch (error) {
+            console.log(illust.id, error)
+        }
+    })
+    process.exit()
+}
+
 try {
     // just some expliot ? LOL
     eval(process.argv[2] + '()')
