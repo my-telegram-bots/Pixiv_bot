@@ -1,6 +1,5 @@
 const { Telegraf, Markup } = require('telegraf')
 const { telegrafThrottler } = require('telegraf-throttler')
-const exec = require('util').promisify((require('child_process')).exec)
 let config = require('./config.json')
 const {
     asyncForEach,
@@ -15,7 +14,8 @@ const {
     mg2telegraph,
     flagger,
     honsole,
-    handle_new_configuration
+    handle_new_configuration,
+    exec
 } = require('./handlers')
 const db = require('./db')
 const throttler = telegrafThrottler({
@@ -36,6 +36,7 @@ const throttler = telegrafThrottler({
 })
 const bot = new Telegraf(config.tg.token)
 bot.use(throttler)
+
 bot.start(async (ctx, next) => {
     // startPayload = deeplink 
     // see more https://core.telegram.org/bots#deep-linking
@@ -51,17 +52,20 @@ bot.start(async (ctx, next) => {
         })
     }
 })
+
 bot.help(async (ctx) => {
     await bot.telegram.sendMessage(ctx.chat.id, 'https://pixiv-bot.pages.dev', {
         reply_to_message_id: ctx.message.message_id
     })
 })
+
 bot.command('/id', async (ctx, next) => {
     await bot.telegram.sendMessage(ctx.chat.id, (ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : '') + `#userid: \`${ctx.from.id}\`\n`, {
         reply_to_message_id: ctx.message.message_id,
         parse_mode: 'Markdown'
     })
 })
+
 // read i18n and configuration for message & inline
 bot.use(async (ctx, next) => {
     // simple i18n
@@ -164,12 +168,11 @@ async function tg_sender(ctx) {
     if (ids.illust.length > 0) {
         await asyncForEach(ids.illust, async id => {
             let d = await handle_illust(id, ctx.flag)
-            if (!d) {
-                return
+            if (d) {
+                if (d.type <= 1) timer_type[0] = 'photo'
+                if (d.type == 2) timer_type[1] = 'video'
+                illusts.push(d)
             }
-            if (d.type <= 1) timer_type[0] = 'photo'
-            if (d.type == 2) timer_type[1] = 'video'
-            illusts.push(d)
         })
     }
     if (ctx.flag.desc) {
