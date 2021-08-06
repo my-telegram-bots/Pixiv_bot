@@ -60,10 +60,9 @@ router.get('/api/gif/:id/:quality', async (ctx) => {
     if (data) {
         let url = await ugoira_to_gif(data.id, ctx.params.quality, data.imgs_.size[0].width, data.imgs_.size[0].height)
         body = {
-            ok: true,
-            url
+            ok: true
         }
-        // ctx.redirect(`https://${config.pixiv.ugoiraurl.replace('/mp4_1','gif')}`)
+        ctx.redirect(url)
     }
     ctx.body = body
 })

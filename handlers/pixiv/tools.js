@@ -174,11 +174,11 @@ async function ugoira_to_mp4(id, retry_time = 0, force = false) {
  * ~~ why not apng to gif ? ~~ -> lazy
  * @param {*} id 
  */
-async function ugoira_to_gif(id, quality = 'high', real_width = 0, real_height = 0, retry_time = 0, force = false) {
+async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height = 0, retry_time = 0, force = false) {
     let height = 0
     let width = 0
-    if (!['high', 'medium', 'small'].includes(quality)) {
-        quality = 'high'
+    if (!['large', 'medium', 'small'].includes(quality)) {
+        quality = 'large'
     }
     if (fs.existsSync(`./tmp/gif/${id}-${quality}.gif`) && !force) {
         return `${config.pixiv.ugoiraurl.replace('mp4_1', 'gif')}/${id}-${quality}.gif`
@@ -196,7 +196,7 @@ async function ugoira_to_gif(id, quality = 'high', real_width = 0, real_height =
             real_height = e[1]
         }
         switch (quality) {
-            case 'high':
+            case 'large':
                 width = real_width
                 height = real_height
                 break
@@ -216,7 +216,7 @@ async function ugoira_to_gif(id, quality = 'high', real_width = 0, real_height =
         if (!fs.existsSync(`./tmp/palette/${id}-${quality}.png`)) {
             await exec(`ffmpeg -y -i ./tmp/mp4_1/${id}.mp4 -vf "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos,palettegen" ./tmp/palette/${id}-${quality}.png`)
         }
-        await exec(`ffmpeg -y -t 30 -i ./tmp/mp4_1/${id}.mp4 -i ./tmp/palette/${id}.png  -filter_complex "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos[x];[x][1:v]paletteuse" ./tmp/gif/${id}-${quality}-processing.gif`)
+        await exec(`ffmpeg -y -t 30 -i ./tmp/mp4_1/${id}.mp4 -i ./tmp/palette/${id}-${quality}.png  -filter_complex "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos[x];[x][1:v]paletteuse" ./tmp/gif/${id}-${quality}-processing.gif`)
         fs.renameSync(`./tmp/gif/${id}-${quality}-processing.gif`, `./tmp/gif/${id}-${quality}.gif`)
         ugoira_gif_queue_list.splice(ugoira_gif_queue_list.indexOf(id), 1)
     } catch (error) {
@@ -225,6 +225,9 @@ async function ugoira_to_gif(id, quality = 'high', real_width = 0, real_height =
         await sleep(500)
         return await ugoira_to_gif(id, quality, real_width, real_height, retry_time + 1, force)
     }
+    ugoira_to_gif(id,'large')
+    ugoira_to_gif(id,'medium')
+    ugoira_to_gif(id,'small')
     return `${config.pixiv.ugoiraurl.replace('mp4_1', 'gif')}/${id}-${quality}.gif`
 }
 /**
