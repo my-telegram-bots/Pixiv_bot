@@ -164,6 +164,9 @@ async function tg_sender(ctx) {
     if (ids.illust.length > 0) {
         await asyncForEach(ids.illust, async id => {
             let d = await handle_illust(id, ctx.flag)
+            if (!d) {
+                return
+            }
             if (d.type <= 1) timer_type[0] = 'photo'
             if (d.type == 2) timer_type[1] = 'video'
             illusts.push(d)
@@ -210,7 +213,7 @@ async function tg_sender(ctx) {
                 })
                 timer_type[2] = ''
             } else {
-                if (ctx.flag.telegraph || (ctx.flag.album && (ids.illust.length > 1 || d.imgs_.size.length > 1))) {
+                if (ctx.flag.telegraph || (ctx.flag.album && (ids.illust.length > 1 || (d.imgs_ && d.imgs_.size.length > 1)))) {
                     temp_data.mg = [...temp_data.mg, ...mg]
                 } else {
                     if (d.type == 2 && ctx.startPayload) {
@@ -404,12 +407,16 @@ db.db_initial().then(async () => {
         }
     }
     await bot.launch().then(async () => {
-        console.log(new Date(), 'started!')
-        bot.telegram.sendMessage(config.tg.master_id, `${new Date().toString()} started!`)
+        console.log(new Date(), 'bot started!')
+        bot.telegram.sendMessage(config.tg.master_id, `${new Date().toString()} bot started!`)
     }).catch((e) => {
         console.error('You are offline or bad bot token', e)
         process.exit()
     })
+    if (config.web.enabled) {
+        // simple runner?
+        require('./web')
+    }
 }).catch(e => {
     console.error('database error', e)
     console.log('bye')

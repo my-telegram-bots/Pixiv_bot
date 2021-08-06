@@ -287,6 +287,7 @@ async function get_user_bookmarks(author_id, page = 1, try_time = 0) {
             })
             return {
                 total: data.body.total,
+                next_flag: (data.body.total - (page * 100)) > 0,
                 illusts: illusts
             }
         } else {

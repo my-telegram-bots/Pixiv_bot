@@ -57,7 +57,7 @@ async function unsubscribe_pixiv_author(chat_id, author_id) {
  * @param {*} chat_id 
  * @param {*} author_id 
  */
-async function subscribe_pixiv_bookmarks(chat_id, author_id){
+async function subscribe_pixiv_bookmarks(chat_id, author_id) {
     await db.update_setting({
         add_subscribe_author_bookmarks: author_id
     }, chat_id)
@@ -69,13 +69,19 @@ async function subscribe_pixiv_bookmarks(chat_id, author_id){
  * @param {*} chat_id 
  * @param {*} author_id 
  */
- async function subscribe_pixiv_bookmarks(chat_id, author_id){
+async function unsubscribe_pixiv_bookmarks(chat_id, author_id) {
+    let next_flag = true
+    while (condition) {
+        
+    }
     await db.update_setting({
-        add_subscribe_author_bookmarks: author_id
+        del_subscribe_author_bookmarks: author_id
     }, chat_id)
     return true
 }
 module.exports = {
     subscribe_pixiv_author,
-    unsubscribe_pixiv_author
+    unsubscribe_pixiv_author,
+    subscribe_pixiv_bookmarks,
+    unsubscribe_pixiv_bookmarks
 }
