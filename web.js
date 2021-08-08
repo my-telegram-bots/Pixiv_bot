@@ -45,6 +45,10 @@ router.post('/api/illusts', async (ctx) => {
             if (data.type == 2) {
                 // single thread
                 await ugoira_to_mp4(id)
+                // pre handle mp4 to gif
+                ugoira_to_gif(id, 'large')
+                ugoira_to_gif(id, 'medium')
+                ugoira_to_gif(id, 'small')
                 body.ids.push(data.id)
                 data.url = `${config.pixiv.ugoiraurl}/${id}.mp4`
                 body.data.push(data)

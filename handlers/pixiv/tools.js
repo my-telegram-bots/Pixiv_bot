@@ -150,21 +150,16 @@ async function ugoira_to_mp4(id, force = false, retry_time = 0) {
         // windows:
         // choco install ffmpeg unzip
 
-        // 解压没有现成好用的轮子
-        // 所以干脆直接 exec 了 以后有好办法再改咯
         await exec(`unzip -n './tmp/file/${id}.zip' -d './tmp/ugoira/${id}'`)
         // copy last frame
         // see this issue https://github.com/my-telegram-bots/Pixiv_bot/issues/1
         fs.copyFileSync(`./tmp/ugoira/${id}/${(ud.frames.length - 1).toString().padStart(6, 0)}.jpg`, `./tmp/ugoira/${id}/${(ud.frames.length).toString().padStart(6, 0)}.jpg`)
         // jpg -> mp4 (no fps metadata)
+        // thanks https://stackoverflow.com/questions/28086775/can-i-create-a-vfr-video-from-timestamped-images
         await exec(`ffmpeg -y -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         // add fps metadata via mp4fpsmod
         await exec(`mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
-        // pre handle mp4 to gif
-        ugoira_to_gif(id, 'large')
-        ugoira_to_gif(id, 'medium')
-        ugoira_to_gif(id, 'small')
         return `${config.pixiv.ugoiraurl}/${id}.mp4`
     } catch (error) {
         honsole.warn(error)

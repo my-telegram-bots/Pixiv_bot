@@ -31,7 +31,7 @@ function format(td, flag, mode = 'message', p) {
             template += '%\n|tags%'
             mode = 'telegraph'
         }
-    } else if (!flag.setting || !flag.setting.format || !flag.setting.format[mode]) {
+    } else if (!flag.setting.format[mode]) {
         switch (mode) {
             case 'message':
             case 'inline':

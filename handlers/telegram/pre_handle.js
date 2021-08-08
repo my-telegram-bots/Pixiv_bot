@@ -130,7 +130,8 @@ async function flagger(bot, ctx) {
         delete ctx.flag.setting._id
         delete ctx.flag.setting.id
     }
-
+    if (!ctx.flag.setting.format) ctx.flag.setting.format = {}
+    if (!ctx.flag.setting.default) ctx.flag.setting.default = {}
     // default flag -> d_f
     let d_f = ctx.flag.setting.default ? ctx.flag.setting.default : {}
     ctx.flag = {
