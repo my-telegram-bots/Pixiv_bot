@@ -2,8 +2,13 @@ const fs = require('fs')
 const { escape_strings } = require('./format')
 const l = {}
 fs.readdirSync('./lang/').map(file_name => {
-    if (file_name.includes('.js'))
-        l[file_name.replace('.js', '')] = require('../../lang/' + file_name)
+    if (file_name.includes('.js')){
+        let ll = require('../../lang/' + file_name)
+        for (const v in ll) {
+            ll[v] = escape_strings(ll[v])
+        }
+        l[file_name.replace('.js', '')] = ll
+    }
 })
 /**
  * i18n

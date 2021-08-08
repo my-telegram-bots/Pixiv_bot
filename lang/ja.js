@@ -1,7 +1,5 @@
-const { escape_strings } = require("../handlers/telegram/format")
-
 // deeplと俺(huggy)からの翻訳です
-let l = {
+module.exports = {
     start: "Pixiv bot へようこそ\n" +
         "このロボットはPixivのリングでイラストや動画を便利に送信できます。\n" +
         "ドキュメント：https://pixiv-bot.pages.dev\n" +
@@ -24,8 +22,3 @@ let l = {
     error_tlegraph_author: '作者の関連情報が長すぎるか、間違っているため、生成に失敗しました。',
     error_not_a_administrator: '設定操作に失敗し、あなたがグループ管理者ではないことを示しています。'
 }
-
-for (const v in l) {
-    l[v] = escape_strings(l[v])
-}
-module.exports = l
