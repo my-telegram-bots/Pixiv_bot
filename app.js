@@ -84,7 +84,7 @@ bot.use(async (ctx, next) => {
         configuration_mode = true
     }
     ctx.ids = get_pixiv_ids(ctx.rtext)
-    if (!ctx.rtext.includes('fanbox.cc') && !ctx.inlineQuery && ctx.ids.author.length == 0 && ctx.ids.illust.length == 0 && ctx.ids.novel.length == 0 & !configuration_mode) {
+    if (!ctx.rtext.includes('fanbox.cc') && !ctx.inlineQuery && JSON.stringify(ctx.ids).length === 36 & !configuration_mode) {
         // bot have nothing to do
         return
     }
@@ -200,7 +200,7 @@ async function tg_sender(ctx) {
                         ...k_os(d.id, ctx.flag)
                     }
                     if (d.type <= 1) {
-                        if (mg.length == 1) {
+                        if (mg.length === 1) {
                             bot.telegram.sendChatAction(chat_id, 'upload_photo')
                             let photo_urls = [mg[0].media_o, `dl-${mg[0].media_o}`, mg[0].media_r, `dl-${mg[0].media_r}`]
                             // Telegram will download and send the file. 5 MB max size for photos
@@ -315,7 +315,7 @@ bot.on('inline_query', async (ctx) => {
         await asyncForEach([...ids.illust.reverse()], async id => {
             let d = await handle_illust(id, ctx.flag)
             // There is no enough time to convert ugoira, so need switch_pm to bot's chat window convert
-            if (d.type == 2 && d.inline.length == 0) {
+            if (d.type == 2 && d.inline.length === 0) {
                 // pre convert (without await)
                 ugoira_to_mp4(d.id)
                 await ctx.answerInlineQuery([], {
@@ -400,7 +400,7 @@ function catchily(e, chat_id) {
  * @returns 
  */
 async function sendMediaGroupWithRetry(chat_id, mg, extra, mg_type = ['o', 'r', 'dlo', 'dlr']) {
-    if (mg_type.length == 0) {
+    if (mg_type.length === 0) {
         honsole.warn('error send mg', chat_id, mg)
     }
     try {
@@ -425,10 +425,11 @@ async function sendMediaGroupWithRetry(chat_id, mg, extra, mg_type = ['o', 'r', 
  * @returns 
  */
 async function sendPhotoWithRetry(chat_id, photo_urls, extra) {
-    let photo_url = photo_urls.shift()
-    if (!photo_url) {
+    if (photo_urls.length === 0) {
         honsole.warn('error send photo', chat_id, photo_urls)
+        return
     }
+    let photo_url = photo_urls.shift()
     try {
         if (photo_url.substr(0, 3) == 'dl-') {
             photo_url = await download_file(photo_url.substr(2))

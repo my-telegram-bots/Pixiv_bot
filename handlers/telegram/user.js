@@ -44,7 +44,7 @@ async function unsubscribe_pixiv_author(chat_id, author_id) {
     }
     // unfollow user when no user subscribe
     let exist_data = await db.collection.chat_setting.find(s_data).toArray()
-    if (exist_data.length == 0) {
+    if (exist_data.length === 0) {
         await unfollow_user(author_id)
     }
     return true

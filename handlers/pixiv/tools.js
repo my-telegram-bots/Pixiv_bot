@@ -87,7 +87,7 @@ async function thumb_to_all(illust, try_time = 0) {
                 original_img_length = await head_url(imgs_.original_urls[i])
             }
             imgs_.fsize[i] = original_img_length
-            console.log(imgs_)
+            honsole.dev(imgs_)
         })
         return { ...imgs_ }
     } catch (error) {
@@ -215,7 +215,6 @@ async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height 
                 height = Math.round(real_height / 4)
                 break
         }
-        console.log(width, height)
         // ffmpeg configuration from 
         // https://bhupesh-v.github.io/convert-videos-high-quality-gif-ffmpeg/
         // and who from ACGN taiwan

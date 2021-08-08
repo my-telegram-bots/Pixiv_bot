@@ -87,7 +87,7 @@ function mg_albumize(mg, single_caption = false) {
                 caption.push(x.caption)
                 return m[0].sc[0].id == x.id
             })
-            if (temp.length == m[0].sc.length) {
+            if (temp.length === m[0].sc.length) {
                 t[gid][0].caption = t[gid][0].sc[0].scaption.replace('%mid%', '')
             } else {
                 t[gid][0].caption = caption.join('\n')

@@ -55,7 +55,7 @@ function get_pixiv_ids(text) {
                 // 87466156
                 // match text only have id (may resulted spam)
                 let t = u.replaceAll('https://', '').replace('pixiv.net', '').replace('artworks', '').replace('i', '').replaceAll('/', '').split('?')[0].split('#')[0]
-                if (!isNaN(t) && t && t.length == 8) {
+                if (!isNaN(t) && t && t.length === 8) {
                     ids.illust.push(parseInt(t))
                 }
             }
