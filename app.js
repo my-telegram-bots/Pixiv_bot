@@ -15,7 +15,8 @@ const {
     flagger,
     honsole,
     handle_new_configuration,
-    exec
+    exec,
+    sleep
 } = require('./handlers')
 const db = require('./db')
 const throttler = telegrafThrottler({
@@ -29,9 +30,6 @@ const throttler = telegrafThrottler({
     out: {
         highWater: 100,
         minTime: 500
-    },
-    onThrottlerError: (error) => {
-        console.warn(error)
     }
 })
 const bot = new Telegraf(config.tg.token)
@@ -114,10 +112,10 @@ async function tg_sender(ctx) {
     let user_id = ctx.from.id
     let rtext = ctx.rtext ? ctx.rtext : ''
     let default_extra = {
-        parse_mode: 'MarkdownV2',
-        allow_sending_without_reply: true
+        parse_mode: 'MarkdownV2'
     }
     if (message_id) {
+        default_extra.allow_sending_without_reply = true
         default_extra.reply_to_message_id = message_id
     }
     let temp_data = {
@@ -312,19 +310,20 @@ async function tg_sender(ctx) {
                 temp_data.mg = mg_albumize(temp_data.mg, ctx.flag.single_caption)
             }
             if (temp_data.mg.length > 0) {
-                await asyncForEach(temp_data.mg, async (mg) => {
-                    await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg])).catch(async e => {
-                        if (catchily(e, ctx)) {
-                            await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg], 'r')).catch(async () => {
-                                await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg], 'dlo')).catch(async () => {
-                                    await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg], 'dlr')).catch(async e => {
-                                        catchily(e, ctx)
-                                        await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'))
-                                    })
-                                })
-                            })
-                        }
-                    })
+                let extra = default_extra
+                await asyncForEach(temp_data.mg, async (mg, i) => {
+                    try {
+                        let data = await sendMediaGroupWithRetry(chat_id, mg, extra)
+                        extra.reply_to_message_id = data[0].message_id
+                    } catch (error) {
+                        honsole.warn('cant send mediagroup', chat_id, mg)
+                    }
+                    // Too Many Requests: retry after 10
+                    if (i > 4) {
+                        await sleep(3000)
+                    } else {
+                        await sleep(1000)
+                    }
                 })
             }
         }
@@ -443,4 +442,23 @@ function catchily(e, chat_id) {
         }
     }
     return true
+}
+
+/**
+ * send mediagroup with retry
+ * @param {*} chat_id 
+ * @param {*} mg 
+ * @param {*} extra 
+ * @param {*} mg_type 
+ * @returns 
+ */
+async function sendMediaGroupWithRetry(chat_id, mg, extra, mg_type = ['o', 'r', 'dlo', 'dlr']) {
+    try {
+        let data = await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg], mg_type.shift()), extra)
+        return data
+    } catch (error) {
+        if (catchily(error)) {
+            return await sendMediaGroupWithRetry(chat_id, mg, extra, mg_type)
+        }
+    }
 }
