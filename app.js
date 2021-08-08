@@ -84,7 +84,7 @@ bot.use(async (ctx, next) => {
         configuration_mode = true
     }
     ctx.ids = get_pixiv_ids(ctx.rtext)
-    if (!ctx.inlineQuery && ctx.ids.author.length == 0 && ctx.ids.illust.length == 0 && ctx.ids.novel.length == 0 & !configuration_mode) {
+    if (!ctx.rtext.includes('fanbox.cc') && !ctx.inlineQuery && ctx.ids.author.length == 0 && ctx.ids.illust.length == 0 && ctx.ids.novel.length == 0 & !configuration_mode) {
         // bot have nothing to do
         return
     }
@@ -125,50 +125,20 @@ async function tg_sender(ctx) {
         await handle_new_configuration(bot, ctx, default_extra)
         return
     }
-    let timer_type = []
-    let f_timer = () => {
-        timer_type = timer_type.filter((v, i, s) => {
-            return s.indexOf(v) == i
-        })
-        if (timer_type.includes('video')) {
-            bot.telegram.sendChatAction(chat_id, 'upload_video')
-        }
-        if (timer_type.includes('photo')) {
-            bot.telegram.sendChatAction(chat_id, 'upload_photo')
-        }
-        if (timer_type.includes('document')) {
-            bot.telegram.sendChatAction(chat_id, 'upload_document')
-        }
-        if (timer_type.includes('typing')) {
-            bot.telegram.sendChatAction(chat_id, 'typing')
-        }
-    }
-    let timer = null
-    setTimeout(() => {
-        f_timer()
-        timer = setInterval(f_timer, 3500)
-    }, 500)
-    // max time (send chatAction) = 30s
-    setTimeout(() => {
-        clearInterval(timer)
-    }, 30000)
     let ids = ctx.ids
     let illusts = []
     if (ids.author.length > 0) {
-        timer_type[3] = 'typing'
         if (user_id == config.tg.master_id) {
+            bot.telegram.sendChatAction(chat_id, 'typing')
             await asyncForEach(ids.author, async id => {
                 illusts = [...illusts, ...await get_user_illusts(id)]
             })
         }
-        timer_type[3] = ''
     }
     if (ids.illust.length > 0) {
         await asyncForEach(ids.illust, async id => {
             let d = await handle_illust(id, ctx.flag)
             if (d) {
-                if (d.type <= 1) timer_type[0] = 'photo'
-                if (d.type == 2) timer_type[1] = 'video'
                 illusts.push(d)
             }
         })
@@ -181,7 +151,7 @@ async function tg_sender(ctx) {
             let d = illust
             if (d == 404) {
                 if (chat_id > 0) {
-                    await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'illust_404'), { ...default_extra, parse_mode: 'Markdown' })
+                    await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra)
                     return
                 }
             }
@@ -189,8 +159,8 @@ async function tg_sender(ctx) {
             let mg = mg_create(d, ctx.flag)
             // send as file
             if (ctx.flag.asfile) {
-                timer_type = ['', '', 'document']
                 await asyncForEach(mg, async (o) => {
+                    bot.telegram.sendChatAction(chat_id, 'upload_document')
                     let extra = {
                         ...default_extra,
                         caption: o.caption.replace('%mid%', '').trim()
@@ -212,7 +182,6 @@ async function tg_sender(ctx) {
                         }
                     })
                 })
-                timer_type[2] = ''
             } else {
                 if (ctx.flag.telegraph || (ctx.flag.album && (ids.illust.length > 1 || (d.imgs_ && d.imgs_.size.length > 1)))) {
                     temp_data.mg = [...temp_data.mg, ...mg]
@@ -230,6 +199,7 @@ async function tg_sender(ctx) {
                     }
                     if (d.type <= 1) {
                         if (mg.length == 1) {
+                            bot.telegram.sendChatAction(chat_id, 'upload_photo')
                             // mediagroup doesn't support inline keyboard.
                             if (mg.media_t) {
                                 await bot.telegram.sendPhoto(chat_id, mg[0].media_t, extra).catch(async e => {
@@ -238,26 +208,29 @@ async function tg_sender(ctx) {
                             } else {
                                 if (mg.fsize < 6000000) {
                                     await bot.telegram.sendPhoto(chat_id, mg[0].media_o, extra).catch(async e => {
-                                        if (catchily(e, ctx)) {
-                                        }
+                                        catchily(e, ctx)
                                     })
                                 } else {
                                     await bot.telegram.sendPhoto(chat_id, mg[0].media_r, extra).catch(async e => {
-                                        await bot.telegram.sendPhoto(chat_id, await download_file(mg[0].media_o), extra).catch(async e => {
-                                            await bot.telegram.sendPhoto(chat_id, await download_file(mg[0].media_r), extra).catch(async e => {
-                                                if (catchily(e, ctx)) {
-                                                    bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
-                                                }
+                                        if (catchily(e)) {
+                                            bot.telegram.sendChatAction(chat_id, 'upload_photo')
+                                            await bot.telegram.sendPhoto(chat_id, await download_file(mg[0].media_o), extra).catch(async e => {
+                                                bot.telegram.sendChatAction(chat_id, 'upload_photo')
+                                                await bot.telegram.sendPhoto(chat_id, await download_file(mg[0].media_r), extra).catch(async e => {
+                                                    if (catchily(e, ctx)) {
+                                                        bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                                                    }
+                                                })
                                             })
-                                        })
+                                        }
                                     })
                                 }
                             }
                         } else {
                             temp_data.mg = [...temp_data.mg, ...mg_albumize(mg)]
                         }
-                        timer_type[0] = ''
                     } else if (d.type == 2) {
+                        bot.telegram.sendChatAction(chat_id, 'upload_video')
                         let media = mg.media_t
                         if (!media) {
                             await ugoira_to_mp4(d.id)
@@ -282,19 +255,15 @@ async function tg_sender(ctx) {
                                 bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
                             }
                         })
-                        timer_type[1] = ''
                     }
                 }
             }
         })
-        if (temp_data.mg.length == 0) {
-            clearInterval(timer)
-            return
-        }
         // eslint-disable-next-line no-empty
         if (ctx.flag.asfile) {
         } else if (ctx.flag.telegraph) {
             try {
+                bot.telegram.sendChatAction(chat_id, 'typing')
                 let res_data = await mg2telegraph(temp_data.mg, ctx.flag.telegraph_title, user_id, ctx.flag.telegraph_author_name, ctx.flag.telegraph_author_url)
                 if (res_data) {
                     await asyncForEach(res_data, async (d) => {
@@ -312,6 +281,7 @@ async function tg_sender(ctx) {
             if (temp_data.mg.length > 0) {
                 let extra = default_extra
                 await asyncForEach(temp_data.mg, async (mg, i) => {
+                    bot.telegram.sendChatAction(chat_id, 'upload_photo')
                     try {
                         let data = await sendMediaGroupWithRetry(chat_id, mg, extra)
                         extra.reply_to_message_id = data[0].message_id
@@ -330,21 +300,20 @@ async function tg_sender(ctx) {
     }
 
     if (ids.novel.length > 0) {
-        try {
-            await asyncForEach(ids, async id => {
-                let d = await handle_novel(id)
-                if (d) {
-                    await bot.telegram.sendMessage(chat_id, `${d.telegraph_url}`)
-                }
-            })
-        } catch (error) {
-            console.warn(error)
-        }
+        await asyncForEach(ids, async id => {
+            bot.telegram.sendChatAction(chat_id, 'typing')
+            let d = await handle_novel(id)
+            if (d) {
+                await bot.telegram.sendMessage(chat_id, `${d.telegraph_url}`)
+            } else {
+                await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra)
+            }
+        })
     }
+    
     if (rtext.includes('fanbox.cc/') && chat_id > 0) {
-        await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'fanbox_not_support'))
+        await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'fanbox_not_support'), default_extra)
     }
-    timer_type = []
 }
 bot.on('inline_query', async (ctx) => {
     let res = []
@@ -419,12 +388,7 @@ db.db_initial().then(async () => {
         // simple runner?
         require('./web')
     }
-}).catch(e => {
-    console.error('database error', e)
-    console.log('bye')
-    process.exit()
 })
-
 /**
  * catch error report && reply
  * @param {*} e error

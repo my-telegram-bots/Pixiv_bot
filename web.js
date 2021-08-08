@@ -1,23 +1,26 @@
-const { existsSync } = require('fs')
 const http = require('http')
 const Koa = require('koa')
 const bodyParser = require('koa-bodyparser')
 const Router = require('koa-router')
 const app = new Koa()
-let config = require('./config.json')
+const config = require('./config.json')
 const { db_initial } = require('./db')
 const { get_pixiv_ids, ugoira_to_mp4, ugoira_to_gif, asyncForEach, honsole } = require('./handlers')
 const { get_illust } = require('./handlers/pixiv/illust')
 const router = new Router()
+
 app.use(bodyParser())
 // cors
 app.use(async (ctx, next) => {
-    ctx.set('Access-Control-Allow-Origin', '*')
+    if (['localhost', '127.0.0.1', 'ugoira.eu.org', 'ugoira.huggy.moe'].includes(ctx.hostname) || ctx.hostname.substr(-9) == 'huggy.moe') {
+        ctx.set('Access-Control-Allow-Origin', `${ctx.protocol}://${ctx.hostname}`)
+    }
     ctx.set('Access-Control-Allow-Headers', 'origin, content-type, accept')
     ctx.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
     ctx.set('Access-Control-Max-Age', 1728000)
     if (ctx.method === 'OPTIONS') {
-        ctx.body = '1'
+        ctx.body = 'ok'
+        return
     } else {
         await next()
     }
@@ -59,6 +62,21 @@ router.get('/api/gif/:id/:quality', async (ctx) => {
     let data = await get_illust(ctx.params.id)
     if (data) {
         let url = await ugoira_to_gif(data.id, ctx.params.quality, data.imgs_.size[0].width, data.imgs_.size[0].height)
+        body = {
+            ok: true
+        }
+        ctx.redirect(url)
+    }
+    ctx.body = body
+})
+
+router.get('/api/mp4/:id', async (ctx) => {
+    let body = {
+        ok: false
+    }
+    let data = await get_illust(ctx.params.id)
+    if (data) {
+        let url = await ugoira_to_mp4(data.id)
         body = {
             ok: true
         }
