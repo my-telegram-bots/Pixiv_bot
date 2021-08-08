@@ -139,6 +139,8 @@ async function tg_sender(ctx) {
         await asyncForEach(ids.illust, async id => {
             let d = await handle_illust(id, ctx.flag)
             if (d) {
+                // if (d.type <= 1) bot.telegram.sendChatAction(chat_id, 'upload_photo')
+                // if (d.type == 2) bot.telegram.sendChatAction(chat_id, 'upload_video')
                 illusts.push(d)
             }
         })
@@ -200,32 +202,13 @@ async function tg_sender(ctx) {
                     if (d.type <= 1) {
                         if (mg.length == 1) {
                             bot.telegram.sendChatAction(chat_id, 'upload_photo')
-                            // mediagroup doesn't support inline keyboard.
-                            if (mg.media_t) {
-                                await bot.telegram.sendPhoto(chat_id, mg[0].media_t, extra).catch(async e => {
-                                    catchily(e, ctx)
-                                })
-                            } else {
-                                if (mg.fsize < 6000000) {
-                                    await bot.telegram.sendPhoto(chat_id, mg[0].media_o, extra).catch(async e => {
-                                        catchily(e, ctx)
-                                    })
-                                } else {
-                                    await bot.telegram.sendPhoto(chat_id, mg[0].media_r, extra).catch(async e => {
-                                        if (catchily(e)) {
-                                            bot.telegram.sendChatAction(chat_id, 'upload_photo')
-                                            await bot.telegram.sendPhoto(chat_id, await download_file(mg[0].media_o), extra).catch(async e => {
-                                                bot.telegram.sendChatAction(chat_id, 'upload_photo')
-                                                await bot.telegram.sendPhoto(chat_id, await download_file(mg[0].media_r), extra).catch(async e => {
-                                                    if (catchily(e, ctx)) {
-                                                        bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
-                                                    }
-                                                })
-                                            })
-                                        }
-                                    })
-                                }
+                            let photo_urls = [mg[0].media_o, `dl-${mg[0].media_o}`, mg[0].media_r, `dl-${mg[0].media_r}`]
+                            // Telegram will download and send the file. 5 MB max size for photos
+                            // It's useless to provide original (Telegram will compress image about 200kb)
+                            if (mg.fsize > 5000000) {
+                                photo_urls = [mg[0].media_r, `dl-${mg[0].media_r}`]
                             }
+                            await sendPhotoWithRetry(chat_id, photo_urls, extra)
                         } else {
                             temp_data.mg = [...temp_data.mg, ...mg_albumize(mg)]
                         }
@@ -310,7 +293,7 @@ async function tg_sender(ctx) {
             }
         })
     }
-    
+
     if (rtext.includes('fanbox.cc/') && chat_id > 0) {
         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'fanbox_not_support'), default_extra)
     }
@@ -417,12 +400,44 @@ function catchily(e, chat_id) {
  * @returns 
  */
 async function sendMediaGroupWithRetry(chat_id, mg, extra, mg_type = ['o', 'r', 'dlo', 'dlr']) {
+    if (mg_type.length == 0) {
+        honsole.warn('error send mg', chat_id, mg)
+    }
     try {
         let data = await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg], mg_type.shift()), extra)
         return data
     } catch (error) {
         if (catchily(error)) {
-            return await sendMediaGroupWithRetry(chat_id, mg, extra, mg_type)
+            if (mg_type.length > 0) {
+                return await sendMediaGroupWithRetry(chat_id, mg, extra, mg_type)
+            }
+        }
+
+    }
+}
+
+/**
+ * send photo with retry
+ * @param {*} chat_id 
+ * @param {*} mg 
+ * @param {*} extra 
+ * @param {*} mg_type 
+ * @returns 
+ */
+async function sendPhotoWithRetry(chat_id, photo_urls, extra) {
+    let photo_url = photo_urls.shift()
+    if (!photo_url) {
+        honsole.warn('error send photo', chat_id, photo_urls)
+    }
+    try {
+        if (photo_url.substr(0, 3) == 'dl-') {
+            photo_url = await download_file(photo_url.substr(2))
+        }
+        let data = await bot.telegram.sendPhoto(chat_id, photo_url, extra)
+        return data
+    } catch (error) {
+        if (catchily(error)) {
+            return await sendPhotoWithRetry(chat_id, photo_urls, extra)
         }
     }
 }

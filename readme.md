@@ -49,14 +49,14 @@ see more https://telegra.ph
     3. create pull request
 
 ## todolist
-    1. subscribe (10%)
-    2. error handle (50%)
-    3. web version (0%)
-    4. bookmarks (1%)
-    5. Channel support
-    6. Download author's all illusts (alpha OK)
-    7. clean the code (with code style and comment)
-    8. safe exit
+- subscribe (10%)
+- error handle (50%)
+- web version (5%)
+- bookmarks (1%)
+- channel support
+- download author's all illusts (alpha OK)
+- clean the code (with code style and comment)
+- safe exit
 # License
 MIT
 
