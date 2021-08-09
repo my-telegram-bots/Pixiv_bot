@@ -16,5 +16,13 @@ module.exports = {
             'x-csrf-token': config.pixiv.csrf,
             'Referer': 'https://www.pixiv.net/'
         }
+    }),
+    r_f: axios.create({
+        baseURL: 'https://api.fanbox.cc/',
+        headers: {
+            'User-Agent': config.pixiv.ua,
+            'Cookie': config.pixiv.fanbox_cookie,
+            'Origin': 'https://www.fanbox.cc/'
+        }
     })
 }

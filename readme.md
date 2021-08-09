@@ -29,7 +29,7 @@ version 2.0.2 edit the illust collection in local database, you need exec the fo
 
 ## config
 ### cookie
-To access R18(guro) contents and subscribe the author, You must fill the cookie field.  
+To subscribe author and popular search
 You can login via your browser and open developer tools to select network tab and get the cookie you logined.  
 ## ua
 get lastest chrome useragent: https://t.me/chrome_useragent

@@ -12,12 +12,18 @@ const router = new Router()
 app.use(bodyParser())
 // cors
 app.use(async (ctx, next) => {
-    if (['localhost', '127.0.0.1', 'ugoira.eu.org', 'ugoira.huggy.moe'].includes(ctx.hostname) || ctx.hostname.substr(-9) == 'huggy.moe') {
-        ctx.set('Access-Control-Allow-Origin', `${ctx.protocol}://${ctx.hostname}`)
-    }
-    ctx.set('Access-Control-Allow-Headers', 'origin, content-type, accept')
-    ctx.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    ctx.set('Access-Control-Max-Age', 1728000)
+    let referer = new URL(ctx.header.referer || "https://ugoira.huggy.moe")
+    if (['ugoira.eu.org', 'ugoira.huggy.moe', 'localhost', '127.0.0.1',].includes(referer.hostname) || (referer.hostname === 'huggy.moe' || referer.hostname.substr(-10) === '.huggy.moe')) {
+        ctx.set('Access-Control-Allow-Origin', `${referer.protocol}//${referer.host}`)
+        ctx.set('Access-Control-Allow-Headers', 'origin, content-type, accept')
+        ctx.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        ctx.set('Access-Control-Max-Age', 1728000)
+    } // else {
+    //     ctx.body = {
+    //         ok: false
+    //     }
+    //     return
+    // }
     if (ctx.method === 'OPTIONS') {
         ctx.body = 'ok'
         return
