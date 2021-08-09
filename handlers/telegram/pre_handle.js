@@ -213,7 +213,7 @@ async function flagger(bot, ctx) {
         v.telegraph_author_name = author_name || d_f.telegraph_author_name
         v.telegraph_author_url = author_url || d_f.telegraph_author_url
         for (const key in v) {
-            if(v[key] === undefined){
+            if (v[key] === undefined) {
                 delete v[key]
             }
         }
@@ -264,17 +264,17 @@ async function handle_new_configuration(bot, ctx, default_extra) {
             return
         }
         let new_setting = {}
-        if (ctx.rtext.length > 2 && (ctx.rtext.includes('+') || ctx.rtext.includes('-') || ctx.flag.value_update_flag)) {
-            new_setting = {
-                default: ctx.flag
-            }
-        } else if (ctx.rtext.substr(0, 3) == 'eyJ') {
+        if (ctx.rtext.substr(0, 3) == 'eyJ') {
             try {
                 new_setting = JSON.parse(Buffer.from(ctx.rtext, 'base64').toString('utf8'))
             } catch (error) {
                 // message type is doesn't base64
                 await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error'))
-                honsole.warn(ctx.rtext, error)
+                honsole.warn('parse base64 configuration failed', ctx.rtext, error)
+            }
+        } else if (ctx.rtext.length > 2 && (ctx.rtext.includes('+') || ctx.rtext.includes('-') || ctx.flag.value_update_flag)) {
+            new_setting = {
+                default: ctx.flag
             }
         }
         if (JSON.stringify(new_setting).length > 2) {
