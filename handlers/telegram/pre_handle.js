@@ -195,7 +195,7 @@ async function flagger(bot, ctx) {
                 ...default_extra,
                 reply_to_message_id: ctx.message.message_id
             })
-            return
+            return 'error'
         }
         try {
             //                                                                  check vaild url wuth 'new URL' if author_url is not a real url will throw error
@@ -207,11 +207,16 @@ async function flagger(bot, ctx) {
                 ...default_extra,
                 reply_to_message_id: ctx.message.message_id
             })
-            return
+            return 'error'
         }
-        if (title) v.telegraph_title = title
-        if (author_name) v.telegraph_author_name = author_name
-        if (author_url) v.telegraph_author_url = author_url
+        v.telegraph_title = title || d_f.telegraph_title
+        v.telegraph_author_name = author_name || d_f.telegraph_author_name
+        v.telegraph_author_url = author_url || d_f.telegraph_author_url
+        for (const key in v) {
+            if(v[key] === undefined){
+                delete v[key]
+            }
+        }
         if (JSON.stringify(v).length > 2) {
             ctx.flag = {
                 ...ctx.flag,

@@ -57,7 +57,7 @@ bot.help(async (ctx) => {
     })
 })
 
-bot.command('/id', async (ctx, next) => {
+bot.command('/id', async (ctx) => {
     await bot.telegram.sendMessage(ctx.chat.id, (ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : '') + `#userid: \`${ctx.from.id}\`\n`, {
         reply_to_message_id: ctx.message.message_id,
         parse_mode: 'Markdown'
@@ -91,8 +91,12 @@ bot.use(async (ctx, next) => {
     // read configuration
     ctx.flag = await flagger(bot, ctx)
     honsole.dev('input ->', ctx.chat, ctx.rtext, ctx.flag)
+    if (ctx.flag === 'error') {
+        honsole.warn('flag error', ctx.rtext)
+        return
+    }
     // add await => wait this function complete
-    if (process.env.dev) {
+    else if (process.env.dev) {
         await next()
     } else {
         next()
@@ -165,7 +169,7 @@ async function tg_sender(ctx) {
                     bot.telegram.sendChatAction(chat_id, 'upload_document')
                     let extra = {
                         ...default_extra,
-                        caption: o.caption.replaceAll('%mid%', '').trim()
+                        caption: o.caption.replaceAll('%mid%', '')
                     }
                     if (mg.type == 'video') {
                         await ugoira_to_mp4(mg.id)
@@ -196,7 +200,7 @@ async function tg_sender(ctx) {
                     }
                     let extra = {
                         ...default_extra,
-                        caption: mg[0].caption.replaceAll('%mid%', '').trim(),
+                        caption: mg[0].caption.replaceAll('%mid%', ''),
                         ...k_os(d.id, ctx.flag)
                     }
                     if (d.type <= 1) {
@@ -251,7 +255,7 @@ async function tg_sender(ctx) {
                     await asyncForEach(res_data, async (d) => {
                         await bot.telegram.sendMessage(chat_id, d.ids.join('\n') + '\n' + d.telegraph_url)
                     })
-                    await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'telegraph_iv'))
+                    await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'telegraph_iv'), default_extra)
                 }
             } catch (error) {
                 console.warn(error)
