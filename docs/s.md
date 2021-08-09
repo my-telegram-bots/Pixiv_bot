@@ -26,7 +26,7 @@ title: Bot's configuration
       <div id="template">
         <p style="text-align: center;">Default template (click to apply)</p>
         <div class="cards">
-          <div class="card container" @click="current_template = '%NSFW|#NSFW %title% [%url%](%url%) %p%%\n|tags%'">
+          <div class="card container" @click="current_template = '%NSFW|#NSFW %title% #pixiv [%url%](%url%) %p%%\n|tags%'">
             <p>#NSFW XX:Me <a>#pixiv</a> <a>https://pixiv.net/artworks/...</a> 1/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
@@ -96,7 +96,7 @@ title: Bot's configuration
               <br>
               <code>%author_name%</code> author's name
               <br>
-              <code>%p%</code> Show current page when muilt page current/totalpage example: 1/2
+              <code>%p%</code> Show current page when muilt page current/total page example: 1/2
             </p>
           </details>
         </div>

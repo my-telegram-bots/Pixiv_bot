@@ -26,7 +26,7 @@ title: 機器人配置
       <div id="template">
         <p style="text-align: center;">默認模板（點擊應用）</p>
         <div class="cards">
-          <div class="card container" @click="current_template = '%NSFW|#NSFW %title% [%url%](%url%) %p%%\n|tags%'">
+          <div class="card container" @click="current_template = '%NSFW|#NSFW %title% #pixiv [%url%](%url%) %p%%\n|tags%'">
             <p>#NSFW <a>XX:Me</a> 1/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
