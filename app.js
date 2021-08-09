@@ -201,7 +201,6 @@ async function tg_sender(ctx) {
                     }
                     if (d.type <= 1) {
                         if (mg.length === 1) {
-                            bot.telegram.sendChatAction(chat_id, 'upload_photo')
                             let photo_urls = [mg[0].media_o, `dl-${mg[0].media_o}`, mg[0].media_r, `dl-${mg[0].media_r}`]
                             // Telegram will download and send the file. 5 MB max size for photos
                             // It's useless to provide original (Telegram will compress image about 200kb)
@@ -264,13 +263,8 @@ async function tg_sender(ctx) {
             if (temp_data.mg.length > 0) {
                 let extra = default_extra
                 await asyncForEach(temp_data.mg, async (mg, i) => {
-                    bot.telegram.sendChatAction(chat_id, 'upload_photo')
-                    try {
-                        let data = await sendMediaGroupWithRetry(chat_id, mg, extra)
-                        extra.reply_to_message_id = data[0].message_id
-                    } catch (error) {
-                        honsole.warn('cant send mediagroup', chat_id, mg)
-                    }
+                    let data = await sendMediaGroupWithRetry(chat_id, mg, extra)
+                    extra.reply_to_message_id = data[0].message_id
                     // Too Many Requests: retry after 10
                     if (i > 4) {
                         await sleep(3000)
@@ -404,6 +398,7 @@ async function sendMediaGroupWithRetry(chat_id, mg, extra, mg_type = ['o', 'r', 
         honsole.warn('error send mg', chat_id, mg)
     }
     try {
+        bot.telegram.sendChatAction(chat_id, 'upload_photo')
         let data = await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg], mg_type.shift()), extra)
         return data
     } catch (error) {
@@ -412,7 +407,6 @@ async function sendMediaGroupWithRetry(chat_id, mg, extra, mg_type = ['o', 'r', 
                 return await sendMediaGroupWithRetry(chat_id, mg, extra, mg_type)
             }
         }
-
     }
 }
 
@@ -431,6 +425,7 @@ async function sendPhotoWithRetry(chat_id, photo_urls, extra) {
     }
     let photo_url = photo_urls.shift()
     try {
+        bot.telegram.sendChatAction(chat_id, 'upload_photo')
         if (photo_url.substr(0, 3) == 'dl-') {
             photo_url = await download_file(photo_url.substr(2))
         }

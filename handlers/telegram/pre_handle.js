@@ -12,7 +12,8 @@ function get_pixiv_ids(text) {
     let ids = {
         illust: [],
         author: [],
-        novel: []
+        novel: [],
+        // fanbox: [],
     }
     if (text) {
         text.replaceAll('-_-', ' ').replaceAll('www.', '').replaceAll('http://', 'https://').replaceAll('https://', '\nhttps://').replaceAll('  ', ' ').replaceAll('+', ' ').replaceAll('-', ' ').replaceAll(' ', '\n').replaceAll('/en', '/').split('\n').forEach(u => {
