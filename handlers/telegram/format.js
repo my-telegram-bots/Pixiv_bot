@@ -1,5 +1,6 @@
 /**
  * 格式化文字 好像并没有什么模板引擎 只好自己糊
+ * 重构警告（变成💩山了）
  * @param {*} td 
  * @param {*} flag 
  * @param {*} mode 
@@ -49,7 +50,7 @@ function format(td, flag, mode = 'message', p) {
     if (template == '') {
         return ''
     } else {
-        let splited_tamplate = template.replaceAll('\\%', '\uff69').split('%')  // 迫真转义 这个符号不会有人打出来把！！！
+        let splited_template = template.replaceAll('\\%', '\uff69').split('%')  // 迫真转义 这个符号不会有人打出来把！！！
         let replace_list = [
             ['title', td.title.trim()],
             ['id', flag.show_id ? td.id : false],
@@ -81,14 +82,19 @@ function format(td, flag, mode = 'message', p) {
                 replace_list.push(['mid', '%mid%'])
             }
         }
-        splited_tamplate.forEach((r, id) => {
+        splited_template.forEach((r, id) => {
             replace_list.forEach(x => {
                 if (x && r.includes(x[0])) {
-                    splited_tamplate[id] = Treplace(mode, r, ...x)
+                    if (r == x[0] || r.includes('|')) {
+                        splited_template[id] = Treplace(mode, r, ...x)
+                    }
                 }
             })
+            // if(splited_template[id] === r){
+            //     splited_template[id] = escape_strings(r)
+            // }
         })
-        template = splited_tamplate.join('').replaceAll('\uff69', '%')
+        template = splited_template.join('').replaceAll('\uff69', '%')
     }
     return template.trim()
 }
@@ -104,12 +110,9 @@ function escape_strings(t) {
     return t
 }
 function Treplace(mode, r, name, value) {
-    if (!r.includes(name))
-        return r
-    if (!value)
-        return ''
-    if (typeof value == 'boolean')
-        value = ''
+    if (!r.includes(name)) return r
+    if (!value) return ''
+    if (typeof value == 'boolean') value = ''
     return r.replaceAll('\\|', '\uffb4').split('|').map((l, id) => {
         if (l == name) {
             if (mode == 'telegraph') {

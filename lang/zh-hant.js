@@ -20,5 +20,6 @@ module.exports = {
         "3. 減少一次發送的作品數量",
     error_tlegraph_title_too_long: '生成失敗，標題太長。',
     error_tlegraph_author: '生成失敗，作者相關訊息太長或者有誤。',
-    error_not_a_administrator: '配置操作失敗，您不是該群組的管理員。'
+    error_not_a_administrator: '配置操作失敗，您不是該群組的管理員。',
+    error_format: '發送失敗，回復格式錯誤，請查閱是否有字元未被轉義\n\n{}'
 }

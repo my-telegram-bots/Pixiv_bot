@@ -20,5 +20,6 @@ module.exports = {
         "3. 一度に送イラストの数を減らす",
     error_tlegraph_title_too_long: 'タイトルが長すぎるため、生成に失敗しました。',
     error_tlegraph_author: '作者の関連情報が長すぎるか、間違っているため、生成に失敗しました。',
-    error_not_a_administrator: '設定操作に失敗し、あなたがグループ管理者ではないことを示しています。'
+    error_not_a_administrator: '設定操作に失敗し、あなたがグループ管理者ではないことを示しています。',
+    error_format: '送信失敗、返信フォーマットエラー、エスケープされていない文字がないか確認してください。\n\n{}'
 }

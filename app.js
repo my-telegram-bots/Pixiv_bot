@@ -175,10 +175,10 @@ async function tg_sender(ctx) {
                         await ugoira_to_mp4(mg.id)
                     }
                     await bot.telegram.sendDocument(chat_id, o.media_o, extra).catch(async e => {
-                        if (catchily(e, ctx)) {
+                        if (catchily(e, chat_id, ctx.l)) {
                             if (d.type <= 2) {
                                 await bot.telegram.sendDocument(chat_id, { source: await download_file(o.media_o, o.id) }, { ...extra, thumb: { source: await download_file(o.media_r ? o.media_r : o.media_o, o.id) } }).catch(async e => {
-                                    if (catchily(e, ctx)) {
+                                    if (catchily(e, chat_id, ctx.l)) {
                                         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'file_too_large', o.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)), default_extra)
                                     }
                                 })
@@ -211,7 +211,7 @@ async function tg_sender(ctx) {
                             if (mg.fsize > 5000000) {
                                 photo_urls = [mg[0].media_r, `dl-${mg[0].media_r}`]
                             }
-                            await sendPhotoWithRetry(chat_id, photo_urls, extra)
+                            await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, extra)
                         } else {
                             temp_data.mg = [...temp_data.mg, ...mg_albumize(mg)]
                         }
@@ -237,7 +237,7 @@ async function tg_sender(ctx) {
                                 })
                             }
                         }).catch(e => {
-                            if (catchily(e, ctx)) {
+                            if (catchily(e, chat_id, ctx.l)) {
                                 bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
                             }
                         })
@@ -267,7 +267,7 @@ async function tg_sender(ctx) {
             if (temp_data.mg.length > 0) {
                 let extra = default_extra
                 await asyncForEach(temp_data.mg, async (mg, i) => {
-                    let data = await sendMediaGroupWithRetry(chat_id, mg, extra)
+                    let data = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, extra)
                     extra.reply_to_message_id = data[0].message_id
                     // Too Many Requests: retry after 10
                     if (i > 4) {
@@ -321,7 +321,7 @@ bot.on('inline_query', async (ctx) => {
                     switch_pm_parameter: ids.illust.join('-_-').toString(),
                     cache_time: 0
                 }).catch(async e => {
-                    catchily(e, ctx)
+                    catchily(e, chat_id, ctx.l)
                 })
                 return true
             }
@@ -339,11 +339,11 @@ bot.on('inline_query', async (ctx) => {
         }
     }
     await ctx.answerInlineQuery(res, res_options).catch(async e => {
-        catchily(e, ctx)
+        catchily(e, chat_id, ctx.l)
     })
 })
-bot.catch(async (e, ctx) => {
-    catchily(e, ctx)
+bot.catch(async (e) => {
+    bot.telegram.sendMessage(config.tg.master_id, e)
 })
 db.db_initial().then(async () => {
     if (!process.env.DEPENDIONLESS && !process.env.dev) {
@@ -375,14 +375,19 @@ db.db_initial().then(async () => {
  * @param {*} e error
  * @param {*} ctx ctx
  */
-function catchily(e, chat_id) {
+function catchily(e, chat_id, language_code = 'en') {
     honsole.error(e)
-    bot.telegram.sendMessage(config.tg.master_id, 'error' + e)
+    bot.telegram.sendMessage(config.tg.master_id, e)
     if (e.response) {
         if (e.response.description.includes('MEDIA_CAPTION_TOO_LONG')) {
-            bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_text_too_long'))
+            bot.telegram.sendMessage(chat_id, _l(language_code, 'error_text_too_long'))
             return false
         } else if (e.response.description.includes('Forbidden:')) {
+            return false
+        } else if (e.response.description.includes('can\'t parse entities: Character')) {
+            bot.telegram.sendMessage(chat_id, _l(language_code, 'error_format', e.response.description), {
+                parse_mode: 'MarkdownV2'
+            })
             return false
         }
     }
@@ -397,7 +402,7 @@ function catchily(e, chat_id) {
  * @param {*} mg_type 
  * @returns 
  */
-async function sendMediaGroupWithRetry(chat_id, mg, extra, mg_type = ['o', 'r', 'dlo', 'dlr']) {
+async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type = ['o', 'r', 'dlo', 'dlr']) {
     if (mg_type.length === 0) {
         honsole.warn('error send mg', chat_id, mg)
     }
@@ -405,11 +410,9 @@ async function sendMediaGroupWithRetry(chat_id, mg, extra, mg_type = ['o', 'r', 
         bot.telegram.sendChatAction(chat_id, 'upload_photo')
         let data = await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg], mg_type.shift()), extra)
         return data
-    } catch (error) {
-        if (catchily(error)) {
-            if (mg_type.length > 0) {
-                return await sendMediaGroupWithRetry(chat_id, mg, extra, mg_type)
-            }
+    } catch (e) {
+        if (catchily(e, chat_id, language_code)) {
+            return await sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type)
         }
     }
 }
@@ -422,7 +425,7 @@ async function sendMediaGroupWithRetry(chat_id, mg, extra, mg_type = ['o', 'r', 
  * @param {*} mg_type 
  * @returns 
  */
-async function sendPhotoWithRetry(chat_id, photo_urls, extra) {
+async function sendPhotoWithRetry(chat_id, language_code, photo_urls, extra) {
     if (photo_urls.length === 0) {
         honsole.warn('error send photo', chat_id, photo_urls)
         return
@@ -435,9 +438,9 @@ async function sendPhotoWithRetry(chat_id, photo_urls, extra) {
         }
         let data = await bot.telegram.sendPhoto(chat_id, photo_url, extra)
         return data
-    } catch (error) {
-        if (catchily(error)) {
-            return await sendPhotoWithRetry(chat_id, photo_urls, extra)
+    } catch (e) {
+        if (catchily(e, chat_id, language_code)) {
+            return await sendPhotoWithRetry(chat_id, language_code, photo_urls, extra)
         }
     }
 }
