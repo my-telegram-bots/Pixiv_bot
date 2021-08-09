@@ -1,6 +1,14 @@
 .guide img {
     max-width: 400px !important;
 }
+.cards {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    align-content: stretch;
+    justify-content: space-between;
+}
+
 .card {
     flex-grow: 1;
     flex-basis: 30%;
@@ -11,20 +19,12 @@
     cursor: pointer;
 }
 
-.cards {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    align-content: stretch;
-    justify-content: space-between;
-}
-
 .card:hover,
 #save a:hover {
     box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
 }
 
-#template .card {
+#format .card {
     min-height: 125px;
 }
 
