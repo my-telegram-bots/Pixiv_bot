@@ -67,7 +67,7 @@ function format(td, flag, mode = 'message', p) {
             }
             if (flag.tags) {
                 let tags = '#' + td.tags.join(' #')
-                replace_list.push(['tags', tags.substr(0, tags.length - 1)])
+                replace_list.push(['tags', tags])
             } else {
                 replace_list.push(['tags', ''])
             }

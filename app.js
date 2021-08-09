@@ -165,7 +165,7 @@ async function tg_sender(ctx) {
                     bot.telegram.sendChatAction(chat_id, 'upload_document')
                     let extra = {
                         ...default_extra,
-                        caption: o.caption.replace('%mid%', '').trim()
+                        caption: o.caption.replaceAll('%mid%', '').trim()
                     }
                     if (mg.type == 'video') {
                         await ugoira_to_mp4(mg.id)
