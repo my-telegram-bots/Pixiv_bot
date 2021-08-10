@@ -8,7 +8,7 @@ A Telegram bot that helps you send pixiv illust on telegeam.
 [Get started!](tg://resolve?domain=pixiv_bot&start=67953985) | [Add me to a group](tg://resolve?domain=Pixiv_bot&startgroup=s)  
 
  
-![r_1](../img/r_1.jpg)  
+![r_1](./img/r_1.jpg)  
 
 
 The following Pixiv links are currently supported:
@@ -65,7 +65,7 @@ Return:
 
 ### Show series on demand -open -share -kb -cp -rm
 One image summarizes.
-! [r_2](. /img/r_2.jpg)  
+! [r_2](./img/r_2.jpg)  
 Description.  
 - `-open` does not show the open button
 - `-share` does not show the share button
