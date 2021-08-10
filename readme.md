@@ -3,6 +3,7 @@ Link: https://t.me/Pixiv_bot
 
 Document: https://pixiv-bot.pages.dev
 
+(no stable build, only have master branch)
 ## requirement
 
 - Node.js > 15
@@ -29,7 +30,7 @@ version 2.0.2 edit the illust collection in local database, you need exec the fo
 
 ## config
 ### cookie
-To subscribe author and popular search
+To subscribe author and popular search.  
 You can login via your browser and open developer tools to select network tab and get the cookie you logined.  
 ## ua
 get lastest chrome useragent: https://t.me/chrome_useragent
@@ -53,12 +54,13 @@ see more https://telegra.ph
 - error handle (50%)
 - web version (5%)
 - bookmarks (1%)
-- channel support
+- channel support (link chat to channel)
 - download author's all illusts (alpha OK)
 - clean the code (with code style and comment)
-- safe exit
+- safe exit (processing )
 - unit test (ava.... jest...)
 - to Typescript
+- Telegraph edit
 # License
 MIT
 

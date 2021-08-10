@@ -38,16 +38,16 @@ bot.use(throttler)
 bot.start(async (ctx, next) => {
     // startPayload = deeplink 
     // see more https://core.telegram.org/bots#deep-linking
-    if (ctx.startPayload) {
-        // callback to bot.on function
-        next()
-    } else {
+    if (!ctx.startPayload.trim() || ctx.startPayload === 's') {
         // reply start help command
         await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'start'), {
             parse_mode: 'MarkdownV2',
             reply_to_message_id: ctx.message.message_id,
             allow_sending_without_reply: true
         })
+    } else {
+        // callback to bot.on function
+        next()
     }
 })
 
@@ -443,4 +443,9 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls, extra) {
             return await sendPhotoWithRetry(chat_id, language_code, photo_urls, extra)
         }
     }
+}
+module.exports = {
+    sendMediaGroupWithRetry,
+    sendPhotoWithRetry,
+    catchily
 }
