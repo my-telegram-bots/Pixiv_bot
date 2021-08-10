@@ -167,6 +167,8 @@ async function publish2telegraph(
             }, {
                 upsert: true
             })
+        } else {
+            console.warn('generate telegraph error:', data)
         }
         return {
             ...data,

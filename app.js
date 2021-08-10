@@ -281,7 +281,7 @@ async function tg_sender(ctx) {
     }
 
     if (ids.novel.length > 0) {
-        await asyncForEach(ids, async id => {
+        await asyncForEach(ids.novel, async id => {
             bot.telegram.sendChatAction(chat_id, 'typing')
             let d = await handle_novel(id)
             if (d) {
@@ -365,7 +365,7 @@ db.db_initial().then(async () => {
         console.error('You are offline or bad bot token', e)
         process.exit()
     })
-    if (config.web.enabled) {
+    if (config.web.enabled && !process.env.WEBLESS) {
         // simple runner?
         require('./web')
     }

@@ -22,12 +22,10 @@ async function db_initial() {
 }
 async function update_setting(value, chat_id, flag) {
     try {
-        let s = {
-            format: {},
-            default: {}
-        }
+        let s = {}
         let u = {}
         if (value.format) {
+            s.format = {}
             for (const i in value.format) {
                 if (['message', 'mediagroup_message', 'inline'].includes(i)) {
                     if (typeof value.format[i] == 'string') {
@@ -39,6 +37,7 @@ async function update_setting(value, chat_id, flag) {
             }
         }
         if (value.default) {
+            s.default = {}
             for (const i in value.default) {
                 if (['telegraph_title', 'telegraph_author_name', 'telegraph_author_url'].includes(i)) {
                     if (typeof value.default[i] == 'string') {
