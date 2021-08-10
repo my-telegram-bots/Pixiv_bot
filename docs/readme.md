@@ -17,7 +17,7 @@ The following Pixiv links are currently supported:
 - pixiv.net/i/:id
 - pixiv.net/member_illust.php?illust_id=:id
 - pixiv.net/member_illust.php?illust_id=:id#manga
-- :id （就是純數字）
+- :id
 ## Simple usage
 ### message mode
 Just send pixiv link to bot  
