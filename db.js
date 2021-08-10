@@ -1,23 +1,27 @@
 const config = require('./config.json')
 const { MongoClient } = require("mongodb")
-let db = null
+let db = {
+    collection: fake_collection
+}
 let col = {
-    illust: () => { },
-    chat_setting: () => { },
-    novel: () => { },
-    ranking: () => { },
-    author: () => { },
-    telegraph: () => { }
+    illust: fake_collection(),
+    chat_setting: fake_collection(),
+    novel: fake_collection(),
+    ranking: fake_collection(),
+    author: fake_collection(),
+    telegraph: fake_collection()
 }
 async function db_initial() {
-    try {
-        db = (await MongoClient.connect(config.mongodb.uri, { useUnifiedTopology: true })).db(config.mongodb.dbname)
-        for (const key in col) {
-            col[key] = db.collection(key)
+    if (!process.env.DBLESS) {
+        try {
+            db = (await MongoClient.connect(config.mongodb.uri, { useUnifiedTopology: true })).db(config.mongodb.dbname)
+            for (const key in col) {
+                col[key] = db.collection(key)
+            }
+        } catch (error) {
+            console.error('Connect Database Error', error)
+            process.exit()
         }
-    } catch (error) {
-        console.error('Connect Database Error', error)
-        process.exit()
     }
 }
 async function update_setting(value, chat_id, flag) {
@@ -96,6 +100,22 @@ async function delete_setting(chat_id) {
     } catch (error) {
         console.warn(error)
         return false
+    }
+}
+/**
+ * give null & modified data for dbless mode
+ * @returns {}
+ */
+function fake_collection() {
+    return {
+        find: () => { return null },
+        findOne: () => { return null },
+        updateOne: () => {
+            return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
+        },
+        replaceOne: () => {
+            return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
+        }
     }
 }
 module.exports = {

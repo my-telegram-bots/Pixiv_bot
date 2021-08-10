@@ -66,9 +66,6 @@ router.post('/api/illusts', async (ctx) => {
 })
 
 router.get('/api/gif/:id/:quality', async (ctx) => {
-    let body = {
-        ok: false
-    }
     let data = await get_illust(ctx.params.id)
     if (data) {
         let url = await ugoira_to_gif(data.id, ctx.params.quality, data.imgs_.size[0].width, data.imgs_.size[0].height)
@@ -77,24 +74,19 @@ router.get('/api/gif/:id/:quality', async (ctx) => {
         }
         ctx.redirect(url)
     }
-    ctx.body = body
+    ctx.body = 'redirecting'
 })
 
 router.get('/api/mp4/:id', async (ctx) => {
-    let body = {
-        ok: false
-    }
     let data = await get_illust(ctx.params.id)
     if (data) {
         let url = await ugoira_to_mp4(data.id)
-        body = {
-            ok: true
-        }
         ctx.redirect(url)
     }
-    ctx.body = body
+    ctx.body = 'redirecting'
 })
 app.use(router.routes()).use(router.allowedMethods())
+
 if (process.argv[1].includes('web.js')) {
     db_initial().then(() => {
         http.createServer(app.callback()).listen(config.web.port, config.web.host)

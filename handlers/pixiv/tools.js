@@ -233,6 +233,10 @@ async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height 
  * @returns number / boolean
  */
 async function head_url(url, try_time = 0) {
+    // dbless mode -> save request time
+    if(process.env.DBLESS){
+        return 99999999
+    }
     if (try_time > 6) {
         honsole.error('can\'t get', url, 'content-length')
         return false

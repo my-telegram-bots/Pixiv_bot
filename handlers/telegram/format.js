@@ -110,7 +110,6 @@ function escape_strings(t) {
     return t
 }
 function Treplace(mode, r, name, value) {
-    if (!r.includes(name)) return r
     if (!value) return ''
     if (typeof value == 'boolean') value = ''
     return r.replaceAll('\\|', '\uffb4').split('|').map((l, id) => {

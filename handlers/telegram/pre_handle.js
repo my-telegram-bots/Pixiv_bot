@@ -108,10 +108,11 @@ async function flagger(bot, ctx) {
             id: ctx.chat.id
         })
     }
-    if (ctx.rtext.includes('+god') || (!setting || (setting.default && !setting.default.overwrite))) {
+    if (ctx.rtext.includes('+god') || (!setting || !setting.default || !setting.default.overwrite)) {
         let setting_user = await db.collection.chat_setting.findOne({
             id: ctx.from.id
         })
+        // maybe null
         if (setting_user) {
             setting = setting_user
         }
@@ -278,6 +279,7 @@ async function handle_new_configuration(bot, ctx, default_extra) {
             }
         }
         if (JSON.stringify(new_setting).length > 2) {
+            honsole.log(new_setting)
             if (await db.update_setting(new_setting, ctx.chat.id, ctx.flag)) {
                 await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_saved'), default_extra)
             } else {

@@ -13,7 +13,7 @@ async function get_bookmark_new_illust(page = 1) {
         // god bless! Pixiv does not change the page's structure
         let data = (await r_p(`bookmark_new_illust.php?p=${page}`))
             .data.split('data-items="')[1].split('"style="')[0].replaceAll('&quot;', '"')
-        //                                                                 I only see this char
+        //                                                                 I only see " char
         await asyncForEach(JSON.parse(data), async d => {
             let illust = await update_illust(d)
         })

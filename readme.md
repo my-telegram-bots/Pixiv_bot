@@ -57,6 +57,8 @@ see more https://telegra.ph
 - download author's all illusts (alpha OK)
 - clean the code (with code style and comment)
 - safe exit
+- unit test (ava.... jest...)
+- to Typescript
 # License
 MIT
 
