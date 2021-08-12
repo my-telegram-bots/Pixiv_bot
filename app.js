@@ -434,7 +434,9 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls, extra) {
     try {
         bot.telegram.sendChatAction(chat_id, 'upload_photo')
         if (photo_url.substr(0, 3) == 'dl-') {
-            photo_url = await download_file(photo_url.substr(2))
+            photo_url = {
+                source: await download_file(photo_url.substr(2))
+            }
         }
         let data = await bot.telegram.sendPhoto(chat_id, photo_url, extra)
         return data

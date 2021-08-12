@@ -57,7 +57,7 @@ see more https://telegra.ph
 - channel support (link chat to channel)
 - download author's all illusts (alpha OK)
 - clean the code (with code style and comment)
-- safe exit (processing )
+- safe exit (wait ugoira_to_mp4 & download_file & tg and safe exit)
 - unit test (ava.... jest...)
 - to Typescript
 - Telegraph edit
