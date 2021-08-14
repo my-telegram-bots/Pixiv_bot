@@ -1,14 +1,17 @@
 const { r_p_ajax } = require('./request')
 const db = require('../../db')
-const { honsole } = require('../common')
+const { honsole, sleep } = require('../common')
 const { thumb_to_all } = require('./tools')
+let illust_notfound_id_list = []
+let illust_notfound_time_list = []
+let illust_queue = []
 /**
  * get illust data
  * save illust data to MongoDB
  * @param {number} id illust_id
  * @param {object} flag configure
  */
-async function get_illust(id, mode = 'p', try_time = 0) {
+async function get_illust(id, try_time = 0) {
     if (try_time > 4) {
         return false
     }
@@ -20,21 +23,46 @@ async function get_illust(id, mode = 'p', try_time = 0) {
         return false
     }
     id = parseInt(id)
+    if (illust_queue.includes(id)) {
+        await sleep(300)
+        return await get_illust(id, try_time)
+    }
+    if (try_time > 5) {
+        console.warn('pixiv maybe banned this server\'s ip\nor network error (such as DNS/firewall)')
+        return false
+    }
     let illust = await db.collection.illust.findOne({
         id: id
     })
     if (!illust) {
         try {
+            // 404 cache in memory (10 min)
+            // to prevent cache attack the 404 result will be not in database.
+            if (illust_notfound_id_list.includes(id)) {
+                let i = illust_notfound_id_list.indexOf(id)
+                if (+new Date() - illust_notfound_time_list[i] > 600000) { // 10 min
+                    illust_notfound_id_list.splice(i, 1)
+                    illust_notfound_time_list.splice(i, 1)
+                } else {
+                    return 404
+                }
+            }
             // data example https://paste.huggy.moe/mufupocomo.json
             illust = (await r_p_ajax.get('illust/' + id)).data
-            honsole.dev('fetch_raw_illust', illust)
+            honsole.dev('fetch-raw-illust', illust)
             illust = await update_illust(illust.body)
             return illust
         } catch (error) {
             // network, session or Work has been deleted or the ID does not exist.
-            // to prevent cache attack the 404 result will be not in database.
-            console.warn(error)
-            return 404
+            honsole.warn(error)
+            if (error.response && error.response.status == 404) {
+                illust_notfound_id_list.push(id)
+                illust_notfound_time_list.push(+new Date())
+                return 404
+            } else {
+                await sleep(500)
+                return await get_illust(id, try_time + 1)
+            }
         }
     } else {
         delete illust._id

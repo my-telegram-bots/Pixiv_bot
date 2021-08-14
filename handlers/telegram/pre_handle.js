@@ -16,7 +16,7 @@ function get_pixiv_ids(text) {
         // fanbox: [],
     }
     if (text) {
-        text.replaceAll('-_-', ' ').replaceAll('www.', '').replaceAll('http://', 'https://').replaceAll('https://', '\nhttps://').replaceAll('  ', ' ').replaceAll('+', ' ').replaceAll('-', ' ').replaceAll(' ', '\n').replaceAll('/en', '/').split('\n').forEach(u => {
+        text.replace(/-_-/g, ' ').replace(/www\./ig, '').replace(/http:\/\//ig, 'https://').replace(/https:\/\//ig, '\nhttps://').replace(/  /g, ' ').replace(/\+/g, ' ').replace(/\-/g, ' ').replace(/ /g, '\n').replace(/\/en/ig, '/').split('\n').forEach(u => {
             try {
                 if (!u || u.length < 6) {
                     return []

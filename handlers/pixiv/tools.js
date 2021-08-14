@@ -255,7 +255,7 @@ async function head_url(url, try_time = 0) {
             }
         })
         if (!res.headers['content-length']) {
-            if (try_time > 4) {
+            if (try_time > 3) {
                 // real content-length
                 return res.data.length
             } else {
@@ -272,7 +272,7 @@ async function head_url(url, try_time = 0) {
         } else {
             honsole.warn('ggggg try again')
             honsole.dev(error)
-            await sleep(500)
+            await sleep(100)
             return await head_url(url, try_time + 1)
         }
     }
