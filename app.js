@@ -208,7 +208,7 @@ async function tg_sender(ctx) {
                             let photo_urls = [mg[0].media_o, `dl-${mg[0].media_o}`, mg[0].media_r, `dl-${mg[0].media_r}`]
                             // Telegram will download and send the file. 5 MB max size for photos
                             // It's useless to provide original (Telegram will compress image about 200kb)
-                            if (mg.fsize > 5000000) {
+                            if (mg[0].fsize > 5000000) {
                                 photo_urls = [mg[0].media_r, `dl-${mg[0].media_r}`]
                             }
                             await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, extra)
