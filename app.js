@@ -312,7 +312,7 @@ bot.on('inline_query', async (ctx) => {
     if (ids.illust.length > 0) {
         await asyncForEach([...ids.illust.reverse()], async id => {
             let d = await handle_illust(id, ctx.flag)
-            if(!d || d === 404){
+            if (!d || d === 404) {
                 return
             }
             // There is no enough time to convert ugoira, so need switch_pm to bot's chat window convert
@@ -409,6 +409,7 @@ function catchily(e, chat_id, language_code = 'en') {
 async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type = ['o', 'r', 'dlo', 'dlr']) {
     if (mg_type.length === 0) {
         honsole.warn('error send mg', chat_id, mg)
+        return
     }
     try {
         bot.telegram.sendChatAction(chat_id, 'upload_photo')
@@ -417,6 +418,8 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
     } catch (e) {
         if (catchily(e, chat_id, language_code)) {
             return await sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type)
+        } else {
+            honsole.warn('error send mg', chat_id, mg)
         }
     }
 }
@@ -434,9 +437,9 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls, extra) {
         honsole.warn('error send photo', chat_id, photo_urls)
         return
     }
-    let photo_url = photo_urls.shift()
     try {
         bot.telegram.sendChatAction(chat_id, 'upload_photo')
+        let photo_url = photo_urls.shift()
         if (photo_url.substr(0, 3) == 'dl-') {
             photo_url = {
                 source: await download_file(photo_url.substr(3))
@@ -447,6 +450,8 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls, extra) {
     } catch (e) {
         if (catchily(e, chat_id, language_code)) {
             return await sendPhotoWithRetry(chat_id, language_code, photo_urls, extra)
+        } else {
+            honsole.warn('error send photo', chat_id, photo_urls)
         }
     }
 }

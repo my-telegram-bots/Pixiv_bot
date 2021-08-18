@@ -2,6 +2,7 @@
  * get novel data
  * save novel data to MongoDB
  * fork from illust.js
+ * need rebuild database scheme
  * @param {number} id novel_id
  * @param {object} flag configure
  */

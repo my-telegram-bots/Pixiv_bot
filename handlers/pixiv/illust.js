@@ -54,12 +54,13 @@ async function get_illust(id, try_time = 0) {
             return illust
         } catch (error) {
             // network, session or Work has been deleted or the ID does not exist.
-            honsole.warn(error)
             if (error.response && error.response.status == 404) {
+                honsole.warn(new Date(), '404 illust', id)
                 illust_notfound_id_list.push(id)
                 illust_notfound_time_list.push(+new Date())
                 return 404
             } else {
+                honsole.warn(error)
                 await sleep(500)
                 return await get_illust(id, try_time + 1)
             }
