@@ -39,6 +39,7 @@ async function update_setting(value, chat_id, flag) {
                     }
                 }
             }
+            delete value.format
         }
         if (value.default) {
             s.default = {}
@@ -58,19 +59,43 @@ async function update_setting(value, chat_id, flag) {
                     }
                 }
             }
+            delete value.default
         }
-        for (const i in value) {
+        for (let i in value) {
             // only match add_ and del_ prefix
-            if (['subscribe_author', 'subscribe_author_bookmarks'].includes(i.replace('add_', '').replace('del_', ''))) {
-                if (i.substr(0, 4) == 'add_') {
-                    s[`${i.replace('add_', '')}_list.${value[i]}`] = +new Date()
-                } else if (i.substr(0, 4) == 'del_') {
-                    u[`${i.replace('del_', '')}_list.${value[i]}`] = { $exists: true }
+            let action = i.substr(0, 3)
+            let ii = i.substr(4)
+            let v = null
+            let index = null
+            // time based value
+            if (['subscribe_author', 'subscribe_author_bookmarks'].includes(ii)) {
+                v = +new Date()
+                index = value[i]
+            }
+            // value based value (
+            if (['link_chat'].includes(ii)) {
+                if (typeof value[i] === 'string') {
+                    index = value[i]
+                } else {
+                    index = value[i].chat_id
+                }
+                v = {
+                    sync: parseInt(value[i].sync),
+                    administrator_only: parseInt(value[i].administrator_only),
+                    repeat: parseInt(value[i].repeat),
+                    type: value[i].type,
+                    mediagroup_count: 1
                 }
             }
+            if (action === 'add') {
+                s[`${ii}_list.${index}`] = v
+            } else if (action === 'del') {
+                u[`${ii}_list.${index}`] = { $exists: true }
+            }
         }
-        let update_data = {
-            $set: s,
+        let update_data = {}
+        if (JSON.stringify(s).length > 2) {
+            update_data.$set = s
         }
         if (JSON.stringify(u).length > 2) {
             update_data.$unset = u

@@ -108,7 +108,7 @@ async function flagger(bot, ctx) {
             id: ctx.chat.id
         })
     }
-    if (ctx.rtext.includes('+god') || (!setting || !setting.default || !setting.default.overwrite)) {
+    if (ctx.from && (ctx.rtext.includes('+god') || (!setting || !setting.default || !setting.default.overwrite))) {
         let setting_user = await db.collection.chat_setting.findOne({
             id: ctx.from.id
         })
@@ -166,6 +166,7 @@ async function flagger(bot, ctx) {
     if (ctx.chat && ctx.chat.id < 0) {
         ctx.flag.overwrite = (d_f.overwrite && !ctx.rtext.includes('-overwrite')) || ctx.rtext.includes('+overwrite')
     }
+    
     if (ctx.flag.telegraph) {
         ctx.flag.album = true
         ctx.flag.tags = true
@@ -184,7 +185,8 @@ async function flagger(bot, ctx) {
     if (ctx.flag.remove_keyboard) {
         ctx.flag.open = ctx.flag.share = false
     }
-    if (ctx.message !== undefined) {
+
+    if (ctx.message) {
         let {
             title,
             author_name,
@@ -229,8 +231,11 @@ async function flagger(bot, ctx) {
     return ctx.flag
 }
 async function handle_new_configuration(bot, ctx, default_extra) {
+    if(ctx.chat && ctx.chat.type === 'channel'){
+
+    }
     //                                     1087968824 is a anonymous admin account
-    if (ctx.chat.id < 0 && ctx.from.id !== 1087968824) {
+    else if (ctx.chat.id < 0 && ctx.from.id !== 1087968824) {
         let u = await bot.telegram.getChatMember(ctx.chat.id, ctx.from.id)
         if (u.status !== 'administrator' && u.status !== 'creator') {
             await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_administrator'), default_extra)

@@ -16,9 +16,11 @@ const {
     honsole,
     handle_new_configuration,
     exec,
-    sleep
+    sleep,
+    k_link_setting
 } = require('./handlers')
 const db = require('./db')
+const { update_setting } = require('./db')
 const throttler = telegrafThrottler({
     group: {
         minTime: 500
@@ -35,15 +37,54 @@ const throttler = telegrafThrottler({
 const bot = new Telegraf(config.tg.token)
 bot.use(throttler)
 
+// see https://github.com/telegraf/telegraf/issues/1323
+bot.on('channel_post', (ctx, next) => {
+    ctx.update.message = ctx.update.channel_post
+    return next()
+})
+
+bot.use(async (ctx, next) => {
+    // simple i18n
+    ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code
+
+    ctx.rtext = ''
+    let default_extra = {
+        parse_mode: 'MarkdownV2'
+    }
+    try {
+        if (ctx.message) {
+            if (ctx.message.text) {
+                // remove command[@username] : /start@Pixiv_bot -> /start
+                ctx.rtext = ctx.message.text.replace('@' + ctx.botInfo.username, '')
+                if (ctx.message.entities && ctx.message.entities.length > 0) {
+                    ctx.command = ctx.message.text.substr(1, ctx.message.entities[0].length - 1)
+                }
+            }
+            default_extra.reply_to_message_id = ctx.message.message_id
+            default_extra.allow_sending_without_reply = true
+        }
+        if (ctx.inlineQuery && ctx.inlineQuery.query) {
+            ctx.rtext = ctx.inlineQuery.query
+        }
+    } catch (error) {
+    }
+    ctx.default_extra = default_extra
+
+    // add await => wait this function complete
+    if (process.env.dev) {
+        await next()
+    } else {
+        next()
+    }
+})
+
 bot.start(async (ctx, next) => {
     // startPayload = deeplink 
     // see more https://core.telegram.org/bots#deep-linking
     if (!ctx.startPayload.trim() || ctx.startPayload === 's') {
         // reply start help command
         await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'start'), {
-            parse_mode: 'MarkdownV2',
-            reply_to_message_id: ctx.message.message_id,
-            allow_sending_without_reply: true
+            ...ctx.default_extra
         })
     } else {
         // callback to bot.on function
@@ -56,82 +97,221 @@ bot.help(async (ctx) => {
         reply_to_message_id: ctx.message.message_id
     })
 })
-
 bot.command('/id', async (ctx) => {
-    await bot.telegram.sendMessage(ctx.chat.id, (ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : '') + `#userid: \`${ctx.from.id}\`\n`, {
-        reply_to_message_id: ctx.message.message_id,
+    let text = ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : ''
+    // channel post maybe didn't have .from
+    text += ctx.from ? `#userid: \`${ctx.from.id}\`` : ''
+    await bot.telegram.sendMessage(ctx.chat.id, text, {
+        ...ctx.default_extra,
         parse_mode: 'Markdown'
     })
 })
 
 // read i18n and configuration for message & inline
 bot.use(async (ctx, next) => {
-    // simple i18n
-    ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code
-    ctx.rtext = ''
-    try {
-        if (ctx.message && ctx.message.text) {
-            // remove command[@username] : /start@Pixiv_bot -> /start
-            ctx.rtext = ctx.message.text.replace('@' + ctx.botInfo.username, '')
-        }
-        if (ctx.inlineQuery && ctx.inlineQuery.query) {
-            ctx.rtext = ctx.inlineQuery.query
-        }
-    } catch (error) {
-    }
     let configuration_mode = false
-    if (((ctx.rtext.substr(0, 2) == '/s' && ctx.rtext.substr(0, 6) !== '/start') || ctx.rtext.substr(0, 3) == 'eyJ')) {
+    if (((ctx.command === 's' && ctx.command !== 'start') || ctx.rtext.substr(0, 3) === 'eyJ')) {
         configuration_mode = true
     }
+    try {
+        if (ctx.message.reply_to_message.text.substr(0, 5) === '#link') {
+            configuration_mode = true
+        }
+    } catch (error) {
+
+    }
     ctx.ids = get_pixiv_ids(ctx.rtext)
-    if (!ctx.rtext.includes('fanbox.cc') && !ctx.inlineQuery && JSON.stringify(ctx.ids).length === 36 & !configuration_mode) {
+    if (!['link'].includes(ctx.command) && !ctx.rtext.includes('fanbox.cc') && !ctx.inlineQuery && JSON.stringify(ctx.ids).length === 36 & !configuration_mode && !ctx.callbackQuery) {
         // bot have nothing to do
         return
     }
     // read configuration
     ctx.flag = await flagger(bot, ctx)
+    if (ctx.message)
+        if (ctx.message.reply_to_message && ctx.message.reply_to_message.text) {
+            if (ctx.message.reply_to_message.from && ctx.message.reply_to_message.from.id === ctx.botInfo.id) {
+                // Didn't verify user source
+                if (ctx.message.reply_to_message.text.substr(0, 5) === '#link') {
+                    if (ctx.from.id === 1087968824) {
+                        await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
+                    }
+                    if ((ctx.chat.id > 0 || await is_chat_admin(ctx.chat.id, ctx.from.id)) && await is_chat_admin(ctx.rtext, ctx.from.id)) {
+                        let linked_chat = await bot.telegram.getChat(ctx.rtext)
+                        let default_linked_setting = {
+                            chat_id: linked_chat.id,
+                            type: linked_chat.type,
+                            sync: 0,
+                            administrator_only: 0,
+                            repeat: 0
+                        }
+                        await update_setting({
+                            add_link_chat: default_linked_setting
+                        }, ctx.chat.id)
+                        await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'link_done', linked_chat.title) + _l(ctx.l, 'link_setting'), {
+                            ...ctx.default_extra,
+                            ...k_link_setting(ctx.l, default_linked_setting)
+                        })
+                    } else {
+                        await ctx.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
+                    }
+                }
+            }
+        }
     honsole.dev('input ->', ctx.chat, ctx.rtext, ctx.flag)
     if (ctx.flag === 'error') {
         honsole.warn('flag error', ctx.rtext)
         return
     }
-    // add await => wait this function complete
-    else if (process.env.dev) {
-        await next()
-    } else {
+    else {
         next()
     }
 })
-bot.on('text', async (ctx) => {
-    tg_sender(ctx)
+bot.on('callback_query', async (ctx) => {
+    let chat_id = ctx.callbackQuery.message.chat.id
+    let message_id = ctx.callbackQuery.message.message_id
+    let user_id = ctx.callbackQuery.from.id
+    let stext = ctx.callbackQuery.data.split('|')
+    let apply_flag = false
+    // let action = stext[0].replace('_','∏').split('∏')
+    switch (stext[0]) {
+        // l -> link
+        case 'l':
+            if ((chat_id > 0 || await is_chat_admin(chat_id, user_id)) && await is_chat_admin(stext[2], user_id)) {
+                if (stext[1] === 'link_unlink') {
+                    await update_setting({
+                        del_link_chat: stext[2]
+                    }, chat_id)
+                    await bot.telegram.editMessageText(chat_id, message_id, '', 'link_unlink_done', {
+                        reply_markup: {}
+                    })
+                    apply_flag = true
+                }
+                try {
+                    let link_setting = {
+                        chat_id: stext[2],
+                        ...ctx.flag.setting.link_chat_list[stext[2]]
+                    }
+                    link_setting[stext[1].replace('link_', '')] = stext[4]
+                    await update_setting({
+                        add_link_chat: link_setting
+                    }, chat_id)
+                    await bot.telegram.editMessageReplyMarkup(chat_id, message_id, false, k_link_setting(ctx.l, link_setting).reply_markup)
+                    apply_flag = true
+                } catch (error) {
+
+                }
+            } else {
+                await ctx.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
+                return
+            }
+            break;
+
+        default:
+            break;
+    }
+    if (apply_flag) {
+        ctx.answerCbQuery(_l(ctx.l, 'saved'))
+    } else {
+        ctx.answerCbQuery(_l(ctx.l, 'error'))
+    }
+})
+bot.command('link', async (ctx) => {
+    // link this chat to another chat / channel
+    let chat_id = ctx.message.chat.id
+    let user_id = ctx.from.id
+    if (ctx.from.id === 1087968824) {
+        await ctx.telegram.sendMessage(chat_id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
+    } else {
+        if (chat_id > 0 || await is_chat_admin(chat_id, user_id)) {
+            if (ctx.flag.setting.link_chat_list) {
+                // support 1
+                for (const key in ctx.flag.setting.link_chat_list) {
+                    if (await is_chat_admin(key, user_id)) {
+                        await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'link_setting'), {
+                            ...ctx.default_extra,
+                            ...k_link_setting(ctx.l, {
+                                chat_id: key,
+                                ...ctx.flag.setting.link_chat_list[key]
+                            })
+                        })
+                    } else {
+
+                    }
+                }
+            } else {
+                await ctx.telegram.sendMessage(chat_id, '\\#link ' + _l(ctx.l, 'link_start'), {
+                    ...ctx.default_extra,
+                    reply_markup: {
+                        force_reply: true,
+                        selective: true
+                    }
+                })
+            }
+        } else {
+            await ctx.telegram.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
+        }
+    }
 })
 
+bot.on('text', async (ctx) => {
+    let chat_id = ctx.message.chat.id
+    let user_id = ctx.from ? ctx.from.id : ctx.message.chat.id
+    let pm_flag = true
+    if (ctx.command == 's' || ctx.rtext.substr(0, 3) == 'eyJ') {
+        await handle_new_configuration(bot, ctx, ctx.default_extra)
+        return
+    }
+    if (ctx.chat.type !== 'channel') {
+        for (const key in ctx.flag.setting.link_chat_list) {
+            let link_setting = ctx.flag.setting.link_chat_list[key]
+            // syncmode
+            if (chat_id > 0 || link_setting.sync === 0 || (link_setting.sync === 1 && ctx.message.text.includes('@' + bot.botInfo.username))) {
+                // admin only
+                if (chat_id > 0 || link_setting.administrator_only == 0 || (link_setting.administrator_only == 1 && await is_chat_admin(chat_id, user_id))) {
+                    let new_ctx = {
+                        ...ctx,
+                        chat_id: key,
+                        user_id: user_id,
+                        default_extra: {
+                            parse_mode: 'MarkdownV2'
+                        }
+                    }
+                    if (link_setting.type === 'channel') {
+                        new_ctx.flag.share = false
+                    }
+                    await tg_sender(new_ctx)
+                    if (link_setting.repeat === 0) {
+                        pm_flag = false
+                    } else if (link_setting.repeat === 1) {
+                        await ctx.reply(_l(ctx.l, 'sent'))
+                    }
+                }
+            }
+        }
+        if (pm_flag) {
+            tg_sender(ctx)
+        }
+    }
+})
 /**
  * build ctx object can send illust / novel manually (subscribe / auto push)
  * @param {*} ctx 
  */
 async function tg_sender(ctx) {
-    let chat_id = ctx.message.chat.id
-    let message_id = ctx.message.message_id
-    let user_id = ctx.from.id
-    let rtext = ctx.rtext ? ctx.rtext : ''
-    let default_extra = {
-        parse_mode: 'MarkdownV2'
-    }
-    if (message_id) {
-        default_extra.allow_sending_without_reply = true
-        default_extra.reply_to_message_id = message_id
-    }
+    let chat_id = ctx.chat_id || ctx.message.chat.id
+    let user_id = ctx.user_id || ctx.from.id
+    let rtext = ctx.rtext || ''
+    let default_extra = ctx.default_extra
     let temp_data = {
         mg: []
     }
-    if (rtext.split(' ')[0] == '/s' || rtext.substr(0, 3) == 'eyJ') {
-        await handle_new_configuration(bot, ctx, default_extra)
-        return
+    if (!ctx.flag) {
+        ctx.flag = flagger(bot, ctx)
     }
     let ids = ctx.ids
     let illusts = []
     if (ids.author.length > 0) {
+        // alpha owner only
         if (user_id == config.tg.master_id) {
             bot.telegram.sendChatAction(chat_id, 'typing')
             await asyncForEach(ids.author, async id => {
@@ -455,8 +635,14 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls, extra) {
         }
     }
 }
-module.exports = {
-    sendMediaGroupWithRetry,
-    sendPhotoWithRetry,
-    catchily
+
+async function is_chat_admin(chat_id, user_id) {
+    try {
+        let { status } = await bot.telegram.getChatMember(chat_id, user_id)
+        if (status === 'administrator' || status === 'creator') {
+            return true
+        }
+    } catch (e) {
+    }
+    return false
 }
