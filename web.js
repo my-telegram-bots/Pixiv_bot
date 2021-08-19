@@ -49,6 +49,12 @@ router.post('/api/illusts', async (ctx) => {
             let data = await get_illust(id)
             delete data.tg_file_id
             if (data.type == 2) {
+                data = {
+                    id: data.id,
+                    type: data.type,
+                    title: data.title,
+                    author_name: data.author_name
+                }
                 // single thread
                 await ugoira_to_mp4(id)
                 // pre handle mp4 to gif

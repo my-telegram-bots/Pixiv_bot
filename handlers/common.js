@@ -90,7 +90,7 @@ function download_file(url, id, force = false, try_time = 0) {
     })
 }
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(resolve => setTimeout(resolve, ms))
 }
 function generate_token(user_id, time = +new Date()) {
     return createHash('sha1').update(`${config.tg.salt}${user_id}${time}`).digest('hex').toString()
