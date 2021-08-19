@@ -21,6 +21,7 @@ const {
 } = require('./handlers')
 const db = require('./db')
 const { update_setting } = require('./db')
+
 const throttler = telegrafThrottler({
     group: {
         minTime: 500
@@ -47,7 +48,7 @@ bot.use(async (ctx, next) => {
     // simple i18n
     ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code
 
-    ctx.rtext = ''
+    ctx.text = ''
     let default_extra = {
         parse_mode: 'MarkdownV2'
     }
@@ -55,7 +56,7 @@ bot.use(async (ctx, next) => {
         if (ctx.message) {
             if (ctx.message.text) {
                 // remove command[@username] : /start@Pixiv_bot -> /start
-                ctx.rtext = ctx.message.text.replace('@' + ctx.botInfo.username, '')
+                ctx.text = ctx.message.text
                 if (ctx.message.entities && ctx.message.entities.length > 0) {
                     ctx.command = ctx.message.text.substr(1, ctx.message.entities[0].length - 1)
                 }
@@ -64,7 +65,7 @@ bot.use(async (ctx, next) => {
             default_extra.allow_sending_without_reply = true
         }
         if (ctx.inlineQuery && ctx.inlineQuery.query) {
-            ctx.rtext = ctx.inlineQuery.query
+            ctx.text = ctx.inlineQuery.query
         }
     } catch (error) {
     }
@@ -110,7 +111,7 @@ bot.command('/id', async (ctx) => {
 // read i18n and configuration for message & inline
 bot.use(async (ctx, next) => {
     let configuration_mode = false
-    if (((ctx.command === 's' && ctx.command !== 'start') || ctx.rtext.substr(0, 3) === 'eyJ')) {
+    if (((ctx.command === 's' && ctx.command !== 'start') || ctx.text.substr(0, 3) === 'eyJ')) {
         configuration_mode = true
     }
     try {
@@ -120,8 +121,8 @@ bot.use(async (ctx, next) => {
     } catch (error) {
 
     }
-    ctx.ids = get_pixiv_ids(ctx.rtext)
-    if (!['link'].includes(ctx.command) && !ctx.rtext.includes('fanbox.cc') && !ctx.inlineQuery && JSON.stringify(ctx.ids).length === 36 & !configuration_mode && !ctx.callbackQuery) {
+    ctx.ids = get_pixiv_ids(ctx.text)
+    if (!['link'].includes(ctx.command) && !ctx.text.includes('fanbox.cc') && !ctx.inlineQuery && JSON.stringify(ctx.ids).length === 36 & !configuration_mode && !ctx.callbackQuery) {
         // bot have nothing to do
         return
     }
@@ -135,8 +136,8 @@ bot.use(async (ctx, next) => {
                     if (ctx.from.id === 1087968824) {
                         await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
                     }
-                    if ((ctx.chat.id > 0 || await is_chat_admin(ctx.chat.id, ctx.from.id)) && await is_chat_admin(ctx.rtext, ctx.from.id)) {
-                        let linked_chat = await bot.telegram.getChat(ctx.rtext)
+                    if ((ctx.chat.id > 0 || await is_chat_admin(ctx.chat.id, ctx.from.id)) && await is_chat_admin(ctx.text, ctx.from.id)) {
+                        let linked_chat = await bot.telegram.getChat(ctx.text)
                         let default_linked_setting = {
                             chat_id: linked_chat.id,
                             type: linked_chat.type,
@@ -152,14 +153,14 @@ bot.use(async (ctx, next) => {
                             ...k_link_setting(ctx.l, default_linked_setting)
                         })
                     } else {
-                        await ctx.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
+                        await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
                     }
                 }
             }
         }
-    honsole.dev('input ->', ctx.chat, ctx.rtext, ctx.flag)
+    honsole.dev('input ->', ctx.chat, ctx.text, ctx.flag)
     if (ctx.flag === 'error') {
-        honsole.warn('flag error', ctx.rtext)
+        honsole.warn('flag error', ctx.text)
         return
     }
     else {
@@ -201,7 +202,7 @@ bot.on('callback_query', async (ctx) => {
 
                 }
             } else {
-                await ctx.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
+                await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
                 return
             }
             break;
@@ -220,7 +221,7 @@ bot.command('link', async (ctx) => {
     let chat_id = ctx.message.chat.id
     let user_id = ctx.from.id
     if (ctx.from.id === 1087968824) {
-        await ctx.telegram.sendMessage(chat_id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
+        await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
     } else {
         if (chat_id > 0 || await is_chat_admin(chat_id, user_id)) {
             if (ctx.flag.setting.link_chat_list) {
@@ -239,7 +240,7 @@ bot.command('link', async (ctx) => {
                     }
                 }
             } else {
-                await ctx.telegram.sendMessage(chat_id, '\\#link ' + _l(ctx.l, 'link_start'), {
+                await bot.telegram.sendMessage(chat_id, '\\#link ' + _l(ctx.l, 'link_start'), {
                     ...ctx.default_extra,
                     reply_markup: {
                         force_reply: true,
@@ -248,7 +249,7 @@ bot.command('link', async (ctx) => {
                 })
             }
         } else {
-            await ctx.telegram.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
+            await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
         }
     }
 })
@@ -257,7 +258,7 @@ bot.on('text', async (ctx) => {
     let chat_id = ctx.message.chat.id
     let user_id = ctx.from ? ctx.from.id : ctx.message.chat.id
     let pm_flag = true
-    if (ctx.command == 's' || ctx.rtext.substr(0, 3) == 'eyJ') {
+    if (ctx.command == 's' || ctx.text.substr(0, 3) == 'eyJ') {
         await handle_new_configuration(bot, ctx, ctx.default_extra)
         return
     }
@@ -279,6 +280,7 @@ bot.on('text', async (ctx) => {
                     if (link_setting.type === 'channel') {
                         new_ctx.flag.share = false
                     }
+                    delete new_ctx.flag
                     await tg_sender(new_ctx)
                     if (link_setting.repeat === 0) {
                         pm_flag = false
@@ -300,13 +302,13 @@ bot.on('text', async (ctx) => {
 async function tg_sender(ctx) {
     let chat_id = ctx.chat_id || ctx.message.chat.id
     let user_id = ctx.user_id || ctx.from.id
-    let rtext = ctx.rtext || ''
+    let text = ctx.text || ''
     let default_extra = ctx.default_extra
     let temp_data = {
         mg: []
     }
     if (!ctx.flag) {
-        ctx.flag = flagger(bot, ctx)
+        ctx.flag = await flagger(bot, ctx)
     }
     let ids = ctx.ids
     let illusts = []
@@ -472,16 +474,17 @@ async function tg_sender(ctx) {
         })
     }
 
-    if (rtext.includes('fanbox.cc/') && chat_id > 0) {
+    if (text.includes('fanbox.cc/') && chat_id > 0) {
         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'fanbox_not_support'), default_extra)
     }
 }
 bot.on('inline_query', async (ctx) => {
     let res = []
     let offset = ctx.inlineQuery.offset
-    if (!offset)
+    if (!offset) {
         offset = 0 // offset == empty -> offset = 0
-    let query = ctx.rtext
+    }
+    let query = ctx.text
     // offset = page
     offset = parseInt(offset)
     let res_options = {

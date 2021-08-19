@@ -84,6 +84,8 @@ function get_values(text = '') {
 }
 
 async function flagger(bot, ctx) {
+    let chat_id = ctx.chat_id || ctx.message.chat.id
+    let user_id = ctx.user_id || ctx.from.id
     ctx.flag = {
         // I don't wanna save the 'string' data in default (maybe the format will be changed in the future)
         // see telegram/fotmat.js to get real data
@@ -105,12 +107,12 @@ async function flagger(bot, ctx) {
     let setting = false
     if (ctx.chat) {
         setting = await db.collection.chat_setting.findOne({
-            id: ctx.chat.id
+            id: chat_id
         })
     }
-    if (ctx.from && (ctx.rtext.includes('+god') || (!setting || !setting.default || !setting.default.overwrite))) {
+    if (ctx.from && (ctx.text.includes('+god') || (!setting || !setting.default || !setting.default.overwrite))) {
         let setting_user = await db.collection.chat_setting.findOne({
-            id: ctx.from.id
+            id: user_id
         })
         // maybe null
         if (setting_user) {
@@ -140,33 +142,33 @@ async function flagger(bot, ctx) {
         ...ctx.flag,
 
         // caption start
-        tags: (d_f.tags && !ctx.rtext.includes('-tag')) || ctx.rtext.includes('+tag'),
-        open: (d_f.open && !ctx.rtext.includes('-open')) || ctx.rtext.includes('+open'),
-        share: (d_f.share && !ctx.rtext.includes('-share')) || ctx.rtext.includes('+share'),
-        remove_keyboard: (d_f.remove_keyboard && !ctx.rtext.includes('+kb')) || ctx.rtext.includes('-kb'),
-        remove_caption: (d_f.remove_caption && !ctx.rtext.includes('+cp')) || ctx.rtext.includes('-cp'),
+        tags: (d_f.tags && !ctx.text.includes('-tag')) || ctx.text.includes('+tag'),
+        open: (d_f.open && !ctx.text.includes('-open')) || ctx.text.includes('+open'),
+        share: (d_f.share && !ctx.text.includes('-share')) || ctx.text.includes('+share'),
+        remove_keyboard: (d_f.remove_keyboard && !ctx.text.includes('+kb')) || ctx.text.includes('-kb'),
+        remove_caption: (d_f.remove_caption && !ctx.text.includes('+cp')) || ctx.text.includes('-cp'),
         // inline mode doesn't support mediagroup single_caption mode is useless
-        single_caption: (!ctx.inlineQuery && ((d_f.single_caption && !ctx.rtext.includes('-sc'))) || ctx.rtext.includes('+sc')),
-        show_id: !ctx.rtext.includes('-id'),
+        single_caption: (!ctx.inlineQuery && ((d_f.single_caption && !ctx.text.includes('-sc'))) || ctx.text.includes('+sc')),
+        show_id: !ctx.text.includes('-id'),
         // caption end
 
         // send all illusts as mediagroup
-        album: (d_f.album && !ctx.rtext.includes('-album')) || ctx.rtext.includes('+album'),
+        album: (d_f.album && !ctx.text.includes('-album')) || ctx.text.includes('+album'),
 
         // descending order 
-        desc: (d_f.desc && !ctx.rtext.includes('-desc')) || ctx.rtext.includes('+desc'),
+        desc: (d_f.desc && !ctx.text.includes('-desc')) || ctx.text.includes('+desc'),
 
         // send as telegraph
-        telegraph: ctx.rtext.includes('+graph') || ctx.rtext.includes('+telegraph'),
+        telegraph: ctx.text.includes('+graph') || ctx.text.includes('+telegraph'),
         // send as file
-        asfile: (d_f.asfile && !ctx.rtext.includes('-file')) || ctx.rtext.includes('+file')
+        asfile: (d_f.asfile && !ctx.text.includes('-file')) || ctx.text.includes('+file')
 
     }
     // group only value
     if (ctx.chat && ctx.chat.id < 0) {
-        ctx.flag.overwrite = (d_f.overwrite && !ctx.rtext.includes('-overwrite')) || ctx.rtext.includes('+overwrite')
+        ctx.flag.overwrite = (d_f.overwrite && !ctx.text.includes('-overwrite')) || ctx.text.includes('+overwrite')
     }
-    
+
     if (ctx.flag.telegraph) {
         ctx.flag.album = true
         ctx.flag.tags = true
@@ -176,10 +178,10 @@ async function flagger(bot, ctx) {
         ctx.flag.album = true
     }
 
-    if (ctx.rtext.includes('+rm')) {
+    if (ctx.text.includes('+rm')) {
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = false
     }
-    if (ctx.rtext.includes('-rm')) {
+    if (ctx.text.includes('-rm')) {
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = true
     }
     if (ctx.flag.remove_keyboard) {
@@ -191,7 +193,7 @@ async function flagger(bot, ctx) {
             title,
             author_name,
             author_url
-        } = get_values(ctx.rtext.substr(0, 3) == '/s ' ? ctx.rtext.replace('/s ', '') : ctx.rtext)
+        } = get_values(ctx.text.substr(0, 3) == '/s ' ? ctx.text.replace('/s ', '') : ctx.text)
         let v = {}
         if (title && title.length >= 256) {
             bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_title_too_long'), {
@@ -242,7 +244,7 @@ async function handle_new_configuration(bot, ctx, default_extra) {
             return
         }
     }
-    if (ctx.rtext == '/s') {
+    if (ctx.text == '/s') {
         // lazy....
         ctx.flag.setting = {
             format: {
@@ -264,21 +266,21 @@ async function handle_new_configuration(bot, ctx, default_extra) {
         })
         return
     } else {
-        if (ctx.rtext == '/s reset') {
+        if (ctx.text == '/s reset') {
             await db.delete_setting(ctx.chat.id)
             await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_reset'), default_extra)
             return
         }
         let new_setting = {}
-        if (ctx.rtext.substr(0, 3) == 'eyJ') {
+        if (ctx.text.substr(0, 3) == 'eyJ') {
             try {
-                new_setting = JSON.parse(Buffer.from(ctx.rtext, 'base64').toString('utf8'))
+                new_setting = JSON.parse(Buffer.from(ctx.text, 'base64').toString('utf8'))
             } catch (error) {
                 // message type is doesn't base64
                 await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error'))
-                honsole.warn('parse base64 configuration failed', ctx.rtext, error)
+                honsole.warn('parse base64 configuration failed', ctx.text, error)
             }
-        } else if (ctx.rtext.length > 2 && (ctx.rtext.includes('+') || ctx.rtext.includes('-') || ctx.flag.value_update_flag)) {
+        } else if (ctx.text.length > 2 && (ctx.text.includes('+') || ctx.text.includes('-') || ctx.flag.value_update_flag)) {
             new_setting = {
                 default: ctx.flag
             }
