@@ -86,6 +86,9 @@ function get_values(text = '') {
 async function flagger(bot, ctx) {
     let chat_id = ctx.chat_id || ctx.message.chat.id
     let user_id = ctx.user_id || ctx.from.id
+    if(!ctx.type){
+        ctx.type = ctx.chat.type
+    }
     ctx.flag = {
         // I don't wanna save the 'string' data in default (maybe the format will be changed in the future)
         // see telegram/fotmat.js to get real data
