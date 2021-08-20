@@ -568,12 +568,15 @@ function catchily(e, chat_id, language_code = 'en') {
     honsole.error(e)
     bot.telegram.sendMessage(config.tg.master_id, e)
     if (e.response) {
-        if (e.response.description.includes('MEDIA_CAPTION_TOO_LONG')) {
+        let description = e.response.description
+        if (description.includes('MEDIA_CAPTION_TOO_LONG')) {
             bot.telegram.sendMessage(chat_id, _l(language_code, 'error_text_too_long'))
             return false
-        } else if (e.response.description.includes('Forbidden:')) {
+        } else if (description.includes('Forbidden:')) {
             return false
-        } else if (e.response.description.includes('can\'t parse entities: Character')) {
+        } else if (description.includes('not enough rights to send')) {
+            return false
+        } else if (description.includes('can\'t parse entities: Character')) {
             bot.telegram.sendMessage(chat_id, _l(language_code, 'error_format', e.response.description), {
                 parse_mode: 'MarkdownV2'
             })
