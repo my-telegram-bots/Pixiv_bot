@@ -1,13 +1,13 @@
 const fs = require('fs')
 const { escape_strings } = require('./format')
 const l = {}
-fs.readdirSync('./lang/').map(file_name => {
-    if (file_name.includes('.js')){
-        let ll = require('../../lang/' + file_name)
+fs.readdirSync('./lang/').map(filename => {
+    if (filename.includes('.js')) {
+        let ll = require('../../lang/' + filename)
         for (const v in ll) {
             ll[v] = escape_strings(ll[v])
         }
-        l[file_name.replace('.js', '')] = ll
+        l[filename.replace('.js', '')] = ll
     }
 })
 /**
@@ -17,22 +17,19 @@ fs.readdirSync('./lang/').map(file_name => {
  * @param  {...any} value 值
  */
 function _l(lang, item, ...value) {
-    if (!l[lang] || !l[lang][item])
+    if (!l[lang] || !l[lang][item]) {
         lang = 'en'
-    if (!item) {
-        return lang
     }
-    if (!l[lang][item].includes('\\{\\}'))
+    if (!l[lang][item].includes('\\{\\}')) {
         return l[lang][item]
-    let splite_text = l[lang][item].split('\\{\\}')
-    return splite_text.map((x, id) => {
-        if (id == splite_text.length - 1){
-            return x
-        }
-        if (x){
-            return x += escape_strings(value[id])
-        }
-    }).join('')
+    }
+    let result = l[lang][item]
+    let count = l[lang][item].match(/\\\{\\\}/g) || []
+    count.forEach((x, id) => {
+        console.log(id, value[id])
+        result = result.replace(x, escape_strings(value[id]))
+    })
+    return result
 }
 module.exports = {
     _l

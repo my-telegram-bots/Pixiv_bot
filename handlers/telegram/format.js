@@ -104,8 +104,22 @@ function format(td, flag, mode = 'message', p) {
  * @param {String} t 
  */
 function escape_strings(t) {
+    // need typescript
+    if(typeof t === "number"){
+        t = t.toString()
+    }
     ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'].forEach(x => {
         t = t.replaceAll(x, `\\${x}`)
+    })
+    return t
+}
+
+function reescape_strings(t) {
+    if(typeof t === "number"){
+        t = t.toString()
+    }
+    ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'].forEach(x => {
+        t = t.replaceAll(`\\${x}`, x)
     })
     return t
 }
@@ -131,5 +145,6 @@ function format_group(td, flag, mode = 'message', p, custom_template = false) {
 module.exports = {
     format,
     escape_strings,
+    reescape_strings,
     format_group
 }

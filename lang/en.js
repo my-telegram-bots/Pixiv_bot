@@ -19,7 +19,7 @@ module.exports = {
     link_start: "This action allows you to link this conversation to other groups/channels (currently only one link is supported)\n" + "You must be the current group administrator and the administrator of the linked channel/group to perform this action \n" +
         "You must be the current group administrator and the administrator of the connected channel/group to perform this action \n" +
         "Please reply to this message with the id of the group, you can also provide @+username if it is a public group/channel",
-    link_done: "Link successfully \n{}\n",
+    link_done: "Link successfully \n{} -> {}\n",
     link_setting: "Please select option: \n" +
         "syncmode: Any work will be pushed to the group/channel | Only text that includes @Pixiv_bot to will be pushed to the group/channel\n" +
         "admin only:  illust sent by admins will be pushed to the group/channel | Every illusts sent by anyone will be pushed to the group/channel\n" +
@@ -36,7 +36,7 @@ module.exports = {
     link_repeat_1: "Notice",
     link_repeat_2: "✅",
     link_alias: "group/channel alias",
-    link_unlink: "❌ unlink",
+    link_unlink: "unlink ❌",
     link_unlink_done: "Unlinked successfully",
 
     saved: "Saved",
