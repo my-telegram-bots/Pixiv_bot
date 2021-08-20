@@ -20,7 +20,7 @@ function _l(lang, item, ...value) {
     if (!l[lang] || !l[lang][item]) {
         lang = 'en'
     }
-    if (!l[lang][item].includes('\\{\\}')) {
+    if (value.length === 0 || !l[lang][item].includes('\\{\\}')) {
         return l[lang][item]
     }
     let result = l[lang][item]
