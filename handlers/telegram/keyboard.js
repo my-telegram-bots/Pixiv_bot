@@ -44,7 +44,9 @@ function k_setting_format(language_code = 'en', flag) {
 function k_link_setting(language_code = 'en', s) {
     let linked_chat_id = s.chat_id
     for (const key in s) {
-        s[key] = parseInt(s[key])
+        if (key !== 'type') {
+            s[key] = parseInt(s[key])
+        }
     }
     let inline_keyboard = [[
         {
@@ -68,11 +70,10 @@ function k_link_setting(language_code = 'en', s) {
         //     next: s.mediagroup_count >= 10 ? 0 : s.mediagroup_count + 1
         // }
     ].map(x => {
-        return Markup.button.callback(`${_l(language_code, x.prefix)} | ${_l(language_code, `${x.prefix}_${x.value}`)}`,`l|${x.prefix}|${linked_chat_id}|${x.value}|${x.next}`)
-    }),[
-        Markup.button.callback(`${_l(language_code, 'link_unlink')}`,`l|link_unlink|${linked_chat_id}`)
+        return Markup.button.callback(`${_l(language_code, x.prefix)} | ${_l(language_code, `${x.prefix}_${x.value}`)}`, `l|${x.prefix}|${linked_chat_id}|${x.value}|${x.next}`)
+    }), [
+        Markup.button.callback(`${_l(language_code, 'link_unlink')}`, `l|link_unlink|${linked_chat_id}`)
     ]]
-
     return Markup.inlineKeyboard(inline_keyboard).resize()
 }
 module.exports = {

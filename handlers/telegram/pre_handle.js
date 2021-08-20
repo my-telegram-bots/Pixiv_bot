@@ -110,12 +110,13 @@ async function flagger(bot, ctx) {
             id: chat_id
         })
     }
-    if (ctx.from && (ctx.text.includes('+god') || (!setting || !setting.default || !setting.default.overwrite))) {
+    if (chat_id < 0 && ctx.from && (ctx.text.includes('+god') || (!setting || !setting.default || !setting.default.overwrite))) {
         let setting_user = await db.collection.chat_setting.findOne({
             id: user_id
         })
         // maybe null
         if (setting_user) {
+            setting_user.link_chat_list = setting.link_chat_list
             setting = setting_user
         }
     }
@@ -144,7 +145,9 @@ async function flagger(bot, ctx) {
         // caption start
         tags: (d_f.tags && !ctx.text.includes('-tag')) || ctx.text.includes('+tag'),
         open: (d_f.open && !ctx.text.includes('-open')) || ctx.text.includes('+open'),
-        share: (d_f.share && !ctx.text.includes('-share')) || ctx.text.includes('+share'),
+
+        // can't use switch_inline_query in a channel chat, because a user will not be able to use the button without knowing bot's username
+        share: (ctx.type !== 'channel' && (d_f.share && !ctx.text.includes('-share')) || ctx.text.includes('+share')),
         remove_keyboard: (d_f.remove_keyboard && !ctx.text.includes('+kb')) || ctx.text.includes('-kb'),
         remove_caption: (d_f.remove_caption && !ctx.text.includes('+cp')) || ctx.text.includes('-cp'),
         // inline mode doesn't support mediagroup single_caption mode is useless
@@ -233,8 +236,11 @@ async function flagger(bot, ctx) {
     return ctx.flag
 }
 async function handle_new_configuration(bot, ctx, default_extra) {
-    if(ctx.chat && ctx.chat.type === 'channel'){
+    if (ctx.chat && ctx.chat.type === 'channel') {
 
+    }else if(ctx.message.sender_chat){
+        // chat -> link message
+        return
     }
     //                                     1087968824 is a anonymous admin account
     else if (ctx.chat.id < 0 && ctx.from.id !== 1087968824) {
