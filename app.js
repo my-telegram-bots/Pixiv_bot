@@ -267,7 +267,6 @@ bot.on('text', async (ctx) => {
     let pm_flag = true
     for (const linked_chat_id in ctx.flag.setting.link_chat_list) {
         let link_setting = ctx.flag.setting.link_chat_list[linked_chat_id]
-        console.log(ctx.message.sender_chat.id, linked_chat_id)
         if (ctx.message.sender_chat && ctx.message.sender_chat.id === linked_chat_id) {
             pm_flag = false
             // sync mode
@@ -359,10 +358,10 @@ async function tg_sender(ctx) {
                         await ugoira_to_mp4(mg.id)
                     }
                     await bot.telegram.sendDocument(chat_id, o.media_o, extra).catch(async e => {
-                        if (catchily(e, chat_id, ctx.l)) {
+                        if (await catchily(e, chat_id, ctx.l)) {
                             if (d.type <= 2) {
                                 await bot.telegram.sendDocument(chat_id, { source: await download_file(o.media_o, o.id) }, { ...extra, thumb: { source: await download_file(o.media_r ? o.media_r : o.media_o, o.id) } }).catch(async e => {
-                                    if (catchily(e, chat_id, ctx.l)) {
+                                    if (await catchily(e, chat_id, ctx.l)) {
                                         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'file_too_large', o.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)), default_extra)
                                     }
                                 })
@@ -420,8 +419,8 @@ async function tg_sender(ctx) {
                                     }
                                 })
                             }
-                        }).catch(e => {
-                            if (catchily(e, chat_id, ctx.l)) {
+                        }).catch(async e => {
+                            if (await catchily(e, chat_id, ctx.l)) {
                                 bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
                             }
                         })
@@ -509,7 +508,7 @@ bot.on('inline_query', async (ctx) => {
                     switch_pm_parameter: ids.illust.join('-_-').toString(),
                     cache_time: 0
                 }).catch(async e => {
-                    catchily(e, chat_id, ctx.l)
+                    await catchily(e, chat_id, ctx.l)
                 })
                 return true
             }
@@ -527,8 +526,7 @@ bot.on('inline_query', async (ctx) => {
         }
     }
     await ctx.answerInlineQuery(res, res_options).catch(async e => {
-        // maybe user not /start
-        catchily(e, config.tg.master_id, ctx.l)
+        await catchily(e, config.tg.master_id, ctx.l)
     })
 })
 bot.catch(async (e) => {
@@ -564,24 +562,36 @@ db.db_initial().then(async () => {
  * @param {*} e error
  * @param {*} ctx ctx
  */
-function catchily(e, chat_id, language_code = 'en') {
+async function catchily(e, chat_id, language_code = 'en') {
+    let default_extra = {
+        parse_mode: 'MarkdownV2'
+    }
     honsole.error(e)
     bot.telegram.sendMessage(config.tg.master_id, e)
-    if (e.response) {
-        let description = e.response.description
-        if (description.includes('MEDIA_CAPTION_TOO_LONG')) {
-            bot.telegram.sendMessage(chat_id, _l(language_code, 'error_text_too_long'))
-            return false
-        } else if (description.includes('Forbidden:')) {
-            return false
-        } else if (description.includes('not enough rights to send')) {
-            return false
-        } else if (description.includes('can\'t parse entities: Character')) {
-            bot.telegram.sendMessage(chat_id, _l(language_code, 'error_format', e.response.description), {
-                parse_mode: 'MarkdownV2'
-            })
-            return false
+    try {
+        if (e.response) {
+            let description = e.response.description
+            if (description.includes('MEDIA_CAPTION_TOO_LONG')) {
+                bot.telegram.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra)
+                return false
+            } else if (description.includes('can\'t parse entities: Character')) {
+                bot.telegram.sendMessage(chat_id, _l(language_code, 'error_format', e.response.description), default_extra)
+                return false
+                // banned by user
+            } else if (description.includes('Forbidden:')) {
+                return false
+                // not have permission
+            } else if (description.includes('not enough rights to send')) {
+                bot.telegram.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra)
+                return false
+            } else if (description.includes('Too Many Requests: retry after')) {
+                await sleep(e.response.retry_after * 1000)
+                return true
+            }
         }
+    } catch (error) {
+        console.warn(error)
+        return false
     }
     return true
 }
@@ -594,7 +604,7 @@ function catchily(e, chat_id, language_code = 'en') {
  * @param {*} mg_type 
  * @returns 
  */
-async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type = ['o', 'r', 'dlo', 'dlr']) {
+async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type = []) {
     if (mg_type.length === 0) {
         honsole.warn('error send mg', chat_id, mg)
         return
@@ -604,7 +614,7 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
         let data = await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg], mg_type.shift()), extra)
         return data
     } catch (e) {
-        if (catchily(e, chat_id, language_code)) {
+        if (await catchily(e, chat_id, language_code)) {
             return await sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type)
         } else {
             honsole.warn('error send mg', chat_id, mg)
@@ -636,7 +646,7 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls, extra) {
         let data = await bot.telegram.sendPhoto(chat_id, photo_url, extra)
         return data
     } catch (e) {
-        if (catchily(e, chat_id, language_code)) {
+        if (await catchily(e, chat_id, language_code)) {
             return await sendPhotoWithRetry(chat_id, language_code, photo_urls, extra)
         } else {
             honsole.warn('error send photo', chat_id, photo_urls)

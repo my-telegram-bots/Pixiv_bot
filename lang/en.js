@@ -48,8 +48,9 @@ module.exports = {
         "3. reduce the number of illusts you sent at once",
     error_tlegraph_title_too_long: "Error: title is too long.",
     error_tlegraph_author: "Error, author's information is too long or incorrect.",
-    error_not_a_administrator: "Configuration failed, you are not this group's administrator :(",
-    error_not_a_gc_administrator: "Configuration failed, you are not this/that group/channel 's administrator :(",
-    error_format: "Send failed, reply format error, please check if any characters are not escaped \n\n{}",
+    error_not_a_administrator: "Configuration failed, you are not this group's administrator.",
+    error_not_a_gc_administrator: "Configuration failed, you are not this/that group/channel 's administrator.",
+    error_format: "Send failed, reply format error, please check if any characters are not escaped. \n\n{}",
     error_anonymous: "You are currently anonymous and cannot doing this action.",
+    error_not_enough_rights: "I don't have permission to send media, so I can't send pixiv illust(s), please check the permission (permissions/send media or permissions/Exceptions/pixiv_bot/send media).",
 }

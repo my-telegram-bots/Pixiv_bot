@@ -52,4 +52,5 @@ module.exports = {
     error_not_a_administrator: "配置操作失败，您不是该群组的管理员。",
     error_format: "发送失败，回复格式错误，请查阅是否有字符未被转义\n\n{}",
     error_anonymous: "您目前为匿名状态，无法执行此操作。",
+    error_not_enough_rights: "机器人未获得 Send Media (发送媒体) 的权限，发不了任何图片，请在设置里面打开 (权限/发送媒体 ｜ 权限/例外/Pixiv_bot/发送媒体)",
 }
