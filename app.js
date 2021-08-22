@@ -62,6 +62,7 @@ bot.use(async (ctx, next) => {
             ctx.default_extra.allow_sending_without_reply = true
             if (ctx.update.channel_post) {
                 ctx.chat_id = ctx.channelPost.chat.id
+                // channel post is anonymous
                 ctx.user_id = 1087968824
             } else {
                 ctx.chat_id = ctx.message.chat.id
@@ -69,18 +70,16 @@ bot.use(async (ctx, next) => {
             }
         } else if (ctx.inlineQuery && ctx.inlineQuery.query) {
             ctx.text = ctx.inlineQuery.query
+            ctx.chat_id = ctx.inlineQuery.from.id
+            ctx.user_id = ctx.inlineQuery.from.id
         } else if (ctx.callbackQuery && ctx.callbackQuery.data) {
             ctx.chat_id = ctx.callbackQuery.message.chat.id
             ctx.user_id = ctx.callbackQuery.from.id
         }
     } catch (error) {
+        honsole.warn('handle_basic_msg', error)
     }
-    // add await => wait this function complete
-    if (process.env.dev) {
-        await next()
-    } else {
-        next()
-    }
+    next()
 })
 
 bot.start(async (ctx, next) => {
@@ -99,7 +98,8 @@ bot.start(async (ctx, next) => {
 
 bot.help(async (ctx) => {
     await bot.telegram.sendMessage(ctx.chat.id, 'https://pixiv-bot.pages.dev', {
-        reply_to_message_id: ctx.message.message_id
+        ...ctx.default_extra,
+        parse_mode: ''
     })
 })
 
@@ -128,39 +128,11 @@ bot.use(async (ctx, next) => {
     }
     // read configuration
     ctx.flag = await flagger(bot, ctx)
-    if (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.text) {
-        if (ctx.message.reply_to_message.text.substr(0, 5) === '#link') {
-            if (ctx.from.id === 1087968824) {
-                await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
-            }
-            if ((ctx.chat.id > 0 || await is_chat_admin(ctx.chat.id, ctx.from.id)) && await is_chat_admin(ctx.text, ctx.from.id)) {
-                let linked_chat = await bot.telegram.getChat(ctx.text)
-                let default_linked_setting = {
-                    chat_id: linked_chat.id,
-                    type: linked_chat.type,
-                    sync: 0,
-                    administrator_only: 0,
-                    repeat: 0
-                }
-                // if(
-                await update_setting({
-                    add_link_chat: default_linked_setting
-                }, ctx.chat.id)
-                await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'link_done', linked_chat.title, linked_chat.id) + _l(ctx.l, 'link_setting'), {
-                    ...ctx.default_extra,
-                    ...k_link_setting(ctx.l, default_linked_setting)
-                })
-            } else {
-                await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
-            }
-        }
-    }
     honsole.dev('input ->', ctx.chat, ctx.text, ctx.flag)
     if (ctx.flag === 'error') {
         honsole.warn('flag error', ctx.text)
         return
-    }
-    else {
+    } else {
         next()
     }
 })
@@ -264,11 +236,38 @@ bot.on('text', async (ctx) => {
         await handle_new_configuration(bot, ctx, ctx.default_extra)
         return
     }
-    let pm_flag = true
+    // @link
+    if (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.text && ctx.message.reply_to_message.text.substr(0, 5) === '#link') {
+        if (ctx.from.id === 1087968824) {
+            await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
+        }
+        if ((ctx.chat.id > 0 || await is_chat_admin(ctx.chat.id, ctx.from.id)) && await is_chat_admin(ctx.text, ctx.from.id)) {
+            let linked_chat = await bot.telegram.getChat(ctx.text)
+            let default_linked_setting = {
+                chat_id: linked_chat.id,
+                type: linked_chat.type,
+                sync: 0,
+                administrator_only: 0,
+                repeat: 0
+            }
+            // if(
+            await update_setting({
+                add_link_chat: default_linked_setting
+            }, ctx.chat.id)
+            await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'link_done', linked_chat.title, linked_chat.id) + _l(ctx.l, 'link_setting'), {
+                ...ctx.default_extra,
+                ...k_link_setting(ctx.l, default_linked_setting)
+            })
+        } else {
+            await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
+        }
+        return
+    }
+    let direct_flag = true
     for (const linked_chat_id in ctx.flag.setting.link_chat_list) {
         let link_setting = ctx.flag.setting.link_chat_list[linked_chat_id]
         if (ctx.message.sender_chat && ctx.message.sender_chat.id === linked_chat_id) {
-            pm_flag = false
+            direct_flag = false
             // sync mode
         } else if ((ctx.type !== 'channel') && (chat_id > 0 || link_setting.sync === 0 || (link_setting.sync === 1 && ctx.message.text.includes('@' + bot.botInfo.username)))) {
             // admin only
@@ -285,15 +284,15 @@ bot.on('text', async (ctx) => {
                 delete new_ctx.flag
                 await tg_sender(new_ctx)
                 if (link_setting.repeat === 0) {
-                    pm_flag = false
+                    direct_flag = false
                 } else if (link_setting.repeat === 1) {
                     await ctx.reply(_l(ctx.l, 'sent'))
                 }
             }
         }
     }
-    if (pm_flag) {
-        tg_sender(ctx)
+    if (direct_flag) {
+        await tg_sender(ctx)
     }
 })
 /**
@@ -584,6 +583,7 @@ async function catchily(e, chat_id, language_code = 'en') {
             } else if (description.includes('not enough rights to send')) {
                 bot.telegram.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra)
                 return false
+                // just a moment
             } else if (description.includes('Too Many Requests: retry after')) {
                 await sleep(e.response.retry_after * 1000)
                 return true
@@ -630,7 +630,7 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
  * @param {*} mg_type 
  * @returns 
  */
-async function sendPhotoWithRetry(chat_id, language_code, photo_urls, extra) {
+async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra) {
     if (photo_urls.length === 0) {
         honsole.warn('error send photo', chat_id, photo_urls)
         return
@@ -653,7 +653,12 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls, extra) {
         }
     }
 }
-
+/**
+ * when user is chat's administrator / creator, return true
+ * @param {*} chat_id 
+ * @param {*} user_id 
+ * @returns Boolean
+ */
 async function is_chat_admin(chat_id, user_id) {
     try {
         let { status } = await bot.telegram.getChatMember(chat_id, user_id)
