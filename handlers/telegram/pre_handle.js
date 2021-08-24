@@ -86,8 +86,8 @@ function get_values(text = '') {
 async function flagger(bot, ctx) {
     let chat_id = ctx.chat_id || ctx.message.chat.id
     let user_id = ctx.user_id || ctx.from.id
-    if(!ctx.type){
-        ctx.type = ctx.chat.type
+    if (!ctx.type) {
+        ctx.type = ctx.chat ? ctx.chat.type : 'inline'
     }
     ctx.flag = {
         // I don't wanna save the 'string' data in default (maybe the format will be changed in the future)
@@ -241,7 +241,7 @@ async function flagger(bot, ctx) {
 async function handle_new_configuration(bot, ctx, default_extra) {
     if (ctx.chat && ctx.chat.type === 'channel') {
 
-    }else if(ctx.message.sender_chat){
+    } else if (ctx.message.sender_chat) {
         // chat -> link message
         return
     }

@@ -22,16 +22,19 @@ const { update_setting } = require('./db')
 const bot = new Telegraf(config.tg.token)
 
 const throttler = telegrafThrottler({
-    group: {
-        minTime: 500
-    },
     in: {
-        highWater: 100,
-        minTime: 500
+        maxConcurrent: 1,
+        minTime: 333,
+        highWater: 3
     },
     out: {
-        highWater: 100,
-        minTime: 500
+        minTime: 25,
+        reservoir: 30
+    },
+    group: {
+        maxConcurrent: 1,
+        minTime: 1000,
+        reservoir: 20
     }
 })
 bot.use(throttler)
@@ -54,8 +57,18 @@ bot.use(async (ctx, next) => {
             if (ctx.message.text) {
                 // remove command[@username] : /start@Pixiv_bot -> /start
                 ctx.text = ctx.message.text
+                ctx.stext = ctx.message.text.split(' ')
                 if (ctx.message.entities && ctx.message.entities.length > 0) {
                     ctx.command = ctx.message.text.substr(1, ctx.message.entities[0].length - 1)
+                }
+                if (ctx.stext[0].includes(`@`)) {
+                    let at = ctx.stext[0].split('@')
+                    if (!at[1] || at[1].toLowerCase() !== bot.botInfo.username.toLowerCase()) {
+                        ctx.command = ''
+                    }// else {
+                    //     ctx.message.text = ctx.message.text.replace(new RegExp(bot.botInfo.username, 'i'), '')
+                    //     ctx.message.entities[0].length = ctx.command.length + 1
+                    // }
                 }
             }
             ctx.default_extra.reply_to_message_id = ctx.message.message_id
@@ -449,8 +462,17 @@ async function tg_sender(ctx) {
             if (temp_data.mg.length > 0) {
                 let extra = default_extra
                 await asyncForEach(temp_data.mg, async (mg, i) => {
-                    let data = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, extra)
-                    extra.reply_to_message_id = data[0].message_id
+                    let data = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, extra, ['o', 'r', 'dlo', 'dlr'])
+                    if (data) {
+                        if (data[0] && data[0].message_id) {
+                            extra.reply_to_message_id = data[0].message_id
+                        } else {
+                            delete extra.reply_to_message_id
+                        }
+                    } else {
+                        honsole.warn('error send mg', data)
+                        await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                    }
                     // Too Many Requests: retry after 10
                     if (i > 4) {
                         await sleep(3000)
@@ -607,7 +629,7 @@ async function catchily(e, chat_id, language_code = 'en') {
 async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type = []) {
     if (mg_type.length === 0) {
         honsole.warn('error send mg', chat_id, mg)
-        return
+        return false
     }
     try {
         bot.telegram.sendChatAction(chat_id, 'upload_photo')
@@ -618,6 +640,7 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
             return await sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type)
         } else {
             honsole.warn('error send mg', chat_id, mg)
+            return false
         }
     }
 }
@@ -633,7 +656,7 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
 async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra) {
     if (photo_urls.length === 0) {
         honsole.warn('error send photo', chat_id, photo_urls)
-        return
+        return false
     }
     try {
         bot.telegram.sendChatAction(chat_id, 'upload_photo')
@@ -650,6 +673,7 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
             return await sendPhotoWithRetry(chat_id, language_code, photo_urls, extra)
         } else {
             honsole.warn('error send photo', chat_id, photo_urls)
+            return false
         }
     }
 }
