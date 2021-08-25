@@ -52,13 +52,13 @@ function format(td, flag, mode = 'message', p) {
     } else {
         let splited_template = template.replaceAll('\\%', '\uff69').split('%')  // 迫真转义 这个符号不会有人打出来把！！！
         let replace_list = [
-            ['title', td.title.trim()],
+            ['title', escape_strings(td.title.trim())],
             ['id', flag.show_id ? td.id : false],
             ['url', `https://pixiv.net/artworks/${td.id}`],
             ['NSFW', td.nsfw],
             ['author_id', td.author_id],
             ['author_url', `https://www.pixiv.net/users/${td.author_id}`],
-            ['author_name', td.author_name]
+            ['author_name', escape_strings(td.author_name)]
         ]
         if (td) {
             if (td.imgs_ && td.imgs_.size && td.imgs_.size.length > 1 && p !== -1) {
