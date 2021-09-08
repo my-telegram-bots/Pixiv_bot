@@ -296,10 +296,16 @@ bot.on('text', async (ctx) => {
                 }
                 delete new_ctx.flag
                 await tg_sender(new_ctx)
-                if (link_setting.repeat === 0) {
+                if (link_setting.repeat < 2) {
                     direct_flag = false
-                } else if (link_setting.repeat === 1) {
-                    await ctx.reply(_l(ctx.l, 'sent'))
+                    if (link_setting.repeat === 1) {
+                        // feature request:
+                        // return message id
+                        await ctx.reply(_l(ctx.l, 'sent'), {
+                            ...ctx.default_extra,
+                            reply_to_message_id: ctx.message.message_id
+                        })
+                    }
                 }
             }
         }
