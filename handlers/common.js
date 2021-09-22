@@ -1,4 +1,4 @@
-const { default: axios } = require("axios")
+const { default: axios } = require('axios')
 const config = require('../config.json')
 const fs = require('fs')
 const { _l } = require("./telegram/i18n")
@@ -41,7 +41,7 @@ const honsole = {
  * @returns 
  */
 let dw_queue_list = []
-function download_file(url, id, force = false, try_time = 0) {
+async function download_file(url, id, force = false, try_time = 0) {
     if (url.includes(config.pixiv.ugoiraurl)) {
         return url + '?' + (+new Date())
     }
@@ -57,37 +57,27 @@ function download_file(url, id, force = false, try_time = 0) {
         return `./tmp/file/${filename}`
     }
     if (dw_queue_list.length > 4 || dw_queue_list.includes(url)) {
-        return new Promise(async (resolve, reject) => {
-            await sleep(1000)
-            honsole.dev('downloading', id, url)
-            resolve(await download_file(url, id, force, try_time))
-        })
+        await sleep(1000)
+        honsole.dev('downloading', id, url)
+        return await download_file(url, id, force, try_time)
     }
-    return new Promise(async (resolve, reject) => {
-        try {
-            dw_queue_list.push(url)
-            let d = (await axios.get(url, {
-                responseType: 'stream',
-                headers: {
-                    'User-Agent': config.pixiv.ua,
-                    'Referer': 'https://www.pixiv.net'
-                }
-            })).data
-            let dwfile = fs.createWriteStream(`./tmp/file/temp_${filename}`)
-            d.pipe(dwfile)
-            dwfile.on('finish', function () {
-                dw_queue_list.splice(dw_queue_list.indexOf(id), 1)
-                fs.renameSync(`./tmp/file/temp_${filename}`, `./tmp/file/${filename}`)
-                resolve(`./tmp/file/${filename}`)
-            })
-        } catch (error) {
-            console.warn(error)
-            await sleep(1000)
-            dw_queue_list.splice(dw_queue_list.indexOf(id), 1)
-            resolve(await download_file(url, id, try_time + 1))
-
-        }
-    })
+    try {
+        dw_queue_list.push(url)
+        fs.writeFileSync(`./tmp/file/${filename}`, (await axios.get(url, {
+            responseType: 'arraybuffer',
+            headers: {
+                'User-Agent': config.pixiv.ua,
+                'Referer': 'https://www.pixiv.net'
+            }
+        })).data)
+        dw_queue_list.splice(dw_queue_list.indexOf(id), 1)
+        return `./tmp/file/${filename}`
+    } catch (error) {
+        console.warn(error)
+        await sleep(1000)
+        dw_queue_list.splice(dw_queue_list.indexOf(id), 1)
+        return await download_file(url, id, try_time + 1)
+    }
 }
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))

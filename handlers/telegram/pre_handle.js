@@ -84,7 +84,7 @@ function get_values(text = '') {
 }
 
 async function flagger(bot, ctx) {
-    let chat_id = ctx.chat_id || ctx.message.chat.id
+    let chat_id = ctx.chat_id ? ctx.chat_id : ctx.message ? ctx.message.chat.id : user_id
     let user_id = ctx.user_id || ctx.from.id
     if (!ctx.type) {
         ctx.type = ctx.chat ? ctx.chat.type : 'inline'
