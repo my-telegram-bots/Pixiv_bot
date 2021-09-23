@@ -1,4 +1,4 @@
-const { default: axios } = require("axios")
+const { default: axios } = require('axios')
 const { r_p_ajax } = require('./request')
 const fs = require('fs')
 const config = require('../../config.json')
@@ -111,61 +111,69 @@ async function ugoira_to_mp4(id, force = false, retry_time = 0) {
         return `${config.pixiv.ugoiraurl}/${id}.mp4`
     }
     if (retry_time > 3) {
+        honsole.error('convert', id, 'error')
         return false
     }
+    // simple queue
     if (ugoira_mp4_queue_list.length > 4 || ugoira_mp4_queue_list.includes(id)) {
         await sleep(1000)
         return await ugoira_to_mp4(id, force, retry_time)
     }
     ugoira_mp4_queue_list.push(id)
+    id = parseInt(id)
     try {
-        id = parseInt(id)
+        // get fps metadata (timecode)
+        // powered by mp4fpsmod
+
         let ud = (await r_p_ajax(`/illust/${id}/ugoira_meta`)).data
         if (ud.error) {
             return false
         }
         ud = ud.body
-        // 确定每一帧出现的时长
-        let frame = '# timecode format v2\n0\n'
-        let tempframe = 0
+
+        // set the duration of each frame
+        let timecode = '# timecode format v2\n0\n'
+        let temp_frame = 0
         ud.frames.forEach((f) => {
-            tempframe += f.delay
-            frame += (tempframe + "\n")
+            temp_frame += f.delay
+            timecode += `${temp_frame}\n`
         }, this)
-        fs.writeFileSync(`./tmp/timecode/${id}`, frame)
-        // 下载
-        await download_file(ud.originalSrc, id)
-        // force 为强制更新
-        if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`) && force) {
-            fs.unlinkSync(`./tmp/mp4_1/${id}.mp4`)
-        }
-        if (fs.existsSync(`./tmp/ugoira/${id}`)) {
-            fs.rmdirSync(`./tmp/ugoira/${id}`, {
-                recursive: true
-            })
-        }
-        if (fs.existsSync(`./tmp/mp4_0/${id}.mp4`)) {
-            fs.unlinkSync(`./tmp/mp4_0/${id}.mp4`)
-        }
+        fs.writeFileSync(`./tmp/timecode/${id}`, timecode)
+
+        // download ugoira.zip
+        await download_file(ud.originalSrc, id, force)
+        
+        fs.rmSync(`./tmp/ugoira/${id}`, {
+            recursive: true,
+            force: true
+        })
+        fs.rmSync(`./tmp/mp4_0/${id}.mp4`, {
+            force: true
+        })
+        fs.rmSync(`./tmp/mp4_1/${id}.mp4`, {
+            force: true
+        })
         // windows:
         // choco install ffmpeg unzip
-
         await exec(`unzip -n './tmp/file/${id}.zip' -d './tmp/ugoira/${id}'`)
+
         // copy last frame
         // see this issue https://github.com/my-telegram-bots/Pixiv_bot/issues/1
         fs.copyFileSync(`./tmp/ugoira/${id}/${(ud.frames.length - 1).toString().padStart(6, 0)}.jpg`, `./tmp/ugoira/${id}/${(ud.frames.length).toString().padStart(6, 0)}.jpg`)
-        // jpg -> mp4 (no fps metadata)
+
+        // step1 jpg -> mp4 (no fps metadata)
         // thanks https://stackoverflow.com/questions/28086775/can-i-create-a-vfr-video-from-timestamped-images
         await exec(`ffmpeg -y -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
-        // add fps metadata via mp4fpsmod
+
+        // step2 add fps metadata via mp4fpsmod
         await exec(`mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
-        return `${config.pixiv.ugoiraurl}/${id}.mp4`
     } catch (error) {
         honsole.warn(error)
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
-        return await ugoira_to_mp4(id, force, retry_time + 1)
+        await ugoira_to_mp4(id, force, retry_time + 1)
     }
+    return `${config.pixiv.ugoiraurl}/${id}.mp4`
 }
 /**
  * ugoira mp4 to gif
@@ -178,6 +186,7 @@ async function ugoira_to_mp4(id, force = false, retry_time = 0) {
 async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height = 0, force = false, retry_time = 0) {
     let height = 0
     let width = 0
+    // large also = origin (maybe)
     if (!['large', 'medium', 'small'].includes(quality)) {
         quality = 'large'
     }
@@ -196,6 +205,7 @@ async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height 
             real_width = e[0]
             real_height = e[1]
         }
+        // quality = size
         switch (quality) {
             case 'large':
                 width = real_width
@@ -212,11 +222,13 @@ async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height 
         }
         // ffmpeg configuration from 
         // https://bhupesh-v.github.io/convert-videos-high-quality-gif-ffmpeg/
-        // and who from ACGN taiwan
+        // and who from ACGN taiwan (telegram)
         if (!fs.existsSync(`./tmp/palette/${id}-${quality}.png`)) {
             await exec(`ffmpeg -y -i ./tmp/mp4_1/${id}.mp4 -vf "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos,palettegen" ./tmp/palette/${id}-${quality}.png`)
         }
         await exec(`ffmpeg -y -t 30 -i ./tmp/mp4_1/${id}.mp4 -i ./tmp/palette/${id}-${quality}.png  -filter_complex "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos[x];[x][1:v]paletteuse" ./tmp/gif/${id}-${quality}-processing.gif`)
+        // maybe hit cloudflare cache.
+        // when the processing is complete, -processing.gif -> .gif
         fs.renameSync(`./tmp/gif/${id}-${quality}-processing.gif`, `./tmp/gif/${id}-${quality}.gif`)
         ugoira_gif_queue_list.splice(ugoira_gif_queue_list.indexOf(id), 1)
     } catch (error) {
