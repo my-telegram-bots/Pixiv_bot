@@ -13,8 +13,8 @@
   },
   "dependencies": {
     "axios": "^0.21.4",
-    "mongodb": "^3.6.3",
-    "telegraf": "^4.3.0",
+    "mongodb": "^4.1.2",
+    "telegraf": "^4.4.2",
     "telegraf-throttler": "^0.6.0"
   }
 }
