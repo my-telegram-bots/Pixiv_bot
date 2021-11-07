@@ -142,7 +142,7 @@ async function ugoira_to_mp4(id, force = false, retry_time = 0) {
 
         // download ugoira.zip
         await download_file(ud.originalSrc, id, force)
-        
+
         fs.rmSync(`./tmp/ugoira/${id}`, {
             recursive: true,
             force: true
@@ -174,6 +174,32 @@ async function ugoira_to_mp4(id, force = false, retry_time = 0) {
         await ugoira_to_mp4(id, force, retry_time + 1)
     }
     return `${config.pixiv.ugoiraurl}/${id}.mp4`
+}
+/**
+ * detect ugoira file
+ * @param {*} id 
+ * @param {0,1,2,3} type 
+ * @param {url,path} source
+ * @returns 
+ */
+function detect_ugpira_file(id, type = 0, source = 'url') {
+    let filepath = ''
+    switch (type) {
+        case 0:
+            filepath = `./tmp/mp4_1/${id}.mp4`
+            break
+        case 1:
+            filepath = `./tmp/gif/${id}-small.gif`
+            break
+        case 2:
+            filepath = `./tmp/gif/${id}-medium.gif`
+            break
+        case 2:
+            filepath = `./tmp/gif/${id}-large.gif`
+            break
+    }
+    // let real_filepath = source === 'url' ? filepath.replace('./tmp/', config.pixiv.ugoiraurl) : filepath
+    return fs.existsSync(filepath) ? (source === 'url' ? filepath.replace('./tmp/', config.pixiv.ugoiraurl) : filepath) : null
 }
 /**
  * ugoira mp4 to gif
@@ -293,5 +319,6 @@ module.exports = {
     thumb_to_all,
     head_url,
     ugoira_to_mp4,
-    ugoira_to_gif
+    ugoira_to_gif,
+    detect_ugpira_file
 }

@@ -1,6 +1,6 @@
 const db = require("./db")
 const { sleep, asyncForEach } = require("./handlers/common")
-const { update_illust } = require("./handlers/pixiv/illust")
+const { update_illust, get_illust } = require("./handlers/pixiv/illust")
 const { head_url, thumb_to_all } = require("./handlers/pixiv/tools")
 
 async function update_original_file_extension() {
@@ -71,11 +71,13 @@ async function update_png_file_error() {
 
 async function update_ugoira_null_size_data() {
     await db.db_initial()
-    let d = (await db.collection.illust.find({}).toArray())
-    console.log('load illusts from local database', d.length)
+    let d = (await db.collection.illust.find({
+        type: 2
+    }).toArray())
+    console.log('load ugroia illusts from local database', d.length)
     await asyncForEach(d, async (illust, id) => {
         try {
-            if (JSON.stringify(illust.imgs_.size).includes('null') && illust.type === 2) {
+            if (illust.type === 2 && JSON.stringify(illust.imgs_.size).includes('null')) {
                 let e = (await exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 './tmp/mp4_1/${illust.id}.mp4'`)).stdout.replace('\n', '').split('x')
                 console.log(id, illust.id, illust.type, illust.imgs_.size, e)
                 await db.collection.illust.updateOne({
@@ -96,6 +98,23 @@ async function update_ugoira_null_size_data() {
     process.exit()
 }
 
+async function update_ugoira_1st_image_url() {
+    await db.db_initial()
+    let d = (await db.collection.illust.find({
+        type: 2
+    }).toArray())
+    console.log('load ugroia illusts from local database', d.length)
+    await asyncForEach(d, async (illust, id) => {
+        try {
+            if (!illust.imgs_.cover_img_url) {
+                let new_illust = await get_illust(illust.id, true)
+            }
+            await sleep(1000)
+        } catch (error) {
+            console.error(error)
+        }
+    })
+}
 try {
     // just some expliot ? LOL
     eval(process.argv[2] + '()')

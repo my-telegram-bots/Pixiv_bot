@@ -9,9 +9,10 @@ let illust_queue = []
  * get illust data
  * save illust data to MongoDB
  * @param {number} id illust_id
+ * @param {boolean} raw true => return newest data from pixiv
  * @param {object} flag configure
  */
-async function get_illust(id, try_time = 0) {
+async function get_illust(id, raw = false, try_time = 0) {
     if (try_time > 4) {
         return false
     }
@@ -19,19 +20,19 @@ async function get_illust(id, try_time = 0) {
         return id
     }
     id = typeof id == 'string' ? id : id.toString()
-    if (id.length < 6 || id.length > 8 || id == 'NaN') {
+    if (id.length < 6 || id.length > 8 || id === 'NaN') {
         return false
     }
     id = parseInt(id)
     if (illust_queue.includes(id)) {
         await sleep(300)
-        return await get_illust(id, try_time)
+        return await get_illust(id, raw, try_time)
     }
     if (try_time > 5) {
-        console.warn('pixiv maybe banned this server\'s ip\nor network error (such as DNS/firewall)')
+        console.warn('pixiv maybe banned your server\'s ip\nor network error (DNS / firewall)')
         return false
     }
-    let illust = await db.collection.illust.findOne({
+    let illust = raw ? null : await db.collection.illust.findOne({
         id: id
     })
     if (!illust) {
@@ -62,7 +63,7 @@ async function get_illust(id, try_time = 0) {
             } else {
                 honsole.warn(error)
                 await sleep(500)
-                return await get_illust(id, try_time + 1)
+                return await get_illust(id, raw, try_time + 1)
             }
         }
     } else {
@@ -124,7 +125,8 @@ async function update_illust(illust, extra_data = false, id_update_flag = true) 
             size: [{
                 width: illust.width ? illust.width : illust.imgs_.size[0].width,
                 height: illust.height ? illust.height : illust.imgs_.size[0].height
-            }]
+            }],
+            cover_img_url: illust.urls.original
         }
     } else if (!illust.imgs_ || !illust.imgs_.fsize || !illust.imgs_.fsize[0]) {
         illust.imgs_ = await thumb_to_all(illust)
