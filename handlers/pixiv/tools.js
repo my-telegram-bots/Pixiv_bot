@@ -194,12 +194,12 @@ function detect_ugpira_file(id, type = 0, source = 'url') {
         case 2:
             filepath = `./tmp/gif/${id}-medium.gif`
             break
-        case 2:
+        case 3:
             filepath = `./tmp/gif/${id}-large.gif`
             break
     }
     // let real_filepath = source === 'url' ? filepath.replace('./tmp/', config.pixiv.ugoiraurl) : filepath
-    return fs.existsSync(filepath) ? (source === 'url' ? filepath.replace('./tmp/', config.pixiv.ugoiraurl) : filepath) : null
+    return fs.existsSync(filepath) ? (source === 'url' ? filepath.replace('./tmp/', config.pixiv.ugoiraurl.replace('mp4_1','')) : filepath) : null
 }
 /**
  * ugoira mp4 to gif

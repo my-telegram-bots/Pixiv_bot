@@ -313,6 +313,7 @@ bot.on('text', async (ctx) => {
     if (direct_flag) {
         await tg_sender(ctx)
     }
+    return
 })
 /**
  * build ctx object can send illust / novel manually (subscribe / auto push)
@@ -505,6 +506,7 @@ async function tg_sender(ctx) {
     if (text.includes('fanbox.cc/') && chat_id > 0) {
         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'fanbox_not_support'), default_extra)
     }
+    return true
 }
 bot.on('inline_query', async (ctx) => {
     let res = []

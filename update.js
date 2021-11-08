@@ -108,12 +108,14 @@ async function update_ugoira_1st_image_url() {
         try {
             if (!illust.imgs_.cover_img_url) {
                 let new_illust = await get_illust(illust.id, true)
+                console.log(new_illust.id, new_illust.imgs_.cover_img_url)
             }
             await sleep(1000)
         } catch (error) {
             console.error(error)
         }
     })
+    process.exit()
 }
 try {
     // just some expliot ? LOL

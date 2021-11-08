@@ -15,7 +15,7 @@ function get_pixiv_ids(text) {
         novel: [],
         // fanbox: [],
     }
-    if (text) {
+    if (text && (typeof text === 'string' || typeof text === 'number')) {
         text.replace(/-_-/g, ' ').replace(/www\./ig, '').replace(/http:\/\//ig, 'https://').replace(/https:\/\//ig, '\nhttps://').replace(/  /g, ' ').replace(/\+/g, ' ').replace(/\-/g, ' ').replace(/ /g, '\n').replace(/\/en/ig, '/').split('\n').forEach(u => {
             try {
                 if (!u || u.length < 6) {
@@ -84,10 +84,13 @@ function get_values(text = '') {
 }
 
 async function flagger(bot, ctx) {
-    let chat_id = ctx.chat_id ? ctx.chat_id : ctx.message ? ctx.message.chat.id : user_id
+    let chat_id = ctx.chat_id
     let user_id = ctx.user_id || ctx.from.id
     if (!ctx.type) {
         ctx.type = ctx.chat ? ctx.chat.type : 'inline'
+    }
+    if(!chat_id){
+        chat_id = ctx.message ? ctx.message.chat.id : user_id
     }
     ctx.flag = {
         // I don't wanna save the 'string' data in default (maybe the format will be changed in the future)

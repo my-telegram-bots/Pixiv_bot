@@ -35,7 +35,9 @@ async function get_illust(id, raw = false, try_time = 0) {
     let illust = raw ? null : await db.collection.illust.findOne({
         id: id
     })
-    if (!illust) {
+    if (illust) {
+        delete illust._id
+    } else {
         try {
             // 404 cache in memory (10 min)
             // to prevent cache attack the 404 result will be not in database.
@@ -66,8 +68,6 @@ async function get_illust(id, raw = false, try_time = 0) {
                 return await get_illust(id, raw, try_time + 1)
             }
         }
-    } else {
-        delete illust._id
     }
     honsole.dev('illust', illust)
     return illust
