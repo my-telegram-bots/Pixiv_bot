@@ -604,7 +604,7 @@ async function catchily(e, chat_id, language_code = 'en') {
                 bot.telegram.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra)
                 return false
             } else if (description.includes('can\'t parse entities: Character')) {
-                bot.telegram.sendMessage(chat_id, _l(language_code, 'error_format', e.response.description), default_extra)
+                bot.telegram.sendMessage(chat_id, _l(language_code, 'error_format', e.response.description))
                 return false
                 // banned by user
             } else if (description.includes('Forbidden:')) {
