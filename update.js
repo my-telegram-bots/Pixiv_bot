@@ -1,8 +1,8 @@
-const db = require("./db")
-const { sleep, asyncForEach } = require("./handlers/common")
-const { update_illust, get_illust } = require("./handlers/pixiv/illust")
-const { head_url, thumb_to_all } = require("./handlers/pixiv/tools")
-
+process.env.dev = 1
+const db = require('./db')
+const { sleep, asyncForEach } = require('./handlers/common')
+const { update_illust, get_illust } = require('./handlers/pixiv/illust')
+const { head_url, thumb_to_all } = require('./handlers/pixiv/tools')
 async function update_original_file_extension() {
     await db.db_initial()
     let d = await db.collection.illust.find({}).toArray()
@@ -104,19 +104,21 @@ async function update_ugoira_1st_image_url() {
         type: 2
     }).toArray())
     console.log('load ugroia illusts from local database', d.length)
-    await asyncForEach(d, async (illust, id) => {
+    await asyncForEach(d, async (illust, i) => {
+
         try {
             if (!illust.imgs_.cover_img_url) {
                 let new_illust = await get_illust(illust.id, true)
-                console.log(new_illust.id, new_illust.imgs_.cover_img_url)
+                console.log(i, new_illust.id, new_illust.imgs_.cover_img_url)
+                await sleep(1000)
             }
-            await sleep(1000)
         } catch (error) {
             console.error(error)
         }
     })
     process.exit()
 }
+
 try {
     // just some expliot ? LOL
     eval(process.argv[2] + '()')

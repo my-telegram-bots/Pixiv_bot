@@ -32,12 +32,20 @@ async function get_illust(id, raw = false, try_time = 0) {
         console.warn('pixiv maybe banned your server\'s ip\nor network error (DNS / firewall)')
         return false
     }
-    let illust = raw ? null : await db.collection.illust.findOne({
+    let illust = await db.collection.illust.findOne({
         id: id
     })
+
     if (illust) {
         delete illust._id
+        if (illust.type == 2 && !illust.imgs_.cover_img_url) {
+            // missing `illust.imgs_.cover_img_url`
+            raw = true
+        }
     } else {
+        raw = true
+    }
+    if (raw) {
         try {
             // 404 cache in memory (10 min)
             // to prevent cache attack the 404 result will be not in database.
@@ -51,17 +59,22 @@ async function get_illust(id, raw = false, try_time = 0) {
                 }
             }
             // data example https://paste.huggy.moe/mufupocomo.json
-            illust = (await r_p_ajax.get('illust/' + id)).data
-            honsole.dev('fetch-raw-illust', illust)
-            illust = await update_illust(illust.body)
+            illust_data = (await r_p_ajax.get('illust/' + id)).data
+            honsole.dev('fetch-raw-illust', illust_data)
+            illust = await update_illust(illust_data.body)
             return illust
         } catch (error) {
             // network, session or Work has been deleted or the ID does not exist.
             if (error.response && error.response.status == 404) {
-                honsole.warn(new Date(), '404 illust', id)
-                illust_notfound_id_list.push(id)
-                illust_notfound_time_list.push(+new Date())
-                return 404
+                if (illust) {
+                    console.log('origin 404, fallback old data', id)
+                    return illust
+                } else {
+                    honsole.warn(new Date(), '404 illust', id)
+                    illust_notfound_id_list.push(id)
+                    illust_notfound_time_list.push(+new Date())
+                    return 404
+                }
             } else {
                 honsole.warn(error)
                 await sleep(500)
