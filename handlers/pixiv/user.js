@@ -1,15 +1,14 @@
-const { r_p, r_p_ajax } = require('./request')
-const { asyncForEach, sleep, honsole } = require('../common')
-let db = require('../../db')
-const { ugoira_to_mp4 } = require('./tools')
-const { update_illust } = require('./illust')
+import { r_p, r_p_ajax } from './request.js'
+import { asyncForEach, sleep, honsole } from '../common.js'
+import db from '../../db.js'
+import { ugoira_to_mp4 } from './tools.js'
+import { update_illust } from './illust.js'
 let csrf = null
-
 /**
  * get user's profile
  * @param {number} author_id illust_id
  */
-async function get_user_profile(author_id, try_time = 0) {
+export async function get_user_profile(author_id, try_time = 0) {
     if (id.toString().length > 8 && id > 80000000) {
         return false
     }
@@ -21,7 +20,8 @@ async function get_user_profile(author_id, try_time = 0) {
         let data = (await r_p_ajax(`user/${author_id}/?full=1`)).data
         if (data.error) {
             return 404
-        } else {
+        }
+        else {
             return {
                 author_id,
                 author_name: data.name,
@@ -30,22 +30,22 @@ async function get_user_profile(author_id, try_time = 0) {
                 comment_html: data.comment_html
             }
         }
-    } catch (error) {
+    }
+    catch (error) {
         honsole.error(error)
         await sleep(500)
         return await get_user_profile(author_id, try_time + 1)
     }
     honsole.log('u', id)
 }
-
 /**
  * get user's illusts (per page)
- * @param {*} author_id 
- * @param {*} page 
- * @param {*} try_time 
- * @returns 
+ * @param {*} author_id
+ * @param {*} page
+ * @param {*} try_time
+ * @returns
  */
-async function get_user_illusts(author_id, page = 0, try_time = 0) {
+export async function get_user_illusts(author_id, page = 0, try_time = 0) {
     if (try_time > 5) {
         return false
     }
@@ -69,7 +69,7 @@ async function get_user_illusts(author_id, page = 0, try_time = 0) {
         })
         // filter illust not in local database
         // and query from Pixiv
-        let p = illusts.filter(x => { return typeof x != 'object' })
+        let p = illusts.filter(x => { return typeof x != 'object'; })
         if (p.length > 0) {
             if (p.length > 49) {
                 let pp = []
@@ -77,11 +77,12 @@ async function get_user_illusts(author_id, page = 0, try_time = 0) {
                     pp.push(p.splice(0, 50))
                 }
                 p = pp
-            } else {
+            }
+            else {
                 p = [p]
             }
             honsole.dev('query from pixiv', p)
-            await asyncForEach(p, async pp => {
+            await asyncForEach(p, async (pp) => {
                 let illusts_data = (await r_p_ajax.get(`user/${author_id}/profile/illusts?ids%5B%5D=${pp.join('&ids%5B%5D=')}&work_category=illustManga&is_first_page=1`)).data
                 honsole.dev(illusts_data.body.works)
                 for (let id in illusts_data.body.works) {
@@ -92,7 +93,6 @@ async function get_user_illusts(author_id, page = 0, try_time = 0) {
                     }
                 }
             })
-
         }
         await asyncForEach(illusts, async (illust, id) => {
             if (illust.type == 2) {
@@ -104,7 +104,8 @@ async function get_user_illusts(author_id, page = 0, try_time = 0) {
             }
         })
         return illusts
-    } catch (e) {
+    }
+    catch (e) {
         honsole.warn(e)
         await sleep(500)
         return get_user_illusts_by_id(id, page, try_time + 1)
@@ -114,10 +115,10 @@ async function get_user_illusts(author_id, page = 0, try_time = 0) {
  * get user's all illusts id
  * @param {*} author_id author id
  * @param {*} page page (0 = all)
- * @param {*} try_time 
- * @returns 
+ * @param {*} try_time
+ * @returns
  */
-async function get_user_illusts_id(author_id, page = 0, try_time = 0) {
+export async function get_user_illusts_id(author_id, page = 0, try_time = 0) {
     if (try_time > 5) {
         return []
     }
@@ -136,14 +137,16 @@ async function get_user_illusts_id(author_id, page = 0, try_time = 0) {
                 if (illust_id_list_p[illust_id_list_p.length - 1].length > 49) {
                     illust_id_list_p.push([])
                 }
-            } else {
+            }
+            else {
                 illusts_id.push(parseInt(id))
             }
         }
         if (page > 0) {
             illusts_id = illust_id_list_p[page - 1]
         }
-    } catch (e) {
+    }
+    catch (e) {
         honsole.warn(e)
         await sleep(500)
         get_user_illusts_id(author_id, page, try_time + 1)
@@ -156,15 +159,13 @@ async function get_user_illusts_id(author_id, page = 0, try_time = 0) {
  * all illusts will be cached to database
  * @param {*} id user id
  * @param {*} page when pages = 0 will return all illusts
- * @param {*} try_time 
+ * @param {*} try_time
  * @returns object / boolean
  * max 50 illusts
  */
-async function get_user_illusts_by_id(author_id, illusts_id = [], try_time = 0) {
-
+export async function get_user_illusts_by_id(author_id, illusts_id = [], try_time = 0) {
 }
-
-async function follow_user(author_id, try_time = 0) {
+export async function follow_user(author_id, try_time = 0) {
     if (!author_id || try_time > 3) {
         return false
     }
@@ -172,11 +173,13 @@ async function follow_user(author_id, try_time = 0) {
         let data = await r_p.post('bookmark_add.php', `mode=del&type=user&user_id=${author_id}&tag=&restrict=0&format=json`)
         if (data.data.length < 2) {
             return true
-        } else {
+        }
+        else {
             honsole.error('follow_user_error', data.data)
             return false
         }
-    } catch (error) {
+    }
+    catch (error) {
         honsole.error(error)
         if (error.response && error.response.status == 404) {
             return false
@@ -185,17 +188,17 @@ async function follow_user(author_id, try_time = 0) {
         return await follow_user(author_id, try_time + 1)
     }
 }
-async function unfollow_user(author_id) {
+export async function unfollow_user(author_id) {
     return await group_setting('del', 'bookuser', author_id)
 }
 /**
- * group setting 
+ * group setting
  * https://www.pixiv.net/rpc_group_setting.php
  * @param {*} mode mode
  * @param {*} type type
  * @param {*} id (author) id
  */
-async function group_setting(mode, type, id, retry_time = 0) {
+export async function group_setting(mode, type, id, retry_time = 0) {
     if (!mode || !type || !id || retry_time > 3) {
         return false
     }
@@ -204,10 +207,12 @@ async function group_setting(mode, type, id, retry_time = 0) {
         if (data.data.length < 2) {
             honsole.error(mode + '_user_error', data.data)
             return false
-        } else {
+        }
+        else {
             return true
         }
-    } catch (error) {
+    }
+    catch (error) {
         honsole.error(error.response)
         if (error.response && error.response.status == 404) {
             return false
@@ -220,7 +225,7 @@ async function group_setting(mode, type, id, retry_time = 0) {
  * get user's latest csrf token
  * may be use in the future
  **/
-async function get_user_csrf(try_time = 0) {
+export async function get_user_csrf(try_time = 0) {
     if (try_time > 3) {
         honsole.error('get csrf error')
         return false
@@ -230,7 +235,8 @@ async function get_user_csrf(try_time = 0) {
         csrf = html.split('{"token":"')[1].split('"')[0]
         honsole.log('new csrf token:', csrf)
         return csrf
-    } catch (error) {
+    }
+    catch (error) {
         honsole.error(error)
         await sleep(500)
         return await get_user_csrf(try_time + 1)
@@ -238,14 +244,14 @@ async function get_user_csrf(try_time = 0) {
 }
 /**
  * get user's bookmarks (per page)
- * @param {*} author_id 
- * @param {*} page 
+ * @param {*} author_id
+ * @param {*} page
  * @returns {
  * total: number,
  * illusts: []
  * }
  */
-async function get_user_bookmarks(author_id, page = 1, try_time = 0) {
+export async function get_user_bookmarks(author_id, page = 1, try_time = 0) {
     if (try_time > 5) {
         honsole.error('can\'t get author', author_id, 'bookmarks')
         return false
@@ -278,10 +284,12 @@ async function get_user_bookmarks(author_id, page = 1, try_time = 0) {
                     // delete
                     if (JSON.stringify(illust).includes('limit_unknown_s')) {
                         illusts.splice(id, 1)
-                    } else {
+                    }
+                    else {
                         illusts[id] = await update_illust(illust)
                     }
-                } else {
+                }
+                else {
                     delete illusts[id].local_flag
                 }
             })
@@ -290,25 +298,18 @@ async function get_user_bookmarks(author_id, page = 1, try_time = 0) {
                 next_flag: (data.body.total - (page * 100)) > 0,
                 illusts: illusts
             }
-        } else {
+        }
+        else {
             // user not exist ?
             return {
                 total: 0,
                 illusts: []
             }
         }
-    } catch (error) {
+    }
+    catch (error) {
         honsole.error(error)
         await sleep(500)
         return await get_user_bookmarks(author_id, page, try_time + 1)
     }
-}
-module.exports = {
-    get_user_profile,
-    get_user_illusts_id,
-    get_user_illusts,
-    get_user_bookmarks,
-    follow_user,
-    unfollow_user,
-    get_user_csrf
 }

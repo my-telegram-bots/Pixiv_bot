@@ -1,27 +1,27 @@
-const { default: axios } = require('axios')
-const { r_p_ajax } = require('./request')
-const fs = require('fs')
-const config = require('../../config.json')
-const { download_file, sleep, honsole, asyncForEach, exec } = require('../common')
+import { default as axios } from 'axios'
+import { r_p_ajax } from './request.js'
+import fs from 'fs'
+import config from '../../config.js'
+import { download_file, sleep, honsole, asyncForEach, exec } from '../common.js'
 // ugoira queue
 let ugoira_mp4_queue_list = []
 let ugoira_gif_queue_list = []
 /**
  * thumb url to regular and original url
- * @param {string} thumb_url 
- * @param {number} page_count 
- * @returns 
+ * @param {string} thumb_url
+ * @param {number} page_count
+ * @returns
  */
-async function thumb_to_all(illust, try_time = 0) {
+export async function thumb_to_all(illust, try_time = 0) {
     if (try_time > 3) {
         return false
     }
     if (illust.type == 2) {
         return {
             size: [{
-                width: illust.width ? illust.width : illust.imgs_.size[0].width,
-                height: illust.height ? illust.height : illust.imgs_.size[0].height
-            }]
+                    width: illust.width ? illust.width : illust.imgs_.size[0].width,
+                    height: illust.height ? illust.height : illust.imgs_.size[0].height
+                }]
         }
     }
     let imgs_ = {
@@ -64,16 +64,17 @@ async function thumb_to_all(illust, try_time = 0) {
                 delete x.urls.thumb_mini
                 return x
             })
-        } else {
+        }
+        else {
             illust.page = [{
-                urls: {
-                    original: original_url.replace('i.pximg.net', 'i-cf.pximg.net'),
-                    regular: regular_url.replace('i.pximg.net', 'i-cf.pximg.net'),
-                    thumb: thumb_url.replace('i.pximg.net', 'i-cf.pximg.net'),
-                },
-                width: illust.width ? illust.width : illust.imgs_.size[0].width,
-                height: illust.height ? illust.height : illust.imgs_.size[0].height
-            }]
+                    urls: {
+                        original: original_url.replace('i.pximg.net', 'i-cf.pximg.net'),
+                        regular: regular_url.replace('i.pximg.net', 'i-cf.pximg.net'),
+                        thumb: thumb_url.replace('i.pximg.net', 'i-cf.pximg.net'),
+                    },
+                    width: illust.width ? illust.width : illust.imgs_.size[0].width,
+                    height: illust.height ? illust.height : illust.imgs_.size[0].height
+                }]
         }
         await asyncForEach(illust.page, async (l, i) => {
             imgs_.thumb_urls[i] = l.urls.thumb.replace('i.pximg.net', 'i-cf.pximg.net')
@@ -90,7 +91,8 @@ async function thumb_to_all(illust, try_time = 0) {
             honsole.dev(imgs_)
         })
         return { ...imgs_ }
-    } catch (error) {
+    }
+    catch (error) {
         if (error.response && error.response.status == 404) {
             return false
         }
@@ -99,14 +101,13 @@ async function thumb_to_all(illust, try_time = 0) {
         return await thumb_to_all(illust, try_time + 1)
     }
 }
-
 /**
  * ugoira to mp4
  * @param {*} id illustId
- * @param {*} force ignore exist file 
- * @returns 
+ * @param {*} force ignore exist file
+ * @returns
  */
-async function ugoira_to_mp4(id, force = false, retry_time = 0) {
+export async function ugoira_to_mp4(id, force = false, retry_time = 0) {
     if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`) && !force) {
         return `${config.pixiv.ugoiraurl}/${id}.mp4`
     }
@@ -124,13 +125,11 @@ async function ugoira_to_mp4(id, force = false, retry_time = 0) {
     try {
         // get fps metadata (timecode)
         // powered by mp4fpsmod
-
         let ud = (await r_p_ajax(`/illust/${id}/ugoira_meta`)).data
         if (ud.error) {
             return false
         }
         ud = ud.body
-
         // set the duration of each frame
         let timecode = '# timecode format v2\n0\n'
         let temp_frame = 0
@@ -139,10 +138,8 @@ async function ugoira_to_mp4(id, force = false, retry_time = 0) {
             timecode += `${temp_frame}\n`
         }, this)
         fs.writeFileSync(`./tmp/timecode/${id}`, timecode)
-
         // download ugoira.zip
         await download_file(ud.originalSrc, id, force)
-
         fs.rmSync(`./tmp/ugoira/${id}`, {
             recursive: true,
             force: true
@@ -156,19 +153,17 @@ async function ugoira_to_mp4(id, force = false, retry_time = 0) {
         // windows:
         // choco install ffmpeg unzip
         await exec(`unzip -n './tmp/file/${id}.zip' -d './tmp/ugoira/${id}'`)
-
         // copy last frame
         // see this issue https://github.com/my-telegram-bots/Pixiv_bot/issues/1
         fs.copyFileSync(`./tmp/ugoira/${id}/${(ud.frames.length - 1).toString().padStart(6, 0)}.jpg`, `./tmp/ugoira/${id}/${(ud.frames.length).toString().padStart(6, 0)}.jpg`)
-
         // step1 jpg -> mp4 (no fps metadata)
         // thanks https://stackoverflow.com/questions/28086775/can-i-create-a-vfr-video-from-timestamped-images
         await exec(`ffmpeg -y -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
-
         // step2 add fps metadata via mp4fpsmod
         await exec(`mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
-    } catch (error) {
+    }
+    catch (error) {
         honsole.warn(error)
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
         await ugoira_to_mp4(id, force, retry_time + 1)
@@ -177,12 +172,12 @@ async function ugoira_to_mp4(id, force = false, retry_time = 0) {
 }
 /**
  * detect ugoira file
- * @param {*} id 
- * @param {0,1,2,3} type 
+ * @param {*} id
+ * @param {0,1,2,3} type
  * @param {url,path} source
- * @returns 
+ * @returns
  */
-function detect_ugpira_file(id, type = 0, source = 'url') {
+export function detect_ugpira_file(id, type = 0, source = 'url') {
     let filepath = ''
     switch (type) {
         case 0:
@@ -199,17 +194,17 @@ function detect_ugpira_file(id, type = 0, source = 'url') {
             break
     }
     // let real_filepath = source === 'url' ? filepath.replace('./tmp/', config.pixiv.ugoiraurl) : filepath
-    return fs.existsSync(filepath) ? (source === 'url' ? filepath.replace('./tmp/', config.pixiv.ugoiraurl.replace('mp4_1','')) : filepath) : null
+    return fs.existsSync(filepath) ? (source === 'url' ? filepath.replace('./tmp/', config.pixiv.ugoiraurl.replace('mp4_1', '')) : filepath) : null
 }
 /**
  * ugoira mp4 to gif
  * ~~ why not apng to gif ? ~~ -> lazy
- * @param {number} id 
+ * @param {number} id
  * @param {string} quality
  * @param {number} real_width
  * @param {number} real_height
  */
-async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height = 0, force = false, retry_time = 0) {
+export async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height = 0, force = false, retry_time = 0) {
     let height = 0
     let width = 0
     // large also = origin (maybe)
@@ -257,7 +252,8 @@ async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height 
         // when the processing is complete, -processing.gif -> .gif
         fs.renameSync(`./tmp/gif/${id}-${quality}-processing.gif`, `./tmp/gif/${id}-${quality}.gif`)
         ugoira_gif_queue_list.splice(ugoira_gif_queue_list.indexOf(id), 1)
-    } catch (error) {
+    }
+    catch (error) {
         console.warn(error)
         ugoira_gif_queue_list.splice(ugoira_gif_queue_list.indexOf(id), 1)
         await sleep(500)
@@ -267,10 +263,10 @@ async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height 
 }
 /**
  * get url's file size (content-length)
- * @param {*} url 
+ * @param {*} url
  * @returns number / boolean
  */
-async function head_url(url, try_time = 0) {
+export async function head_url(url, try_time = 0) {
     // dbless mode -> save request time
     if (process.env.DBLESS) {
         return 99999999
@@ -296,29 +292,25 @@ async function head_url(url, try_time = 0) {
             if (try_time > 3) {
                 // real content-length
                 return res.data.length
-            } else {
-                throw 'n_cl' // no have content-length
+            }
+            else {
+                throw 'n_cl'; // no have content-length
             }
         }
         // Warning, Pixiv return content-length value is not a real file size
         // it less than real_value
         // pixiv's content-length * .1.05 ≈ real_value
         return parseInt(res.headers['content-length'])
-    } catch (error) {
+    }
+    catch (error) {
         if (error.response && error.response.status == 404) {
             return 404
-        } else {
+        }
+        else {
             honsole.warn('ggggg try again')
             honsole.dev(error)
             await sleep(100)
             return await head_url(url, try_time + 1)
         }
     }
-}
-module.exports = {
-    thumb_to_all,
-    head_url,
-    ugoira_to_mp4,
-    ugoira_to_gif,
-    detect_ugpira_file
 }

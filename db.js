@@ -1,5 +1,6 @@
-const config = require('./config.json')
-const { MongoClient } = require("mongodb")
+import config from './config.js'
+import * as mongodb from 'mongodb'
+const { MongoClient } = mongodb
 let db = {
     collection: fake_collection
 }
@@ -18,7 +19,8 @@ async function db_initial() {
             for (const key in col) {
                 col[key] = db.collection(key)
             }
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Connect Database Error', error)
             process.exit()
         }
@@ -34,7 +36,8 @@ async function update_setting(value, chat_id, flag) {
                 if (['message', 'mediagroup_message', 'inline'].includes(i)) {
                     if (typeof value.format[i] == 'string') {
                         s.format[i] = value.format[i]
-                    } else {
+                    }
+                    else {
                         // throw 'e'
                     }
                 }
@@ -47,14 +50,16 @@ async function update_setting(value, chat_id, flag) {
                 if (['telegraph_title', 'telegraph_author_name', 'telegraph_author_url'].includes(i)) {
                     if (typeof value.default[i] == 'string') {
                         s.default[i] = value.default[i]
-                    } else {
+                    }
+                    else {
                         // throw 'e'
                     }
                 }
                 if (['tags', 'open', 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album', 'desc', 'overwrite', 'asfile'].includes(i)) {
                     if (typeof value.default[i] == 'boolean') {
                         s.default[i] = value.default[i]
-                    } else {
+                    }
+                    else {
                         // throw 'e'
                     }
                 }
@@ -76,7 +81,8 @@ async function update_setting(value, chat_id, flag) {
             if (['link_chat'].includes(ii)) {
                 if (typeof value[i] === 'string') {
                     index = value[i]
-                } else {
+                }
+                else {
                     index = value[i].chat_id
                 }
                 v = {
@@ -89,7 +95,8 @@ async function update_setting(value, chat_id, flag) {
             }
             if (action === 'add') {
                 s[`${ii}_list.${index}`] = v
-            } else if (action === 'del') {
+            }
+            else if (action === 'del') {
                 u[`${ii}_list.${index}`] = { $exists: true }
             }
         }
@@ -106,7 +113,8 @@ async function update_setting(value, chat_id, flag) {
             upsert: true
         })
         return true
-    } catch (error) {
+    }
+    catch (error) {
         console.warn(error)
         return false
     }
@@ -122,7 +130,8 @@ async function delete_setting(chat_id) {
             }
         })
         return true
-    } catch (error) {
+    }
+    catch (error) {
         console.warn(error)
         return false
     }
@@ -131,10 +140,10 @@ async function delete_setting(chat_id) {
  * give null & modified data for dbless mode
  * @returns {}
  */
-function fake_collection() {
+export function fake_collection() {
     return {
-        find: () => { return null },
-        findOne: () => { return null },
+        find: () => { return null; },
+        findOne: () => { return null; },
         updateOne: () => {
             return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
         },
@@ -143,7 +152,12 @@ function fake_collection() {
         }
     }
 }
-module.exports = {
+export { db_initial }
+export { db }
+export { col as collection }
+export { update_setting }
+export { delete_setting }
+export default {
     db_initial,
     db: db,
     collection: col,

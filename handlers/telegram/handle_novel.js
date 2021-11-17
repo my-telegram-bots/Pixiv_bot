@@ -1,12 +1,11 @@
-const db = require("../../db")
-const get_novel = require("../pixiv/novel")
-const { novel2telegraph } = require('./telegraph')
-
+import db from '../../db.js'
+import get_novel from '../pixiv/novel.js'
+import { novel2telegraph } from './telegraph.js'
 /**
  * handle novel data to Telegram
- * @param {*} id 
+ * @param {*} id
  */
-async function handle_novel(id) {
+export async function handle_novel(id) {
     let novel = await get_novel(id)
     if (novel) {
         if (!novel.telegraph_url) {
@@ -26,7 +25,4 @@ async function handle_novel(id) {
         delete novel._id
     }
     return novel
-}
-module.exports = {
-    handle_novel
 }

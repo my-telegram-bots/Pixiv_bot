@@ -1,14 +1,12 @@
-// there is no comment in this file
-// may be next version will be added
-const { Markup } = require("telegraf")
-const db = require("../../db")
-const { honsole } = require("../common")
-const { _l } = require("./i18n")
+import { Markup } from 'telegraf'
+import db from '../../db.js'
+import { honsole } from '../common.js'
+import { _l } from './i18n.js'
 let default_extra = {
     parse_mode: 'MarkdownV2',
     allow_sending_without_reply: true
 }
-function get_pixiv_ids(text) {
+export function get_pixiv_ids(text) {
     let ids = {
         illust: [],
         author: [],
@@ -38,16 +36,18 @@ function get_pixiv_ids(text) {
                     if (uu.get('illust_id')) {
                         ids.illust.push(parseInt(uu.get('illust_id')))
                     }
-                } catch (error) {
-
+                }
+                catch (error) {
                 }
                 if (u.length > 7 && !isNaN(parseInt(u.replace('#', '').replace('id=', '').replace('id', '')))) {
                     // match #idxxxxxxx #xxxxxxx
                     ids.illust.push(parseInt(u.replace('#', '').replace('id', '').replace('=', '')))
-                } else {
+                }
+                else {
                     throw 'switch to general id matcher'
                 }
-            } catch (error) {
+            }
+            catch (error) {
                 // https://www.pixiv.net/en/artworks/87466156
                 // https://www.pixiv.net/artworks/87466156
                 // http://www.pixiv.net/artworks/87466156
@@ -65,31 +65,30 @@ function get_pixiv_ids(text) {
     }
     return { ...ids }
 }
-
-function get_values(text = '') {
+export function get_values(text = '') {
     let list = {}
     text.split('\n').forEach(t => {
         if (t.includes('=')) {
             let st = t.replace('=', '\uff69').split('\uff69')
-            st[0] = st[0].toLowerCase() // may be Title or Author
+            st[0] = st[0].toLowerCase(); // may be Title or Author
             if (['title', 'author_name', 'author_url', 'an', 'au'].includes(st[0])) {
-                if (st[0] == 'an') list['author_name'] = st[1]
-                if (st[0] == 'au') list['author_url'] = st[1]
+                if (st[0] == 'an')
+                    list['author_name'] = st[1]
+                if (st[0] == 'au')
+                    list['author_url'] = st[1]
                 list[st[0]] = st[1]
             }
         }
     })
     return list
-
 }
-
-async function flagger(bot, ctx) {
+export async function flagger(bot, ctx) {
     let chat_id = ctx.chat_id
     let user_id = ctx.user_id || ctx.from.id
     if (!ctx.type) {
         ctx.type = ctx.chat ? ctx.chat.type : 'inline'
     }
-    if(!chat_id){
+    if (!chat_id) {
         chat_id = ctx.message ? ctx.message.chat.id : user_id
     }
     ctx.flag = {
@@ -141,17 +140,17 @@ async function flagger(bot, ctx) {
         delete ctx.flag.setting._id
         delete ctx.flag.setting.id
     }
-    if (!ctx.flag.setting.format) ctx.flag.setting.format = {}
-    if (!ctx.flag.setting.default) ctx.flag.setting.default = {}
+    if (!ctx.flag.setting.format)
+        ctx.flag.setting.format = {}
+    if (!ctx.flag.setting.default)
+        ctx.flag.setting.default = {}
     // default flag -> d_f
     let d_f = ctx.flag.setting.default ? ctx.flag.setting.default : {}
     ctx.flag = {
         ...ctx.flag,
-
         // caption start
         tags: (d_f.tags && !ctx.text.includes('-tag')) || ctx.text.includes('+tag'),
         open: (d_f.open && !ctx.text.includes('-open')) || ctx.text.includes('+open'),
-
         // can't use switch_inline_query in a channel chat, because a user will not be able to use the button without knowing bot's username
         share: (ctx.type !== 'channel' && (d_f.share && !ctx.text.includes('-share')) || ctx.text.includes('+share')),
         remove_keyboard: (d_f.remove_keyboard && !ctx.text.includes('+kb')) || ctx.text.includes('-kb'),
@@ -160,33 +159,26 @@ async function flagger(bot, ctx) {
         single_caption: (!ctx.inlineQuery && ((d_f.single_caption && !ctx.text.includes('-sc'))) || ctx.text.includes('+sc')),
         show_id: !ctx.text.includes('-id'),
         // caption end
-
         // send all illusts as mediagroup
         album: (d_f.album && !ctx.text.includes('-album')) || ctx.text.includes('+album'),
-
         // descending order 
         desc: (d_f.desc && !ctx.text.includes('-desc')) || ctx.text.includes('+desc'),
-
         // send as telegraph
         telegraph: ctx.text.includes('+graph') || ctx.text.includes('+telegraph'),
         // send as file
         asfile: (d_f.asfile && !ctx.text.includes('-file')) || ctx.text.includes('+file')
-
     }
     // group only value
     if (ctx.chat && ctx.chat.id < 0) {
         ctx.flag.overwrite = (d_f.overwrite && !ctx.text.includes('-overwrite')) || ctx.text.includes('+overwrite')
     }
-
     if (ctx.flag.telegraph) {
         ctx.flag.album = true
         ctx.flag.tags = true
     }
-
     if (ctx.flag.single_caption) {
         ctx.flag.album = true
     }
-
     if (ctx.text.includes('+rm')) {
         ctx.flag.remove_caption = ctx.flag.remove_keyboard = false
     }
@@ -196,13 +188,8 @@ async function flagger(bot, ctx) {
     if (ctx.flag.remove_keyboard) {
         ctx.flag.open = ctx.flag.share = false
     }
-
     if (ctx.message) {
-        let {
-            title,
-            author_name,
-            author_url
-        } = get_values(ctx.text.substr(0, 3) == '/s ' ? ctx.text.replace('/s ', '') : ctx.text)
+        let { title, author_name, author_url } = get_values(ctx.text.substr(0, 3) == '/s ' ? ctx.text.replace('/s ', '') : ctx.text)
         let v = {}
         if (title && title.length >= 256) {
             bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_title_too_long'), {
@@ -216,7 +203,8 @@ async function flagger(bot, ctx) {
             if ((author_name && author_name.length >= 128) || (author_url && new URL(author_url) && author_url.length >= 512)) {
                 throw 'e'
             }
-        } catch (error) {
+        }
+        catch (error) {
             bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_author'), {
                 ...default_extra,
                 reply_to_message_id: ctx.message.message_id
@@ -241,10 +229,10 @@ async function flagger(bot, ctx) {
     }
     return ctx.flag
 }
-async function handle_new_configuration(bot, ctx, default_extra) {
+export async function handle_new_configuration(bot, ctx, default_extra) {
     if (ctx.chat && ctx.chat.type === 'channel') {
-
-    } else if (ctx.message.sender_chat) {
+    }
+    else if (ctx.message.sender_chat) {
         // chat -> link message
         return
     }
@@ -277,7 +265,8 @@ async function handle_new_configuration(bot, ctx, default_extra) {
             reply_to_message_id: ctx.message.message_id
         })
         return
-    } else {
+    }
+    else {
         if (ctx.text == '/s reset') {
             await db.delete_setting(ctx.chat.id)
             await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_reset'), default_extra)
@@ -287,12 +276,14 @@ async function handle_new_configuration(bot, ctx, default_extra) {
         if (ctx.text.substr(0, 3) == 'eyJ') {
             try {
                 new_setting = JSON.parse(Buffer.from(ctx.text, 'base64').toString('utf8'))
-            } catch (error) {
+            }
+            catch (error) {
                 // message type is doesn't base64
                 await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error'))
                 honsole.warn('parse base64 configuration failed', ctx.text, error)
             }
-        } else if (ctx.text.length > 2 && (ctx.text.includes('+') || ctx.text.includes('-') || ctx.flag.value_update_flag)) {
+        }
+        else if (ctx.text.length > 2 && (ctx.text.includes('+') || ctx.text.includes('-') || ctx.flag.value_update_flag)) {
             new_setting = {
                 default: ctx.flag
             }
@@ -301,16 +292,11 @@ async function handle_new_configuration(bot, ctx, default_extra) {
             honsole.log(new_setting)
             if (await db.update_setting(new_setting, ctx.chat.id, ctx.flag)) {
                 await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_saved'), default_extra)
-            } else {
+            }
+            else {
                 await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error'), default_extra)
             }
         }
         return
     }
-}
-module.exports = {
-    get_pixiv_ids,
-    get_values,
-    flagger,
-    handle_new_configuration
 }

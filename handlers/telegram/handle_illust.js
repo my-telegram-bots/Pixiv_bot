@@ -1,10 +1,9 @@
-
-const { k_os } = require('../telegram/keyboard')
-const { asyncForEach, honsole } = require('../common')
-const { get_illust } = require('../pixiv/illust')
-const { format } = require('./format')
-const { ugoira_to_mp4 } = require('../pixiv/tools')
-async function handle_illusts(ids, flag) {
+import { k_os } from './keyboard.js'
+import { asyncForEach, honsole } from '../common.js'
+import { get_illust } from '../pixiv/illust.js'
+import { format } from './format.js'
+import { ugoira_to_mp4 } from '../pixiv/tools.js'
+export async function handle_illusts(ids, flag) {
     if (!ids instanceof Array) {
         ids = [ids]
     }
@@ -16,10 +15,10 @@ async function handle_illusts(ids, flag) {
 /**
  * 处理成 tg 友好型数据
  * 作为 ../pixiv/illust 的 tg 封装
- * @param {*} id 
- * @param {*} flag 
+ * @param {*} id
+ * @param {*} flag
  */
-async function handle_illust(id, flag) {
+export async function handle_illust(id, flag) {
     let illust = id
     if (typeof illust !== 'object' && !isNaN(parseInt(id))) {
         illust = await get_illust(id)
@@ -47,7 +46,8 @@ async function handle_illust(id, flag) {
                 ...k_os(illust.id, flag)
             }
         })
-    } else if (illust.type == 2) {
+    }
+    else if (illust.type == 2) {
         // inline + ugoira 只有在现存动图的情况下有意义
         if (illust.tg_file_id) {
             illust.inline[0] = {
@@ -58,13 +58,10 @@ async function handle_illust(id, flag) {
                 parse_mode: 'MarkdownV2',
                 ...k_os(illust.id, flag)
             }
-        } else {
+        }
+        else {
             ugoira_to_mp4(illust.id)
         }
     }
     return illust
-}
-module.exports = {
-    handle_illusts,
-    handle_illust
 }

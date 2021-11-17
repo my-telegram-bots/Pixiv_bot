@@ -1,8 +1,6 @@
-const fs = require('fs')
-
-const db = require('./db')
-
-async function handle() {
+import fs from 'fs'
+import db from './db.js'
+export async function handle() {
     mkdir('./tmp')
     mkdir('./tmp/file')
     mkdir('./tmp/timecode')
@@ -21,28 +19,29 @@ async function handle() {
         telegraph_url: 1
     }, {
         unique: true,
-    });
+    })
     process.exit()
 }
 /**
  * mkdir
- * @param {*} path 
+ * @param {*} path
  */
-async function mkdir(path) {
+export async function mkdir(path) {
     try {
         fs.mkdirSync(path)
-    } catch (error) {
-
+    }
+    catch (error) {
     }
 }
-async function create_unique_index(collection) {
+export async function create_unique_index(collection) {
     try {
         await db.collection[collection].createIndex({
             id: 1
         }, {
             unique: true,
-        });
-    } catch (error) {
+        })
+    }
+    catch (error) {
         console.error(error)
     }
 }

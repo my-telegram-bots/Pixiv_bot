@@ -1,26 +1,11 @@
-const { Telegraf } = require('telegraf')
-const { telegrafThrottler } = require('telegraf-throttler')
-let config = require('./config.json')
-const {
-    asyncForEach,
-    handle_illust, handle_ranking, handle_novel,
-    get_pixiv_ids,
-    get_user_illusts,
-    ugoira_to_mp4,
-    download_file,
-    _l,
-    k_os, k_link_setting,
-    mg_create, mg_albumize, mg_filter, mg2telegraph,
-    flagger,
-    honsole,
-    handle_new_configuration,
-    exec, sleep, reescape_strings
-} = require('./handlers')
-const db = require('./db')
-const { update_setting } = require('./db')
-
+import { Telegraf } from 'telegraf'
+import { telegrafThrottler } from 'telegraf-throttler'
+import config from './config.js'
+import handlers from './handlers/index.js'
+import db from './db.js'
+import { update_setting } from './db.js'
+const { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, download_file, _l, k_os, k_link_setting, mg_create, mg_albumize, mg_filter, mg2telegraph, flagger, honsole, handle_new_configuration, exec, sleep, reescape_strings } = handlers
 const bot = new Telegraf(config.tg.token)
-
 const throttler = telegrafThrottler({
     in: {
         maxConcurrent: 1,
@@ -38,13 +23,11 @@ const throttler = telegrafThrottler({
     }
 })
 bot.use(throttler)
-
 // see https://github.com/telegraf/telegraf/issues/1323
 bot.on('channel_post', (ctx, next) => {
     ctx.update.message = ctx.update.channel_post
     next()
 })
-
 bot.use(async (ctx, next) => {
     // simple i18n
     ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code
@@ -65,7 +48,7 @@ bot.use(async (ctx, next) => {
                     let at = ctx.stext[0].split('@')
                     if (!at[1] || at[1].toLowerCase() !== bot.botInfo.username.toLowerCase()) {
                         ctx.command = ''
-                    }// else {
+                    } // else {
                     //     ctx.message.text = ctx.message.text.replace(new RegExp(bot.botInfo.username, 'i'), '')
                     //     ctx.message.entities[0].length = ctx.command.length + 1
                     // }
@@ -77,24 +60,27 @@ bot.use(async (ctx, next) => {
                 ctx.chat_id = ctx.channelPost.chat.id
                 // channel post is anonymous
                 ctx.user_id = 1087968824
-            } else {
+            }
+            else {
                 ctx.chat_id = ctx.message.chat.id
                 ctx.user_id = ctx.from.id
             }
-        } else if (ctx.inlineQuery && ctx.inlineQuery.query) {
+        }
+        else if (ctx.inlineQuery && ctx.inlineQuery.query) {
             ctx.text = ctx.inlineQuery.query
             ctx.chat_id = ctx.inlineQuery.from.id
             ctx.user_id = ctx.inlineQuery.from.id
-        } else if (ctx.callbackQuery && ctx.callbackQuery.data) {
+        }
+        else if (ctx.callbackQuery && ctx.callbackQuery.data) {
             ctx.chat_id = ctx.callbackQuery.message.chat.id
             ctx.user_id = ctx.callbackQuery.from.id
         }
-    } catch (error) {
+    }
+    catch (error) {
         honsole.warn('handle_basic_msg', error)
     }
     next()
 })
-
 bot.start(async (ctx, next) => {
     // startPayload = deeplink 
     // see more https://core.telegram.org/bots#deep-linking
@@ -103,19 +89,18 @@ bot.start(async (ctx, next) => {
         await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'start'), {
             ...ctx.default_extra
         })
-    } else {
+    }
+    else {
         // callback to bot.on function
         next()
     }
 })
-
 bot.help(async (ctx) => {
     await bot.telegram.sendMessage(ctx.chat.id, 'https://pixiv-bot.pages.dev', {
         ...ctx.default_extra,
         parse_mode: ''
     })
 })
-
 bot.command('/id', async (ctx) => {
     let text = ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : ''
     // channel post maybe didn't have .from
@@ -125,16 +110,13 @@ bot.command('/id', async (ctx) => {
         parse_mode: 'Markdown'
     })
 })
-
 bot.use(async (ctx, next) => {
     let configuration_mode = false
     if ((ctx.command === 's' || ctx.text.substr(0, 3) === 'eyJ') ||
         (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.from.id === bot.botInfo.id && ctx.message.reply_to_message.text.substr(0, 5) === '#link')) {
         configuration_mode = true
     }
-
     ctx.ids = get_pixiv_ids(ctx.text)
-
     if (!ctx.callbackQuery && !ctx.inlineQuery && JSON.stringify(ctx.ids).length === 36 & !configuration_mode && !['link'].includes(ctx.command) && !ctx.text.includes('fanbox.cc')) {
         // bot have nothing to do
         return
@@ -145,7 +127,8 @@ bot.use(async (ctx, next) => {
     if (ctx.flag === 'error') {
         honsole.warn('flag error', ctx.text)
         return
-    } else {
+    }
+    else {
         next()
     }
 })
@@ -169,7 +152,8 @@ bot.on('callback_query', async (ctx) => {
                     reply_markup: {}
                 })
                 apply_flag = true
-            } else {
+            }
+            else {
                 try {
                     let link_setting = {
                         chat_id: stext[2],
@@ -181,11 +165,13 @@ bot.on('callback_query', async (ctx) => {
                     }, chat_id)
                     await bot.telegram.editMessageReplyMarkup(chat_id, message_id, false, k_link_setting(ctx.l, link_setting).reply_markup)
                     apply_flag = true
-                } catch (error) {
+                }
+                catch (error) {
                     console.warn(error)
                 }
             }
-        } else {
+        }
+        else {
             await ctx.answerCbQuery(reescape_strings(_l(ctx.l, 'error_not_a_gc_administrator')), {
                 show_alert: true
             })
@@ -194,7 +180,8 @@ bot.on('callback_query', async (ctx) => {
     }
     if (apply_flag) {
         ctx.answerCbQuery(reescape_strings(_l(ctx.l, 'saved')))
-    } else {
+    }
+    else {
         ctx.answerCbQuery(reescape_strings(_l(ctx.l, 'error')))
     }
 })
@@ -204,7 +191,8 @@ bot.command('/link', async (ctx) => {
     let user_id = ctx.from.id
     if (ctx.from.id === 1087968824) {
         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
-    } else {
+    }
+    else {
         if (chat_id > 0 || await is_chat_admin(chat_id, user_id)) {
             // if (ctx.flag.setting.link_chat_list && JSON.stringify(ctx.flag.setting.link_chat_list).length > 2) {
             let new_flag = true
@@ -221,7 +209,8 @@ bot.command('/link', async (ctx) => {
                                 ...ctx.flag.setting.link_chat_list[linked_chat_id]
                             })
                         })
-                    } else {
+                    }
+                    else {
                         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
                     }
                     new_flag = false
@@ -236,12 +225,12 @@ bot.command('/link', async (ctx) => {
                     }
                 })
             }
-        } else {
+        }
+        else {
             await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
         }
     }
 })
-
 bot.on('text', async (ctx) => {
     let chat_id = ctx.chat_id
     let user_id = ctx.user_id
@@ -271,7 +260,8 @@ bot.on('text', async (ctx) => {
                 ...ctx.default_extra,
                 ...k_link_setting(ctx.l, default_linked_setting)
             })
-        } else {
+        }
+        else {
             await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
         }
         return
@@ -282,7 +272,8 @@ bot.on('text', async (ctx) => {
         if (ctx.message.sender_chat && ctx.message.sender_chat.id === linked_chat_id) {
             direct_flag = false
             // sync mode
-        } else if ((ctx.type !== 'channel') && (chat_id > 0 || link_setting.sync === 0 || (link_setting.sync === 1 && ctx.message.text.includes('@' + bot.botInfo.username)))) {
+        }
+        else if ((ctx.type !== 'channel') && (chat_id > 0 || link_setting.sync === 0 || (link_setting.sync === 1 && ctx.message.text.includes('@' + bot.botInfo.username)))) {
             // admin only
             if (chat_id > 0 || link_setting.administrator_only == 0 || (link_setting.administrator_only == 1 && await is_chat_admin(chat_id, user_id))) {
                 let new_ctx = {
@@ -317,7 +308,7 @@ bot.on('text', async (ctx) => {
 })
 /**
  * build ctx object can send illust / novel manually (subscribe / auto push)
- * @param {*} ctx 
+ * @param {*} ctx
  */
 async function tg_sender(ctx) {
     let chat_id = ctx.chat_id || ctx.message.chat.id
@@ -336,13 +327,13 @@ async function tg_sender(ctx) {
         // alpha version (owner only)
         if (user_id == config.tg.master_id) {
             bot.telegram.sendChatAction(chat_id, 'typing')
-            await asyncForEach(ids.author, async id => {
+            await asyncForEach(ids.author, async (id) => {
                 illusts = [...illusts, ...await get_user_illusts(id)]
             })
         }
     }
     if (ids.illust.length > 0) {
-        await asyncForEach(ids.illust, async id => {
+        await asyncForEach(ids.illust, async (id) => {
             let d = await handle_illust(id, ctx.flag)
             if (d) {
                 // if (d.type <= 1) bot.telegram.sendChatAction(chat_id, 'upload_photo')
@@ -355,7 +346,7 @@ async function tg_sender(ctx) {
         illusts = illusts.reverse()
     }
     if (illusts.length > 0) {
-        await asyncForEach(illusts, async illust => {
+        await asyncForEach(illusts, async (illust) => {
             let d = illust
             if (d == 404) {
                 if (chat_id > 0) {
@@ -376,24 +367,27 @@ async function tg_sender(ctx) {
                     if (mg.type == 'video') {
                         await ugoira_to_mp4(mg.id)
                     }
-                    await bot.telegram.sendDocument(chat_id, o.media_o, extra).catch(async e => {
+                    await bot.telegram.sendDocument(chat_id, o.media_o, extra).catch(async (e) => {
                         if (await catchily(e, chat_id, ctx.l)) {
                             if (d.type <= 2) {
-                                await bot.telegram.sendDocument(chat_id, { source: await download_file(o.media_o, o.id) }, { ...extra, thumb: { source: await download_file(o.media_r ? o.media_r : o.media_o, o.id) } }).catch(async e => {
+                                await bot.telegram.sendDocument(chat_id, { source: await download_file(o.media_o, o.id) }, { ...extra, thumb: { source: await download_file(o.media_r ? o.media_r : o.media_o, o.id) } }).catch(async (e) => {
                                     if (await catchily(e, chat_id, ctx.l)) {
                                         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'file_too_large', o.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)), default_extra)
                                     }
                                 })
-                            } else {
+                            }
+                            else {
                                 await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
                             }
                         }
                     })
                 })
-            } else {
+            }
+            else {
                 if (ctx.flag.telegraph || (ctx.flag.album && (ids.illust.length > 1 || (d.imgs_ && d.imgs_.size.length > 1)))) {
                     temp_data.mg = [...temp_data.mg, ...mg]
-                } else {
+                }
+                else {
                     if (d.type == 2 && ctx.startPayload) {
                         // see https://core.telegram.org/bots/api#inlinekeyboardbutton
                         // Especially useful when combined with switch_pm… actions – in this case the user will be automatically returned to the chat they switched from, skipping the chat selection screen.
@@ -414,10 +408,12 @@ async function tg_sender(ctx) {
                                 photo_urls = [mg[0].media_r, `dl-${mg[0].media_r}`]
                             }
                             await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, extra)
-                        } else {
+                        }
+                        else {
                             temp_data.mg = [...temp_data.mg, ...mg_albumize(mg)]
                         }
-                    } else if (d.type == 2) {
+                    }
+                    else if (d.type == 2) {
                         bot.telegram.sendChatAction(chat_id, 'upload_video')
                         let media = mg.media_t
                         if (!media) {
@@ -426,7 +422,7 @@ async function tg_sender(ctx) {
                                 source: `./tmp/mp4_1/${d.id}.mp4`
                             }
                         }
-                        await bot.telegram.sendAnimation(chat_id, media, extra).then(async data => {
+                        await bot.telegram.sendAnimation(chat_id, media, extra).then(async (data) => {
                             // save ugoira file_id and next time bot can reply without send file
                             if (!d.tg_file_id && data.document) {
                                 let col = db.collection.illust
@@ -438,7 +434,7 @@ async function tg_sender(ctx) {
                                     }
                                 })
                             }
-                        }).catch(async e => {
+                        }).catch(async (e) => {
                             if (await catchily(e, chat_id, ctx.l)) {
                                 bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
                             }
@@ -449,7 +445,8 @@ async function tg_sender(ctx) {
         })
         // eslint-disable-next-line no-empty
         if (ctx.flag.asfile) {
-        } else if (ctx.flag.telegraph) {
+        }
+        else if (ctx.flag.telegraph) {
             try {
                 bot.telegram.sendChatAction(chat_id, 'typing')
                 let res_data = await mg2telegraph(temp_data.mg, ctx.flag.telegraph_title, user_id, ctx.flag.telegraph_author_name, ctx.flag.telegraph_author_url)
@@ -459,10 +456,12 @@ async function tg_sender(ctx) {
                     })
                     await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'telegraph_iv'), default_extra)
                 }
-            } catch (error) {
+            }
+            catch (error) {
                 console.warn(error)
             }
-        } else {
+        }
+        else {
             if (ctx.flag.album) {
                 temp_data.mg = mg_albumize(temp_data.mg, ctx.flag.single_caption)
             }
@@ -473,36 +472,38 @@ async function tg_sender(ctx) {
                     if (data) {
                         if (data[0] && data[0].message_id) {
                             extra.reply_to_message_id = data[0].message_id
-                        } else {
+                        }
+                        else {
                             delete extra.reply_to_message_id
                         }
-                    } else {
+                    }
+                    else {
                         honsole.warn('error send mg', data)
                         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
                     }
                     // Too Many Requests: retry after 10
                     if (i > 4) {
                         await sleep(3000)
-                    } else {
+                    }
+                    else {
                         await sleep(1000)
                     }
                 })
             }
         }
     }
-
     if (ids.novel.length > 0) {
-        await asyncForEach(ids.novel, async id => {
+        await asyncForEach(ids.novel, async (id) => {
             bot.telegram.sendChatAction(chat_id, 'typing')
             let d = await handle_novel(id)
             if (d) {
                 await bot.telegram.sendMessage(chat_id, `${d.telegraph_url}`)
-            } else {
+            }
+            else {
                 await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra)
             }
         })
     }
-
     if (text.includes('fanbox.cc/') && chat_id > 0) {
         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'fanbox_not_support'), default_extra)
     }
@@ -512,18 +513,18 @@ bot.on('inline_query', async (ctx) => {
     let res = []
     let offset = ctx.inlineQuery.offset
     if (!offset) {
-        offset = 0 // offset == empty -> offset = 0
+        offset = 0; // offset == empty -> offset = 0
     }
     let query = ctx.text
     // offset = page
     offset = parseInt(offset)
     let res_options = {
-        cache_time: 20, // maybe update format
+        cache_time: 20,
         is_personal: ctx.flag.setting.dbless ? false : true // personal result
     }
     let ids = ctx.ids
     if (ids.illust.length > 0) {
-        await asyncForEach([...ids.illust.reverse()], async id => {
+        await asyncForEach([...ids.illust.reverse()], async (id) => {
             let d = await handle_illust(id, ctx.flag)
             if (!d || d === 404) {
                 return
@@ -536,7 +537,7 @@ bot.on('inline_query', async (ctx) => {
                     switch_pm_text: _l(ctx.l, 'pm_to_generate_ugoira'),
                     switch_pm_parameter: ids.illust.join('-_-').toString(),
                     cache_time: 0
-                }).catch(async e => {
+                }).catch(async (e) => {
                     await catchily(e, chat_id, ctx.l)
                 })
                 return true
@@ -547,14 +548,15 @@ bot.on('inline_query', async (ctx) => {
             res_options.next_offset = offset + 1
         }
         res = res.splice(offset * 20, 20)
-    } else if (query.replaceAll(' ', '') == '') { // why not use .trim() ? LOL
+    }
+    else if (query.replaceAll(' ', '') == '') { // why not use .trim() ? LOL
         let data = await handle_ranking([offset], ctx.flag)
         res = data.data
         if (data.next_offset) {
             res_options.next_offset = data.next_offset
         }
     }
-    await ctx.answerInlineQuery(res, res_options).catch(async e => {
+    await ctx.answerInlineQuery(res, res_options).catch(async (e) => {
         await catchily(e, config.tg.master_id, ctx.l)
     })
 })
@@ -566,7 +568,8 @@ db.db_initial().then(async () => {
         try {
             await exec('which ffmpeg')
             await exec('which mp4fpsmod')
-        } catch (error) {
+        }
+        catch (error) {
             console.error('You must install ffmpeg and mp4fpsmod to enable ugoira to mp4 function', error)
             console.error('If you want to run but won\'t install ffmpeg and mp4fpsmod, please exec following command:')
             console.error('DEPENDIONLESS=1 node app.js')
@@ -582,8 +585,7 @@ db.db_initial().then(async () => {
         process.exit()
     })
     if (config.web.enabled && !process.env.WEBLESS) {
-        // simple runner?
-        require('./web')
+        import('./web.js')
     }
 })
 /**
@@ -603,36 +605,40 @@ async function catchily(e, chat_id, language_code = 'en') {
             if (description.includes('MEDIA_CAPTION_TOO_LONG')) {
                 bot.telegram.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra)
                 return false
-            } else if (description.includes('can\'t parse entities: Character')) {
+            }
+            else if (description.includes('can\'t parse entities: Character')) {
                 bot.telegram.sendMessage(chat_id, _l(language_code, 'error_format', e.response.description))
                 return false
                 // banned by user
-            } else if (description.includes('Forbidden:')) {
+            }
+            else if (description.includes('Forbidden:')) {
                 return false
                 // not have permission
-            } else if (description.includes('not enough rights to send')) {
+            }
+            else if (description.includes('not enough rights to send')) {
                 bot.telegram.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra)
                 return false
                 // just a moment
-            } else if (description.includes('Too Many Requests: retry after')) {
+            }
+            else if (description.includes('Too Many Requests: retry after')) {
                 await sleep(e.response.retry_after * 1000)
                 return true
             }
         }
-    } catch (error) {
+    }
+    catch (error) {
         console.warn(error)
         return false
     }
     return true
 }
-
 /**
  * send mediagroup with retry
- * @param {*} chat_id 
- * @param {*} mg 
- * @param {*} extra 
- * @param {*} mg_type 
- * @returns 
+ * @param {*} chat_id
+ * @param {*} mg
+ * @param {*} extra
+ * @param {*} mg_type
+ * @returns
  */
 async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type = []) {
     if (mg_type.length === 0) {
@@ -643,23 +649,24 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
         bot.telegram.sendChatAction(chat_id, 'upload_photo')
         let data = await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg], mg_type.shift()), extra)
         return data
-    } catch (e) {
+    }
+    catch (e) {
         if (await catchily(e, chat_id, language_code)) {
             return await sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type)
-        } else {
+        }
+        else {
             honsole.warn('error send mg', chat_id, mg)
             return false
         }
     }
 }
-
 /**
  * send photo with retry
- * @param {*} chat_id 
- * @param {*} mg 
- * @param {*} extra 
- * @param {*} mg_type 
- * @returns 
+ * @param {*} chat_id
+ * @param {*} mg
+ * @param {*} extra
+ * @param {*} mg_type
+ * @returns
  */
 async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra) {
     if (photo_urls.length === 0) {
@@ -676,10 +683,12 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
         }
         let data = await bot.telegram.sendPhoto(chat_id, photo_url, extra)
         return data
-    } catch (e) {
+    }
+    catch (e) {
         if (await catchily(e, chat_id, language_code)) {
             return await sendPhotoWithRetry(chat_id, language_code, photo_urls, extra)
-        } else {
+        }
+        else {
             honsole.warn('error send photo', chat_id, photo_urls)
             return false
         }
@@ -687,8 +696,8 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
 }
 /**
  * when user is chat's administrator / creator, return true
- * @param {*} chat_id 
- * @param {*} user_id 
+ * @param {*} chat_id
+ * @param {*} user_id
  * @returns Boolean
  */
 async function is_chat_admin(chat_id, user_id) {
@@ -697,7 +706,8 @@ async function is_chat_admin(chat_id, user_id) {
         if (status === 'administrator' || status === 'creator') {
             return true
         }
-    } catch (e) {
+    }
+    catch (e) {
     }
     return false
 }

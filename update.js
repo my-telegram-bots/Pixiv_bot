@@ -1,9 +1,9 @@
+import db from './db.js'
+import { sleep, asyncForEach } from './handlers/common.js'
+import { update_illust, get_illust } from './handlers/pixiv/illust.js'
+import { head_url, thumb_to_all } from './handlers/pixiv/tools.js'
 process.env.dev = 1
-const db = require('./db')
-const { sleep, asyncForEach } = require('./handlers/common')
-const { update_illust, get_illust } = require('./handlers/pixiv/illust')
-const { head_url, thumb_to_all } = require('./handlers/pixiv/tools')
-async function update_original_file_extension() {
+export async function update_original_file_extension() {
     await db.db_initial()
     let d = await db.collection.illust.find({}).toArray()
     console.log('load illusts from local database', d.length)
@@ -23,7 +23,7 @@ async function update_original_file_extension() {
     })
     process.exit()
 }
-async function update_db_2021_june() {
+export async function update_db_2021_june() {
     await db.db_initial()
     let d = await db.collection.illust.find({}).toArray()
     console.log('load illusts from local database', d.length)
@@ -32,14 +32,14 @@ async function update_db_2021_june() {
             console.log('converting', id, illust.id, illust.title)
             await update_illust(illust, {}, false)
             await sleep(10)
-        } else {
+        }
+        else {
             console.log('skip', id)
         }
     })
     process.exit()
 }
-
-async function update_db_2021_july() {
+export async function update_db_2021_july() {
     await db.db_initial()
     await db.collection.dropIndexes()
     await db.collection.telegraph.createIndex({
@@ -49,14 +49,14 @@ async function update_db_2021_july() {
     })
     process.exit()
 }
-
-async function update_png_file_error() {
+export async function update_png_file_error() {
     await db.db_initial()
     let d = (await db.collection.illust.find({}).toArray()).reverse()
     console.log('load illusts from local database', d.length)
     await asyncForEach(d, async (illust, id) => {
         if (illust.imgs_.original_urls || typeof illust.imgs_.original_urls[0] == 'number' || illust.imgs_.original_urls[0].includes('.png')) {
-            if (typeof illust.imgs_.original_urls[0] == 'string') illust.imgs_.original_urls[0] = await head_url(illust.imgs_.original_urls[0])
+            if (typeof illust.imgs_.original_urls[0] == 'string')
+                illust.imgs_.original_urls[0] = await head_url(illust.imgs_.original_urls[0])
             if (illust.imgs_.original_urls[0] == 404 || typeof illust.imgs_.original_urls[0] == 'number') {
                 console.log(illust.id, 'png', 404)
                 illust.url = illust.imgs_.thumb_urls[0]
@@ -68,8 +68,7 @@ async function update_png_file_error() {
     })
     process.exit()
 }
-
-async function update_ugoira_null_size_data() {
+export async function update_ugoira_null_size_data() {
     await db.db_initial()
     let d = (await db.collection.illust.find({
         type: 2
@@ -85,44 +84,44 @@ async function update_ugoira_null_size_data() {
                 }, {
                     $set: {
                         'imgs_.size': [{
-                            width: parseInt(e[0]),
-                            height: parseInt(e[1])
-                        }]
+                                width: parseInt(e[0]),
+                                height: parseInt(e[1])
+                            }]
                     }
                 })
             }
-        } catch (error) {
+        }
+        catch (error) {
             console.log(illust.id, error)
         }
     })
     process.exit()
 }
-
-async function update_ugoira_1st_image_url() {
+export async function update_ugoira_1st_image_url() {
     await db.db_initial()
     let d = (await db.collection.illust.find({
         type: 2
     }).toArray())
     console.log('load ugroia illusts from local database', d.length)
     await asyncForEach(d, async (illust, i) => {
-
         try {
             if (!illust.imgs_.cover_img_url) {
                 let new_illust = await get_illust(illust.id, true)
                 console.log(i, new_illust.id, new_illust.imgs_.cover_img_url)
                 await sleep(1000)
             }
-        } catch (error) {
+        }
+        catch (error) {
             console.error(error)
         }
     })
     process.exit()
 }
-
 try {
     // just some expliot ? LOL
     eval(process.argv[2] + '()')
-} catch (error) {
+}
+catch (error) {
     console.error(error)
     process.exit()
 }

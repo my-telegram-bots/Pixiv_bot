@@ -7,7 +7,7 @@ const { update_illust } = require("./illust")
  * get newest illusts bot followed
  * @param {*} page 
  */
-async function get_bookmark_new_illust(page = 1) {
+export async function get_bookmark_new_illust(page = 1) {
     let illusts = []
     try {
         // god bless! Pixiv does not change the page's structure
@@ -20,8 +20,4 @@ async function get_bookmark_new_illust(page = 1) {
     } catch (error) {
 
     }
-}
-
-module.exports = {
-    get_bookmark_new_illust
 }

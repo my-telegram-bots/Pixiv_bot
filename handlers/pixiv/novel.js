@@ -1,16 +1,7 @@
-/**
- * get novel data
- * save novel data to MongoDB
- * fork from illust.js
- * need rebuild database scheme
- * @param {number} id novel_id
- * @param {object} flag configure
- */
-const { r_p_ajax } = require('./request')
-const db = require('../../db')
-const { honsole } = require('../common')
-
-async function get_novel(id) {
+import { r_p_ajax } from './request.js'
+import db from '../../db.js'
+import { honsole } from '../common.js'
+export async function get_novel(id) {
     if (id.toString().length < 6 || id.toString().length > 8)
         return false
     honsole.dev('n', id)
@@ -39,7 +30,8 @@ async function get_novel(id) {
                 content: novel.content.replaceAll('\r\n', '\n').replaceAll('[newpage]\n', '')
             }
             col.insertOne(novel)
-        } catch (error) {
+        }
+        catch (error) {
             console.warn(error)
             return 404
         }
@@ -47,4 +39,4 @@ async function get_novel(id) {
     honsole.dev('novel', novel)
     return novel
 }
-module.exports = get_novel
+export default get_novel

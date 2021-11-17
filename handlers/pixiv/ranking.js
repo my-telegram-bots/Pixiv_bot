@@ -1,16 +1,16 @@
-const db = require("../../db")
-const { r_p_ajax } = require("./request")
+import db from '../../db.js'
+import { r_p_ajax } from './request.js'
 /**
  * 获取每日/每周/每月排行榜 当然 会缓存啦
  * @param {int} 页数
  * @param {*} mode daily/weekly/monthly/
  * @param {*} filter_type 过滤类型 默认是 0 2
  * @param {*} date YYYY/MM/DD 默认为GMT+9的今天
- * 
+ *
  */
 // 本来 date 写了一大坨 后面发现不带参数就是当天的
 // 这里默认会过滤 illust_type == 1 （manga） 的结果，
-async function ranking(page = 1, mode = 'daily', date = false, filter_type = [0, 2]) {
+export async function ranking(page = 1, mode = 'daily', date = false, filter_type = [0, 2]) {
     if (page <= 0)
         page = 1
     if (!['daily', 'weekly', 'monthly'].includes(mode))
@@ -20,7 +20,9 @@ async function ranking(page = 1, mode = 'daily', date = false, filter_type = [0,
         format: 'json',
         p: page
     }
-    if (date) params.date = date
+    if (date){
+        params.date = date
+    }
     // GMT+0 9 * 60 * 60 - 86400  = 日本前一天时间 - 8 * 60 * 60 (8点更新)
     // 目前我觉得 pixiv 日榜是 GMT+9 08:00 AM 更新的 等我早起或者挂监控脚本才知道了（（
     date = date ? date : new Date(new Date().getTime() - 82800000).toISOString().split("T")[0].replace(/-/g, "")
@@ -38,7 +40,8 @@ async function ranking(page = 1, mode = 'daily', date = false, filter_type = [0,
                 id: data.mode + data.date + '_' + page,
                 ...data,
             })
-        } catch (error) {
+        }
+        catch (error) {
             console.warn('insert error', error)
         }
     }
@@ -65,4 +68,4 @@ async function ranking(page = 1, mode = 'daily', date = false, filter_type = [0,
         next_page: data.next
     }
 }
-module.exports = ranking
+export default ranking

@@ -1,22 +1,22 @@
-const fetch = require('node-fetch')
-const config = require('../../config.json')
-const db = require('../../db')
-const { asyncForEach, generate_token, honsole } = require('../common')
-const { ugoira_to_mp4 } = require('../pixiv/tools')
+import fetch from 'node-fetch'
+import config from '../../config.js'
+import db from '../../db.js'
+import { asyncForEach, generate_token, honsole } from '../common.js'
+import { ugoira_to_mp4 } from '../pixiv/tools.js'
 const br = { tag: 'br' }
 /**
  * mediagroup to telegraph
  * @param {} mg mediagroup
- * @returns 
+ * @returns
  */
-async function mg2telegraph(mg, title, user_id, author_name, author_url) {
+export async function mg2telegraph(mg, title, user_id, author_name, author_url) {
     let t_data = [{
-        content: [],
-        ids: []
-    }]
+            content: [],
+            ids: []
+        }]
     let t_data_id = 0
     try {
-        await asyncForEach(mg, async d => {
+        await asyncForEach(mg, async (d) => {
             let url = d.media_r
             // if (d.type == 'photo') {
             //     // image too large and telegram will disable the instat view in telegraph
@@ -80,62 +80,42 @@ async function mg2telegraph(mg, title, user_id, author_name, author_url) {
                 tag: 'p',
                 children: [d.ids.join(' ')]
             }
-            let data = await publish2telegraph(
-                title,
-                user_id,
-                d.content,
-                author_name,
-                author_url,
-                d.ids.join(' '),
-            )
+            let data = await publish2telegraph(title, user_id, d.content, author_name, author_url, d.ids.join(' '))
             if (data.ok) {
                 res_data.push({
                     telegraph_url: data.result.url,
                     token: data.token,
                     ids: d.ids
                 })
-            } else {
+            }
+            else {
                 throw data
             }
         })
         return res_data
-    } catch (error) {
+    }
+    catch (error) {
         console.warn(error)
     }
 }
-async function novel2telegraph(novel, user_id) {
+export async function novel2telegraph(novel, user_id) {
     let content = novel.content.split('\n')
     for (let i = content.length; i > 0; i--) {
         content.splice(i, 0, br)
     }
-    return await publish2telegraph(
-        novel.title,
-        user_id,
-        [{
+    return await publish2telegraph(novel.title, user_id, [{
             "tag": "p",
             "children": content
-        }],
-        novel.userName,
-        `https://www.pixiv.net/users/${novel.userId}`,
-        ''
-    )
+        }], novel.userName, `https://www.pixiv.net/users/${novel.userId}`, '')
 }
-
 /**
  * publish to telegra.ph
  * @param {String} title title
  * @param {Array} content content
  * @param {String} type type
- * @returns 
+ * @returns
  */
-async function publish2telegraph(
-    title = 'Pixiv collection',
-    user_id,
-    content,
-    author_name = 'Pixiv_bot',
-    author_url = 'https://t.me/pixiv_bot',
-    raw_content = ''
-) {
+export async function publish2telegraph(title = 'Pixiv collection', user_id, content, author_name = 'Pixiv_bot', author_url = 'https://t.me/pixiv_bot', raw_content = '') {
     try {
         let contentify = JSON.stringify(content)
         let time = +new Date()
@@ -167,23 +147,19 @@ async function publish2telegraph(
             }, {
                 upsert: true
             })
-        } else {
+        }
+        else {
             console.warn('generate telegraph error:', data)
         }
         return {
             ...data,
             token: generate_token(user_id, time)
         }
-    } catch (error) {
+    }
+    catch (error) {
         console.warn(error)
         return {
             ok: false
         }
     }
-
-}
-module.exports = {
-    mg2telegraph,
-    novel2telegraph,
-    publish2telegraph
 }

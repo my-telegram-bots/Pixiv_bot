@@ -14,10 +14,10 @@ Document: https://pixiv-bot.pages.dev
     yay -S mongodb-bin mp4fpsmod
     git clone https://github.com/my-telegram-bots/Pixiv_bot.git
     sudo systemctl enable pm2 mongodb --now
-    cp config_sample.json config.json
+    cp config_sample.js config.js
     # edit
-    # vim config.json
-    # nano config.json
+    # vim config.js
+    # nano config.js
     node initial.js # first run
     pm2 start --name pixiv_bot app.js
     pm2 save

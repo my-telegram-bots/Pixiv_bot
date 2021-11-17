@@ -1,14 +1,16 @@
-const { default: axios } = require('axios')
-const config = require('../config.json')
-const fs = require('fs')
-const { _l } = require("./telegram/i18n")
-const { createHash } = require('crypto')
+import { default as axios } from 'axios'
+import config from '../config.js'
+import fs from 'fs'
+import { _l } from './telegram/i18n.js'
+import { createHash } from 'crypto'
+import { promisify } from 'util'
+import { exec as exec$0 } from 'child_process'
 /**
  * ForEach with async
- * @param {Array} array 
- * @param {Function} callback 
+ * @param {Array} array
+ * @param {Function} callback
  */
-async function asyncForEach(array, callback) {
+export async function asyncForEach(array, callback) {
     for (let index = 0; index < array.length; index++) {
         await callback(array[index], index, array)
     }
@@ -17,7 +19,7 @@ async function asyncForEach(array, callback) {
  * honsole => huggy console
  * record error and report
  */
-const honsole = {
+ export const honsole = {
     dev: function (...args) {
         if (process.env.dev) {
             console.log(...args)
@@ -35,13 +37,13 @@ const honsole = {
 }
 /**
  * download file
- * @param {*} url 
- * @param {*} id 
- * @param {*} try_time 
- * @returns 
+ * @param {*} url
+ * @param {*} id
+ * @param {*} try_time
+ * @returns
  */
 let dw_queue_list = []
-async function download_file(url, id, force = false, try_time = 0) {
+export async function download_file(url, id, force = false, try_time = 0) {
     if (url.includes(config.pixiv.ugoiraurl)) {
         return url + '?' + (+new Date())
     }
@@ -72,25 +74,18 @@ async function download_file(url, id, force = false, try_time = 0) {
         })).data)
         dw_queue_list.splice(dw_queue_list.indexOf(id), 1)
         return `./tmp/file/${filename}`
-    } catch (error) {
+    }
+    catch (error) {
         console.warn(error)
         await sleep(1000)
         dw_queue_list.splice(dw_queue_list.indexOf(id), 1)
         return await download_file(url, id, try_time + 1)
     }
 }
-function sleep(ms) {
+export function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
-function generate_token(user_id, time = +new Date()) {
+export function generate_token(user_id, time = +new Date()) {
     return createHash('sha1').update(`${config.tg.salt}${user_id}${time}`).digest('hex').toString()
 }
-const exec = require('util').promisify((require('child_process')).exec)
-module.exports = {
-    asyncForEach,
-    download_file,
-    sleep,
-    generate_token,
-    honsole,
-    exec
-}
+export const exec = { promisify }.promisify(({ exec: exec$0 }).exec)

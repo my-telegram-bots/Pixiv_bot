@@ -6,6 +6,7 @@
   "repository": "https://github.com/my-telegram-bots/Pixiv_bot",
   "author": "huggy",
   "license": "MIT",
+  "type": "module",
   "scripts": {
     "all": "node app.js",
     "bot": "WEBLESS=1 node app.js",

@@ -1,9 +1,9 @@
 /**
  * 格式化文字 好像并没有什么模板引擎 只好自己糊
  * 重构警告（变成💩山了）
- * @param {*} td 
- * @param {*} flag 
- * @param {*} mode 
+ * @param {*} td
+ * @param {*} flag
+ * @param {*} mode
  * @param {*} p 当前 p 数
  */
 /*
@@ -17,7 +17,7 @@
 
 %NSFW% NSFW alert
 */
-function format(td, flag, mode = 'message', p) {
+export function format(td, flag, mode = 'message', p) {
     let template = ''
     if (flag.single_caption) {
         mode = 'mediagroup_message'
@@ -32,7 +32,8 @@ function format(td, flag, mode = 'message', p) {
             template += '%\n|tags%'
             mode = 'telegraph'
         }
-    } else if (!flag.setting.format[mode]) {
+    }
+    else if (!flag.setting.format[mode]) {
         switch (mode) {
             case 'message':
             case 'inline':
@@ -44,13 +45,15 @@ function format(td, flag, mode = 'message', p) {
                 template += '%\n|tags%'
                 break
         }
-    } else {
+    }
+    else {
         template = flag.setting.format[mode]
     }
     if (template == '') {
         return ''
-    } else {
-        let splited_template = template.replaceAll('\\%', '\uff69').split('%')  // 迫真转义 这个符号不会有人打出来把！！！
+    }
+    else {
+        let splited_template = template.replaceAll('\\%', '\uff69').split('%'); // 迫真转义 这个符号不会有人打出来把！！！
         let replace_list = [
             ['title', td.title.trim()],
             ['id', flag.show_id ? td.id : false],
@@ -63,13 +66,15 @@ function format(td, flag, mode = 'message', p) {
         if (td) {
             if (td.imgs_ && td.imgs_.size && td.imgs_.size.length > 1 && p !== -1) {
                 replace_list.push(['p', `${(p + 1)}/${td.imgs_.size.length}`])
-            } else {
+            }
+            else {
                 replace_list.push(['p', ''])
             }
             if (flag.tags) {
                 let tags = '#' + td.tags.join(' #')
                 replace_list.push(['tags', tags])
-            } else {
+            }
+            else {
                 replace_list.push(['tags', ''])
             }
         }
@@ -78,7 +83,8 @@ function format(td, flag, mode = 'message', p) {
         if (flag.single_caption) {
             if (!td) {
                 replace_list.push(['mid', flag.mid])
-            } else {
+            }
+            else {
                 replace_list.push(['mid', '%mid%'])
             }
         }
@@ -98,14 +104,13 @@ function format(td, flag, mode = 'message', p) {
     }
     return template.trim()
 }
-
 /**
  * MarkdownV2 转义
- * @param {String} t 
+ * @param {String} t
  */
-function escape_strings(t) {
+export function escape_strings(t) {
     // need typescript
-    if(typeof t === "number"){
+    if (typeof t === "number") {
         t = t.toString()
     }
     ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'].forEach(x => {
@@ -113,9 +118,8 @@ function escape_strings(t) {
     })
     return t
 }
-
-function reescape_strings(t) {
-    if(typeof t === "number"){
+export function reescape_strings(t) {
+    if (typeof t === "number") {
         t = t.toString()
     }
     ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'].forEach(x => {
@@ -123,28 +127,25 @@ function reescape_strings(t) {
     })
     return t
 }
-function Treplace(mode, r, name, value) {
-    if (!value) return ''
-    if (typeof value == 'boolean') value = ''
+export function Treplace(mode, r, name, value) {
+    if (!value)
+        return ''
+    if (typeof value == 'boolean')
+        value = ''
     return r.replaceAll('\\|', '\uffb4').split('|').map((l, id) => {
         if (l == name) {
             if (mode == 'telegraph') {
                 return value
             }
             return escape_strings(value)
-        } else if (l.includes('author_') || mode == 'telegraph') {
+        }
+        else if (l.includes('author_') || mode == 'telegraph') {
             return l
-        } else {
+        }
+        else {
             return escape_strings(l)
         }
     }).join('').replaceAll('\uffb4', '|')
 }
-function format_group(td, flag, mode = 'message', p, custom_template = false) {
-
-}
-module.exports = {
-    format,
-    escape_strings,
-    reescape_strings,
-    format_group
+export function format_group(td, flag, mode = 'message', p, custom_template = false) {
 }

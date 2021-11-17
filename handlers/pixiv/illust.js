@@ -1,10 +1,11 @@
-const { r_p_ajax } = require('./request')
-const db = require('../../db')
-const { honsole, sleep } = require('../common')
-const { thumb_to_all } = require('./tools')
+import { r_p_ajax } from './request.js'
+import db from '../../db.js'
+import { honsole, sleep } from '../common.js'
+import { thumb_to_all } from './tools.js'
 let illust_notfound_id_list = []
 let illust_notfound_time_list = []
 let illust_queue = []
+
 /**
  * get illust data
  * save illust data to MongoDB
@@ -12,7 +13,7 @@ let illust_queue = []
  * @param {boolean} raw true => return newest data from pixiv
  * @param {object} flag configure
  */
-async function get_illust(id, raw = false, try_time = 0) {
+export async function get_illust(id, raw = false, try_time = 0) {
     if (try_time > 4) {
         return false
     }
@@ -35,14 +36,14 @@ async function get_illust(id, raw = false, try_time = 0) {
     let illust = await db.collection.illust.findOne({
         id: id
     })
-
     if (illust) {
         delete illust._id
         if (illust.type == 2 && !illust.imgs_.cover_img_url) {
             // missing `illust.imgs_.cover_img_url`
             raw = true
         }
-    } else {
+    }
+    else {
         raw = true
     }
     if (raw) {
@@ -54,28 +55,32 @@ async function get_illust(id, raw = false, try_time = 0) {
                 if (+new Date() - illust_notfound_time_list[i] > 600000) { // 10 min
                     illust_notfound_id_list.splice(i, 1)
                     illust_notfound_time_list.splice(i, 1)
-                } else {
+                }
+                else {
                     return 404
                 }
             }
             // data example https://paste.huggy.moe/mufupocomo.json
-            illust_data = (await r_p_ajax.get('illust/' + id)).data
+            let illust_data = (await r_p_ajax.get('illust/' + id)).data
             honsole.dev('fetch-raw-illust', illust_data)
             illust = await update_illust(illust_data.body)
             return illust
-        } catch (error) {
+        }
+        catch (error) {
             // network, session or Work has been deleted or the ID does not exist.
             if (error.response && error.response.status == 404) {
                 if (illust) {
                     console.log('origin 404, fallback old data', id)
                     return illust
-                } else {
+                }
+                else {
                     honsole.warn(new Date(), '404 illust', id)
                     illust_notfound_id_list.push(id)
                     illust_notfound_time_list.push(+new Date())
                     return 404
                 }
-            } else {
+            }
+            else {
                 honsole.warn(error)
                 await sleep(500)
                 return await get_illust(id, raw, try_time + 1)
@@ -85,16 +90,16 @@ async function get_illust(id, raw = false, try_time = 0) {
     honsole.dev('illust', illust)
     return illust
 }
-
 /**
  * fetch image url and size and update in database
- * @param {*} illust 
+ * @param {*} illust
  * @param {object} extra_data extra data stored in database
  * @param {boolean} id_update_flag true => will delete 'id' (string) and create id (number)
  * @returns object
  */
-async function update_illust(illust, extra_data = false, id_update_flag = true) {
-    if (typeof illust != 'object') return false
+export async function update_illust(illust, extra_data = false, id_update_flag = true) {
+    if (typeof illust != 'object')
+        return false
     let real_illust = {}
     for (let key in illust) {
         // string -> number
@@ -136,19 +141,20 @@ async function update_illust(illust, extra_data = false, id_update_flag = true) 
     if (illust.type == 2) {
         illust.imgs_ = {
             size: [{
-                width: illust.width ? illust.width : illust.imgs_.size[0].width,
-                height: illust.height ? illust.height : illust.imgs_.size[0].height
-            }],
+                    width: illust.width ? illust.width : illust.imgs_.size[0].width,
+                    height: illust.height ? illust.height : illust.imgs_.size[0].height
+                }],
             cover_img_url: illust.urls.original
         }
-    } else if (!illust.imgs_ || !illust.imgs_.fsize || !illust.imgs_.fsize[0]) {
+    }
+    else if (!illust.imgs_ || !illust.imgs_.fsize || !illust.imgs_.fsize[0]) {
         illust.imgs_ = await thumb_to_all(illust)
         if (!illust.imgs_) {
             console.warn(illust.id, 'deleted')
             return
         }
     }
-    ['id', 'title', 'type', 'comment', 'description', 'author_id', 'author_name', 'imgs_', 'tags', 'sl', 'restrict', 'x_restrict',/* 'create_date',*/'tg_file_id'].forEach(x => {
+    ['id', 'title', 'type', 'comment', 'description', 'author_id', 'author_name', 'imgs_', 'tags', 'sl', 'restrict', 'x_restrict', /* 'create_date',*/ 'tg_file_id'].forEach(x => {
         // I think pixiv isn't pass me a object function ?
         if (illust[x] !== undefined) {
             real_illust[x] = illust[x]
@@ -168,7 +174,8 @@ async function update_illust(illust, extra_data = false, id_update_flag = true) 
             await db.collection.illust.deleteOne({
                 id: illust.id.toString()
             })
-        } catch (error) {
+        }
+        catch (error) {
             console.warn(error)
         }
     }
@@ -182,4 +189,3 @@ async function update_illust(illust, extra_data = false, id_update_flag = true) 
     honsole.dev(real_illust)
     return real_illust
 }
-module.exports = { get_illust, update_illust }

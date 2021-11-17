@@ -1,8 +1,9 @@
-const { format } = require("./format")
-const { asyncForEach, download_file, honsole } = require("../common")
-const { ugoiraurl } = require('../../config.json').pixiv
-const { ugoira_to_mp4 } = require("../pixiv/tools")
-function mg_create(illust, flag, url = false) {
+import { format } from './format.js'
+import { asyncForEach, download_file, honsole } from '../common.js'
+import config from '../../config.js'
+import { ugoira_to_mp4 } from '../pixiv/tools.js'
+const { ugoiraurl } = config.pixiv
+export function mg_create(illust, flag, url = false) {
     let mediagroups = []
     if (illust) {
         if (illust.type == 2) {
@@ -26,7 +27,8 @@ function mg_create(illust, flag, url = false) {
             if (illust.tg_file_id) {
                 if (typeof illust.tg_file_id == 'string') {
                     mediagroup_data.media_t = illust.tg_file_id
-                } else {
+                }
+                else {
                     mediagroup_data.media_t = illust.tg_file_id[pid]
                 }
             }
@@ -34,7 +36,8 @@ function mg_create(illust, flag, url = false) {
                 mediagroup_data.fsize = illust.imgs_.fsize[pid]
                 mediagroup_data.media_o = illust.imgs_.original_urls[pid]
                 mediagroup_data.media_r = illust.imgs_.regular_urls[pid]
-            } else if (illust.type == 2) {
+            }
+            else if (illust.type == 2) {
                 mediagroup_data = {
                     ...mediagroup_data,
                     type: 'video',
@@ -50,7 +53,7 @@ function mg_create(illust, flag, url = false) {
     honsole.dev('mg_create', mediagroups)
     return mediagroups
 }
-function mg_albumize(mg, single_caption = false) {
+export function mg_albumize(mg, single_caption = false) {
     // 10 item to a group
     let t = []
     mg.forEach((m, mid) => {
@@ -69,7 +72,8 @@ function mg_albumize(mg, single_caption = false) {
             if (id == 0) {
                 t[gid][0].sc = []
                 t[gid][id].caption = ''
-            } else {
+            }
+            else {
                 delete t[gid][id].caption
                 delete t[gid][id].parse_mode
             }
@@ -89,7 +93,8 @@ function mg_albumize(mg, single_caption = false) {
             })
             if (temp.length === m[0].sc.length) {
                 t[gid][0].caption = t[gid][0].sc[0].scaption.replace('%mid%', '')
-            } else {
+            }
+            else {
                 t[gid][0].caption = caption.join('\n')
             }
             delete t[gid][0].sc
@@ -98,10 +103,10 @@ function mg_albumize(mg, single_caption = false) {
     honsole.dev('mg_create', t)
     return t
 }
-async function mg_filter(mg, type = 't') {
+export async function mg_filter(mg, type = 't') {
     honsole.dev('filter_type', type)
     let t = []
-    await asyncForEach(mg, async x => {
+    await asyncForEach(mg, async (x) => {
         let xx = {
             type: x.type
         }
@@ -111,8 +116,8 @@ async function mg_filter(mg, type = 't') {
         }
         if (x.media) {
             xx.media = x.media
-
-        } else {
+        }
+        else {
             xx.media = x.media_t ? x.media_t : x.media_o
         }
         if (x.type == 'video') {
@@ -123,11 +128,13 @@ async function mg_filter(mg, type = 't') {
             if (type.includes('dl') || type.includes('r')) {
                 xx.media.url = `${xx.media.url}?${+new Date()}`
             }
-        } else {
+        }
+        else {
             if (type.includes('o')) {
                 if (x.fsize > 4999999 && type == 'o') {
                     type = 'r'
-                } else if (x.fsize > 9999999 && type == 'dlo') {
+                }
+                else if (x.fsize > 9999999 && type == 'dlo') {
                     type = 'dlr'
                 }
             }
@@ -137,16 +144,12 @@ async function mg_filter(mg, type = 't') {
                     // dlr => download media_r file
                     source: await download_file(x['media_' + type.replace('dl', '')])
                 }
-            } else if (type == 'r') {
+            }
+            else if (type == 'r') {
                 xx.media = x.media_r ? x.media_r : x.media_o
             }
         }
         t.push(xx)
     })
     return t
-}
-module.exports = {
-    mg_create,
-    mg_albumize,
-    mg_filter
 }

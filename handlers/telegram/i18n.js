@@ -1,10 +1,10 @@
-const fs = require('fs')
-const { escape_strings } = require('./format')
+import fs from 'fs'
+import { escape_strings } from './format.js'
 const l = {}
 fs.readdirSync('./lang/').map(filename => {
     if (filename.includes('.js')) {
-        let ll = require('../../lang/' + filename)
-        for (const v in ll) {
+        let ll = import('../../lang/' + filename)
+        for (const v in ll) {            
             ll[v] = escape_strings(ll[v])
         }
         l[filename.replace('.js', '')] = ll
@@ -16,7 +16,7 @@ fs.readdirSync('./lang/').map(filename => {
  * @param {*} item 项目
  * @param  {...any} value 值
  */
-function _l(lang, item, ...value) {
+ export function _l(lang, item, ...value) {
     if (!l[lang] || !l[lang][item]) {
         lang = 'en'
     }
@@ -30,7 +30,4 @@ function _l(lang, item, ...value) {
         result = result.replace(x, escape_strings(value[id]))
     })
     return result
-}
-module.exports = {
-    _l
 }

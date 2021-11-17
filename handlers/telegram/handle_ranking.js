@@ -1,9 +1,8 @@
-const ranking = require("../pixiv/ranking")
-const { format } = require("./format")
-const { k_os } = require("./keyboard")
-
+import ranking from '../pixiv/ranking.js'
+import { format } from './format.js'
+import { k_os } from './keyboard.js'
 // 作为 ../pixiv/ranking 的 tg 封装
-async function handle_ranking([...rank], flag) {
+export async function handle_ranking([...rank], flag) {
     let data = await ranking(...rank)
     if (!data)
         return false
@@ -26,7 +25,4 @@ async function handle_ranking([...rank], flag) {
         data: inline,
         next_offset: data.next_page
     }
-}
-module.exports = {
-    handle_ranking
 }

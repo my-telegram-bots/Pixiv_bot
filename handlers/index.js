@@ -1,17 +1,17 @@
-const common = require('./common')
-const handle_illust = require('./telegram/handle_illust')
-const handle_ranking = require('./telegram/handle_ranking')
-const pixiv_tools = require('./pixiv/tools')
-const user = require('./pixiv/user')
-const keyboards = require('./telegram/keyboard')
-const i18n  = require('./telegram/i18n')
-const format = require('./telegram/format')
-const mediagroup = require('./telegram/mediagroup')
-const telegraph = require('./telegram/telegraph')
-const handle_novel = require('./telegram/handle_novel')
-const pre_handle = require('./telegram/pre_handle')
-const tg_user = require('./telegram/user')
-module.exports = {
+import * as common from './common.js'
+import * as handle_illust from './telegram/handle_illust.js'
+import * as handle_ranking from './telegram/handle_ranking.js'
+import * as pixiv_tools from './pixiv/tools.js'
+import * as user from './pixiv/user.js'
+import * as keyboards from './telegram/keyboard.js'
+import * as i18n from './telegram/i18n.js'
+import * as format from './telegram/format.js'
+import * as mediagroup from './telegram/mediagroup.js'
+import * as telegraph from './telegram/telegraph.js'
+import * as handle_novel from './telegram/handle_novel.js'
+import * as pre_handle from './telegram/pre_handle.js'
+import * as tg_user from './telegram/user.js'
+export default {
     ...handle_illust,
     ...handle_ranking,
     ...handle_novel,
