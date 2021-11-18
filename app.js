@@ -1,33 +1,9 @@
-import { Telegraf } from 'telegraf'
-import { telegrafThrottler } from 'telegraf-throttler'
 import config from './config.js'
 import handlers from './handlers/index.js'
 import db from './db.js'
 import { update_setting } from './db.js'
 const { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, download_file, _l, k_os, k_link_setting, mg_create, mg_albumize, mg_filter, mg2telegraph, flagger, honsole, handle_new_configuration, exec, sleep, reescape_strings } = handlers
-const bot = new Telegraf(config.tg.token)
-const throttler = telegrafThrottler({
-    in: {
-        maxConcurrent: 1,
-        minTime: 333,
-        highWater: 3
-    },
-    out: {
-        minTime: 25,
-        reservoir: 30
-    },
-    group: {
-        maxConcurrent: 1,
-        minTime: 1000,
-        reservoir: 20
-    }
-})
-bot.use(throttler)
-// see https://github.com/telegraf/telegraf/issues/1323
-bot.on('channel_post', (ctx, next) => {
-    ctx.update.message = ctx.update.channel_post
-    next()
-})
+import { tgBot as bot } from './bot.js'
 bot.use(async (ctx, next) => {
     // simple i18n
     ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code

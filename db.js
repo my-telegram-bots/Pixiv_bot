@@ -1,10 +1,10 @@
 import config from './config.js'
 import * as mongodb from 'mongodb'
 const { MongoClient } = mongodb
-let db = {
+export let db = {
     collection: fake_collection
 }
-let col = {
+export let collection = {
     illust: fake_collection(),
     chat_setting: fake_collection(),
     novel: fake_collection(),
@@ -12,12 +12,12 @@ let col = {
     author: fake_collection(),
     telegraph: fake_collection()
 }
-async function db_initial() {
+export async function db_initial() {
     if (!process.env.DBLESS) {
         try {
             db = (await MongoClient.connect(config.mongodb.uri, { useUnifiedTopology: true })).db(config.mongodb.dbname)
-            for (const key in col) {
-                col[key] = db.collection(key)
+            for (const key in collection) {
+                collection[key] = db.collection(key)
             }
         }
         catch (error) {
@@ -26,7 +26,7 @@ async function db_initial() {
         }
     }
 }
-async function update_setting(value, chat_id, flag) {
+export async function update_setting(value, chat_id, flag) {
     try {
         let s = {}
         let u = {}
@@ -119,7 +119,7 @@ async function update_setting(value, chat_id, flag) {
         return false
     }
 }
-async function delete_setting(chat_id) {
+export async function delete_setting(chat_id) {
     try {
         await col.chat_setting.updateOne({
             id: chat_id
@@ -140,7 +140,7 @@ async function delete_setting(chat_id) {
  * give null & modified data for dbless mode
  * @returns {}
  */
-export function fake_collection() {
+function fake_collection() {
     return {
         find: () => { return null; },
         findOne: () => { return null; },
@@ -152,15 +152,10 @@ export function fake_collection() {
         }
     }
 }
-export { db_initial }
-export { db }
-export { col as collection }
-export { update_setting }
-export { delete_setting }
 export default {
     db_initial,
-    db: db,
-    collection: col,
+    db,
+    collection,
     update_setting,
     delete_setting
 }

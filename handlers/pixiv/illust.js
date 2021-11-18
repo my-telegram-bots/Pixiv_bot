@@ -98,8 +98,9 @@ export async function get_illust(id, raw = false, try_time = 0) {
  * @returns object
  */
 export async function update_illust(illust, extra_data = false, id_update_flag = true) {
-    if (typeof illust != 'object')
+    if (typeof illust != 'object') {
         return false
+    }
     let real_illust = {}
     for (let key in illust) {
         // string -> number
@@ -139,15 +140,17 @@ export async function update_illust(illust, extra_data = false, id_update_flag =
     //     illust.create_date = +new Date(illust.create_date) / 1000
     // }
     if (illust.type == 2) {
+        if (!illust.urls.original) {
+            return await get_illust(illust.id, true)
+        }
         illust.imgs_ = {
             size: [{
-                    width: illust.width ? illust.width : illust.imgs_.size[0].width,
-                    height: illust.height ? illust.height : illust.imgs_.size[0].height
-                }],
+                width: illust.width ? illust.width : illust.imgs_.size[0].width,
+                height: illust.height ? illust.height : illust.imgs_.size[0].height
+            }],
             cover_img_url: illust.urls.original
         }
-    }
-    else if (!illust.imgs_ || !illust.imgs_.fsize || !illust.imgs_.fsize[0]) {
+    } else if (!illust.imgs_ || !illust.imgs_.fsize || !illust.imgs_.fsize[0]) {
         illust.imgs_ = await thumb_to_all(illust)
         if (!illust.imgs_) {
             console.warn(illust.id, 'deleted')
