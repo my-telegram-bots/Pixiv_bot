@@ -1,3 +1,5 @@
+// there is no comment in this file
+// may be next version will be added
 import { Markup } from 'telegraf'
 import db from '../../db.js'
 import { honsole } from '../common.js'
@@ -110,12 +112,12 @@ export async function flagger(bot, ctx) {
         q_id: 0 // telegraph albumized value
     }
     let setting = false
-    if (ctx.chat) {
+    if (ctx.chat || ctx.inlineQuery || ctx.callbackQuery) {
         setting = await db.collection.chat_setting.findOne({
             id: chat_id
         })
     }
-    if (chat_id < 0 && ctx.from && (ctx.text.includes('+god') || (!setting || !setting.default || !setting.default.overwrite))) {
+    if (ctx.chat_id !== ctx.user_id && ctx.from && (ctx.text.includes('+god') || (!setting || !setting.default || !setting.default.overwrite))) {
         let setting_user = await db.collection.chat_setting.findOne({
             id: user_id
         })
@@ -263,6 +265,8 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
                 Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', ''))
             ]),
             reply_to_message_id: ctx.message.message_id
+        }).catch((e) => {
+            console.log(e)
         })
         return
     }

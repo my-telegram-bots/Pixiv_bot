@@ -46,7 +46,7 @@ see more https://telegra.ph
 
 ## translate (i18n)
     1. clone project
-    2. copy lang/en.json -> lang/_lang_code_.json
+    2. copy lang/en.js -> lang/_lang_code_.js
     3. create pull request
 
 ## todolist
@@ -59,7 +59,7 @@ see more https://telegra.ph
 - clean the code (with code style and comment)
 - safe exit (wait ugoira_to_mp4 & download_file & tg and safe exit)
 - unit test (ava.... jest...)
-- to Typescript
+- ~~to Typescript~~
 - Telegraph edit
 # License
 MIT

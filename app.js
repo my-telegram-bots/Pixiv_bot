@@ -20,7 +20,7 @@ bot.use(async (ctx, next) => {
                 if (ctx.message.entities && ctx.message.entities.length > 0) {
                     ctx.command = ctx.message.text.substr(1, ctx.message.entities[0].length - 1)
                 }
-                if (ctx.stext[0].includes(`@`)) {
+                if (ctx.stext[0].includes('@')) {
                     let at = ctx.stext[0].split('@')
                     if (!at[1] || at[1].toLowerCase() !== bot.botInfo.username.toLowerCase()) {
                         ctx.command = ''
@@ -210,7 +210,7 @@ bot.command('/link', async (ctx) => {
 bot.on('text', async (ctx) => {
     let chat_id = ctx.chat_id
     let user_id = ctx.user_id
-    if (ctx.command == 's' || ctx.text.substr(0, 3) == 'eyJ') {
+    if (ctx.command === 's' || ctx.text.substr(0, 3) === 'eyJ') {
         await handle_new_configuration(bot, ctx, ctx.default_extra)
         return
     }
@@ -251,7 +251,7 @@ bot.on('text', async (ctx) => {
         }
         else if ((ctx.type !== 'channel') && (chat_id > 0 || link_setting.sync === 0 || (link_setting.sync === 1 && ctx.message.text.includes('@' + bot.botInfo.username)))) {
             // admin only
-            if (chat_id > 0 || link_setting.administrator_only == 0 || (link_setting.administrator_only == 1 && await is_chat_admin(chat_id, user_id))) {
+            if (chat_id > 0 || link_setting.administrator_only === 0 || (link_setting.administrator_only === 1 && await is_chat_admin(chat_id, user_id))) {
                 let new_ctx = {
                     ...ctx,
                     chat_id: linked_chat_id,
@@ -301,7 +301,7 @@ async function tg_sender(ctx) {
     let illusts = []
     if (ids.author.length > 0) {
         // alpha version (owner only)
-        if (user_id == config.tg.master_id) {
+        if (user_id === config.tg.master_id) {
             bot.telegram.sendChatAction(chat_id, 'typing')
             await asyncForEach(ids.author, async (id) => {
                 illusts = [...illusts, ...await get_user_illusts(id)]
@@ -324,7 +324,7 @@ async function tg_sender(ctx) {
     if (illusts.length > 0) {
         await asyncForEach(illusts, async (illust) => {
             let d = illust
-            if (d == 404) {
+            if (d === 404) {
                 if (chat_id > 0) {
                     await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra)
                     return
@@ -340,7 +340,7 @@ async function tg_sender(ctx) {
                         ...default_extra,
                         caption: o.caption.replaceAll('%mid%', '')
                     }
-                    if (mg.type == 'video') {
+                    if (mg.type === 'video') {
                         await ugoira_to_mp4(mg.id)
                     }
                     await bot.telegram.sendDocument(chat_id, o.media_o, extra).catch(async (e) => {
@@ -364,7 +364,7 @@ async function tg_sender(ctx) {
                     temp_data.mg = [...temp_data.mg, ...mg]
                 }
                 else {
-                    if (d.type == 2 && ctx.startPayload) {
+                    if (d.type === 2 && ctx.startPayload) {
                         // see https://core.telegram.org/bots/api#inlinekeyboardbutton
                         // Especially useful when combined with switch_pm… actions – in this case the user will be automatically returned to the chat they switched from, skipping the chat selection screen.
                         // So we need inline share button to switch chat window even if user don't want share button
@@ -389,7 +389,7 @@ async function tg_sender(ctx) {
                             temp_data.mg = [...temp_data.mg, ...mg_albumize(mg)]
                         }
                     }
-                    else if (d.type == 2) {
+                    else if (d.type === 2) {
                         bot.telegram.sendChatAction(chat_id, 'upload_video')
                         let media = mg.media_t
                         if (!media) {
@@ -506,7 +506,7 @@ bot.on('inline_query', async (ctx) => {
                 return
             }
             // There is no enough time to convert ugoira, so need switch_pm to bot's chat window convert
-            if (d.type == 2 && d.inline.length === 0) {
+            if (d.type === 2 && d.inline.length === 0) {
                 // pre convert (without await)
                 ugoira_to_mp4(d.id)
                 await ctx.answerInlineQuery([], {
@@ -525,7 +525,7 @@ bot.on('inline_query', async (ctx) => {
         }
         res = res.splice(offset * 20, 20)
     }
-    else if (query.replaceAll(' ', '') == '') { // why not use .trim() ? LOL
+    else if (query.replaceAll(' ', '') === '') { // why not use .trim() ? LOL
         let data = await handle_ranking([offset], ctx.flag)
         res = data.data
         if (data.next_offset) {
@@ -652,7 +652,7 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
     try {
         bot.telegram.sendChatAction(chat_id, 'upload_photo')
         let photo_url = photo_urls.shift()
-        if (photo_url.substr(0, 3) == 'dl-') {
+        if (photo_url.substr(0, 3) === 'dl-') {
             photo_url = {
                 source: await download_file(photo_url.substr(3))
             }

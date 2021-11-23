@@ -1,22 +1,27 @@
 import fs from 'fs'
 import { escape_strings } from './format.js'
-const l = {}
-fs.readdirSync('./lang/').map(filename => {
+let l = {}
+fs.readdirSync('./lang/').map(async filename => {
     if (filename.includes('.js')) {
-        let ll = import('../../lang/' + filename)
-        for (const v in ll) {            
-            ll[v] = escape_strings(ll[v])
-        }
-        l[filename.replace('.js', '')] = ll
+        await import('../../lang/' + filename).then((ll, id) => {
+            let ll_ = {}
+            for (const v in ll) {
+                ll_[v] = escape_strings(ll[v])
+            }
+            l[filename.replace('.js', '')] = ll_
+        })
     }
 })
+// setTimeout(() => {
+//     console.log(l)
+// }, 2000);
 /**
  * i18n
  * @param {*} lang 语言
  * @param {*} item 项目
  * @param  {...any} value 值
  */
- export function _l(lang, item, ...value) {
+export function _l(lang, item, ...value) {
     if (!l[lang] || !l[lang][item]) {
         lang = 'en'
     }

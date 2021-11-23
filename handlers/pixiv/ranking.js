@@ -1,4 +1,5 @@
 import db from '../../db.js'
+import { honsole } from '../common.js'
 import { r_p_ajax } from './request.js'
 /**
  * 获取每日/每周/每月排行榜 当然 会缓存啦
@@ -20,7 +21,7 @@ export async function ranking(page = 1, mode = 'daily', date = false, filter_typ
         format: 'json',
         p: page
     }
-    if (date){
+    if (date) {
         params.date = date
     }
     // GMT+0 9 * 60 * 60 - 86400  = 日本前一天时间 - 8 * 60 * 60 (8点更新)
@@ -42,7 +43,7 @@ export async function ranking(page = 1, mode = 'daily', date = false, filter_typ
             })
         }
         catch (error) {
-            console.warn('insert error', error)
+            honsole.dev('insert error', error)
         }
     }
     return {

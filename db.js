@@ -107,7 +107,7 @@ export async function update_setting(value, chat_id, flag) {
         if (JSON.stringify(u).length > 2) {
             update_data.$unset = u
         }
-        await col.chat_setting.updateOne({
+        await collection.chat_setting.updateOne({
             id: chat_id,
         }, update_data, {
             upsert: true
@@ -121,7 +121,7 @@ export async function update_setting(value, chat_id, flag) {
 }
 export async function delete_setting(chat_id) {
     try {
-        await col.chat_setting.updateOne({
+        await collection.chat_setting.updateOne({
             id: chat_id
         }, {
             $unset: {
