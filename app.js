@@ -573,9 +573,11 @@ async function catchily(e, chat_id, language_code = 'en') {
     let default_extra = {
         parse_mode: 'MarkdownV2'
     }
-    honsole.error(e)
-    bot.telegram.sendMessage(config.tg.master_id, e)
+    honsole.warn(e)
     try {
+        bot.telegram.sendMessage(config.tg.master_id, e,{
+            disable_web_page_preview: true
+        })
         if (e.response) {
             let description = e.response.description
             if (description.includes('MEDIA_CAPTION_TOO_LONG')) {
