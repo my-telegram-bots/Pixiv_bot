@@ -102,6 +102,26 @@ export function format(td, flag, mode = 'message', p) {
         })
         template = splited_template.join('').replaceAll('\uff69', '%')
     }
+    // 临时修复，最后格式还是要完全换掉的。
+    // description: "Bad Request: can't parse entities: Character '(' is reserved and must be escaped with the preceding '\\'"
+    
+    let link_list = template.match(/(?:__|[*#])|\[(.*?)\]\(.*?\)/g)
+    if (link_list) {
+        link_list.forEach(function (link) {
+            if (link.includes('\\}')) {
+                template = eAdd(template, '\\}', '\\', '')
+            }
+            if (link.includes('\\]')) {
+                template = eAdd(template, '\\]', '\\', '')
+            }
+            if (link.includes('[\\')) {
+                template = eAdd(template, '[\\', '', '\\')
+            }
+            if (link.includes('(\\')) {
+                template = eAdd(template, '(\\', '', '\\')
+            }
+        })
+    }
     return template.trim()
 }
 /**
@@ -147,5 +167,9 @@ export function Treplace(mode, r, name, value) {
         }
     }).join('').replaceAll('\uffb4', '|')
 }
+function eAdd(str, keyword = '', prefix = '', suffix = '') {
+    return str.replace(keyword, `${prefix}${keyword}${suffix}`)
+}
 export function format_group(td, flag, mode = 'message', p, custom_template = false) {
 }
+
