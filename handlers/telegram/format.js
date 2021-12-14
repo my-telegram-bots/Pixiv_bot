@@ -1,3 +1,4 @@
+const escape_string_list = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
 /**
  * 格式化文字 好像并没有什么模板引擎 只好自己糊
  * 重构警告（变成💩山了）
@@ -104,21 +105,16 @@ export function format(td, flag, mode = 'message', p) {
     }
     // 临时修复，最后格式还是要完全换掉的。
     // description: "Bad Request: can't parse entities: Character '(' is reserved and must be escaped with the preceding '\\'"
-    
+    //                      tks https://stackoverflow.com/questions/37462126/regex-match-markdown-link
     let link_list = template.match(/(?:__|[*#])|\[(.*?)\]\(.*?\)/g)
     if (link_list) {
-        link_list.forEach(function (link) {
-            if (link.includes('\\}')) {
-                template = eAdd(template, '\\}', '\\', '')
-            }
-            if (link.includes('\\]')) {
-                template = eAdd(template, '\\]', '\\', '')
-            }
-            if (link.includes('[\\')) {
-                template = eAdd(template, '[\\', '', '\\')
-            }
-            if (link.includes('(\\')) {
-                template = eAdd(template, '(\\', '', '\\')
+        link_list.forEach(x => {
+            if (x.includes('\\')) {
+                // tks https://davidwells.io/snippets/regex-match-markdown-links
+                let xx = x.match(/\[([^\[]+)\]\((.*)\)/)
+                if (xx) {
+                    template = template.replace(xx[1], escape_strings(reescape_strings(xx[1]).replaceAll('\\', '\\\\')))
+                }
             }
         })
     }
@@ -133,7 +129,7 @@ export function escape_strings(t) {
     if (typeof t === "number") {
         t = t.toString()
     }
-    ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'].forEach(x => {
+    escape_string_list.forEach(x => {
         t = t.replaceAll(x, `\\${x}`)
     })
     return t
@@ -142,7 +138,7 @@ export function reescape_strings(t) {
     if (typeof t === "number") {
         t = t.toString()
     }
-    ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'].forEach(x => {
+    escape_string_list.forEach(x => {
         t = t.replaceAll(`\\${x}`, x)
     })
     return t
@@ -167,9 +163,9 @@ export function Treplace(mode, r, name, value) {
         }
     }).join('').replaceAll('\uffb4', '|')
 }
-function eAdd(str, keyword = '', prefix = '', suffix = '') {
-    return str.replace(keyword, `${prefix}${keyword}${suffix}`)
-}
-export function format_group(td, flag, mode = 'message', p, custom_template = false) {
-}
+// function eAdd(str, keyword = '', prefix = '', suffix = '') {
+//     return str.replace(keyword, `${prefix}${keyword}${suffix}`)
+// }
+// export function format_group(td, flag, mode = 'message', p, custom_template = false) {
+// }
 
