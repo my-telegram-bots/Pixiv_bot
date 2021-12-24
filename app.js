@@ -4,6 +4,8 @@ import db from './db.js'
 import { update_setting } from './db.js'
 const { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, download_file, _l, k_os, k_link_setting, mg_create, mg_albumize, mg_filter, mg2telegraph, flagger, honsole, handle_new_configuration, exec, sleep, reescape_strings } = handlers
 import { tgBot as bot } from './bot.js'
+import axios from 'axios'
+
 bot.use(async (ctx, next) => {
     // simple i18n
     ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code
@@ -57,6 +59,7 @@ bot.use(async (ctx, next) => {
     }
     next()
 })
+
 bot.start(async (ctx, next) => {
     // startPayload = deeplink 
     // see more https://core.telegram.org/bots#deep-linking
@@ -71,12 +74,14 @@ bot.start(async (ctx, next) => {
         next()
     }
 })
+
 bot.help(async (ctx) => {
     await bot.telegram.sendMessage(ctx.chat.id, 'https://pixiv-bot.pages.dev', {
         ...ctx.default_extra,
         parse_mode: ''
     })
 })
+
 bot.command('/id', async (ctx) => {
     let text = ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : ''
     // channel post maybe didn't have .from
@@ -86,6 +91,7 @@ bot.command('/id', async (ctx) => {
         parse_mode: 'Markdown'
     })
 })
+
 bot.use(async (ctx, next) => {
     let configuration_mode = false
     if ((ctx.command === 's' || ctx.text.substr(0, 3) === 'eyJ') ||
@@ -108,6 +114,7 @@ bot.use(async (ctx, next) => {
         next()
     }
 })
+
 bot.on('callback_query', async (ctx) => {
     let chat_id = ctx.chat_id
     let message_id = ctx.callbackQuery.message.message_id
@@ -161,6 +168,7 @@ bot.on('callback_query', async (ctx) => {
         ctx.answerCbQuery(reescape_strings(_l(ctx.l, 'error')))
     }
 })
+
 bot.command('/link', async (ctx) => {
     // link this chat to another chat / channel
     let chat_id = ctx.message.chat.id
@@ -207,6 +215,7 @@ bot.command('/link', async (ctx) => {
         }
     }
 })
+
 bot.on('text', async (ctx) => {
     let chat_id = ctx.chat_id
     let user_id = ctx.user_id
@@ -242,6 +251,7 @@ bot.on('text', async (ctx) => {
         }
         return
     }
+
     let direct_flag = true
     for (const linked_chat_id in ctx.flag.setting.link_chat_list) {
         let link_setting = ctx.flag.setting.link_chat_list[linked_chat_id]
@@ -282,12 +292,20 @@ bot.on('text', async (ctx) => {
     }
     return
 })
+
+let chating_list = []
 /**
  * build ctx object can send illust / novel manually (subscribe / auto push)
  * @param {*} ctx
  */
 async function tg_sender(ctx) {
     let chat_id = ctx.chat_id || ctx.message.chat.id
+    if (chating_list.includes(chat_id)) {
+        await sleep(3000)
+        return tg_sender(ctx)
+    } else {
+        chating_list.push(chat_id)
+    }
     let user_id = ctx.user_id || ctx.from.id
     let text = ctx.text || ''
     let default_extra = ctx.default_extra
@@ -452,10 +470,9 @@ async function tg_sender(ctx) {
                         else {
                             delete extra.reply_to_message_id
                         }
-                    }
-                    else {
+                    } else {
                         honsole.warn('error send mg', data)
-                        await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                        // await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
                     }
                     // Too Many Requests: retry after 10
                     if (i > 4) {
@@ -483,8 +500,10 @@ async function tg_sender(ctx) {
     if (text.includes('fanbox.cc/') && chat_id > 0) {
         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'fanbox_not_support'), default_extra)
     }
+    chating_list.splice(chating_list.indexOf(chat_id), 1)
     return true
 }
+
 bot.on('inline_query', async (ctx) => {
     let res = []
     let offset = ctx.inlineQuery.offset
@@ -536,9 +555,13 @@ bot.on('inline_query', async (ctx) => {
         await catchily(e, config.tg.master_id, ctx.l)
     })
 })
+
 bot.catch(async (e) => {
-    bot.telegram.sendMessage(config.tg.master_id, e)
+    bot.telegram.sendMessage(config.tg.master_id, e, {
+        disable_web_page_preview: true
+    })
 })
+
 db.db_initial().then(async () => {
     if (!process.env.DEPENDIONLESS && !process.env.dev) {
         try {
@@ -564,6 +587,7 @@ db.db_initial().then(async () => {
         import('./web.js')
     }
 })
+
 /**
  * catch error report && reply
  * @param {*} e error
@@ -575,7 +599,7 @@ async function catchily(e, chat_id, language_code = 'en') {
     }
     honsole.warn(e)
     try {
-        bot.telegram.sendMessage(config.tg.master_id, e,{
+        bot.telegram.sendMessage(config.tg.master_id, e, {
             disable_web_page_preview: true
         })
         if (e.response) {
@@ -583,24 +607,37 @@ async function catchily(e, chat_id, language_code = 'en') {
             if (description.includes('MEDIA_CAPTION_TOO_LONG')) {
                 bot.telegram.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra)
                 return false
-            }
-            else if (description.includes('can\'t parse entities: Character')) {
+            } else if (description.includes('can\'t parse entities: Character')) {
                 bot.telegram.sendMessage(chat_id, _l(language_code, 'error_format', e.response.description))
                 return false
                 // banned by user
-            }
-            else if (description.includes('Forbidden:')) {
+            } else if (description.includes('Forbidden:')) {
                 return false
                 // not have permission
-            }
-            else if (description.includes('not enough rights to send')) {
+            } else if (description.includes('not enough rights to send')) {
                 bot.telegram.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra)
                 return false
                 // just a moment
-            }
-            else if (description.includes('Too Many Requests: retry after')) {
+            } else if (description.includes('Too Many Requests: retry after')) {
                 await sleep(e.response.retry_after * 1000)
                 return true
+            } else if (description.includes('failed to get HTTP URL content') || description.includes('wrong file identifier/HTTP URL specified')) {
+                let img_url = null
+                if (e.on) {
+                    if (e.on.method === 'sendPhoto') {
+                        img_url = e.on.payload.photo
+                    }
+                }
+                if (config.tg.refetch_api && img_url) {
+                    try {
+                        await axios.post(config.tg.refetch_api, {
+                            url: img_url
+                        })
+                        console.log('[ok] fetch new url', img_url)
+                    } catch (error) {
+                        honsole.warn('[err] fetch new url', error)
+                    }
+                }
             }
         }
     }
@@ -610,6 +647,7 @@ async function catchily(e, chat_id, language_code = 'en') {
     }
     return true
 }
+
 /**
  * send mediagroup with retry
  * @param {*} chat_id
@@ -627,17 +665,16 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
         bot.telegram.sendChatAction(chat_id, 'upload_photo')
         let data = await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg], mg_type.shift()), extra)
         return data
-    }
-    catch (e) {
+    } catch (e) {
         if (await catchily(e, chat_id, language_code)) {
             return await sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type)
-        }
-        else {
+        } else {
             honsole.warn('error send mg', chat_id, mg)
             return false
         }
     }
 }
+
 /**
  * send photo with retry
  * @param {*} chat_id
@@ -672,6 +709,7 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
         }
     }
 }
+
 /**
  * when user is chat's administrator / creator, return true
  * @param {*} chat_id

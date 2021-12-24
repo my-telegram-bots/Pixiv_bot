@@ -14,7 +14,8 @@ export default {
         "master_id": 1,
         "token": "",
         "access_token": "",
-        "salt": ""
+        "salt": "",
+        "refetch_api": ""
     },
     web: {
         "enabled": false,
