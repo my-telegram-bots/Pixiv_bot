@@ -122,7 +122,7 @@ export async function flagger(bot, ctx) {
             id: user_id
         })
         // maybe null
-        if (setting_user) {
+        if (setting_user && setting) {
             setting_user.link_chat_list = setting.link_chat_list
             setting = setting_user
         }

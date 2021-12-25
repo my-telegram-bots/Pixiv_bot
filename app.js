@@ -402,12 +402,10 @@ async function tg_sender(ctx) {
                                 photo_urls = [mg[0].media_r, `dl-${mg[0].media_r}`]
                             }
                             await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, extra)
-                        }
-                        else {
+                        } else {
                             temp_data.mg = [...temp_data.mg, ...mg_albumize(mg)]
                         }
-                    }
-                    else if (d.type === 2) {
+                    } else if (d.type === 2) {
                         bot.telegram.sendChatAction(chat_id, 'upload_video')
                         let media = mg.media_t
                         if (!media) {
@@ -439,8 +437,7 @@ async function tg_sender(ctx) {
         })
         // eslint-disable-next-line no-empty
         if (ctx.flag.asfile) {
-        }
-        else if (ctx.flag.telegraph) {
+        } else if (ctx.flag.telegraph) {
             try {
                 bot.telegram.sendChatAction(chat_id, 'typing')
                 let res_data = await mg2telegraph(temp_data.mg, ctx.flag.telegraph_title, user_id, ctx.flag.telegraph_author_name, ctx.flag.telegraph_author_url)
@@ -454,8 +451,7 @@ async function tg_sender(ctx) {
             catch (error) {
                 console.warn(error)
             }
-        }
-        else {
+        } else {
             if (ctx.flag.album) {
                 temp_data.mg = mg_albumize(temp_data.mg, ctx.flag.single_caption)
             }
@@ -557,6 +553,7 @@ bot.on('inline_query', async (ctx) => {
 })
 
 bot.catch(async (e) => {
+    honsole.warn('gg', e)
     bot.telegram.sendMessage(config.tg.master_id, e, {
         disable_web_page_preview: true
     })
@@ -618,24 +615,32 @@ async function catchily(e, chat_id, language_code = 'en') {
                 bot.telegram.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra)
                 return false
                 // just a moment
-            } else if (description.includes('Too Many Requests: retry after')) {
-                await sleep(e.response.retry_after * 1000)
-                return true
-            } else if (description.includes('failed to get HTTP URL content') || description.includes('wrong file identifier/HTTP URL specified')) {
-                let img_url = null
+            } else if (description.includes('Too Many Requests')) {
+                console.log(chat_id, 'sleep', e.response.parameters.retry_after, 's')
+                await sleep(e.response.parameters.retry_after * 1000)
+                return 'redo'
+            } else if (description.includes('failed to get HTTP URL content') || description.includes('wrong file identifier/HTTP URL specified') || description.includes('wrong type of the web page content') || description.includes('group send failed')) {
+                let photo_urls = []
                 if (e.on) {
                     if (e.on.method === 'sendPhoto') {
-                        img_url = e.on.payload.photo
+                        photo_urls[0] = e.on.payload.photo
+                    } else if (e.on.method === 'sendMediaGroup' && e.on.payload.media) {
+                        photo_urls = e.on.payload.media.filter(m => {
+                            return m.media && typeof m.media === 'string' && m.media.includes('https://')
+                        }).map(m => {
+                            return m.media
+                        })
                     }
                 }
-                if (config.tg.refetch_api && img_url) {
+                // honsole.dev(photo_urls)
+                if (config.tg.refetch_api && photo_urls) {
                     try {
                         await axios.post(config.tg.refetch_api, {
-                            url: img_url
+                            url: photo_urls.join('\n')
                         })
-                        console.log('[ok] fetch new url', img_url)
+                        console.log('[ok] fetch new url(s)', photo_urls)
                     } catch (error) {
-                        honsole.warn('[err] fetch new url', error)
+                        honsole.warn('[err] fetch new url(s)', error)
                     }
                 }
             }
@@ -658,15 +663,19 @@ async function catchily(e, chat_id, language_code = 'en') {
  */
 async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type = []) {
     if (mg_type.length === 0) {
-        honsole.warn('error send mg', chat_id, mg)
+        honsole.warn('empty mg', chat_id, mg)
         return false
     }
+    let current_mg_type = mg_type.shift()
+    bot.telegram.sendChatAction(chat_id, 'upload_photo').catch()
     try {
-        bot.telegram.sendChatAction(chat_id, 'upload_photo')
-        let data = await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg], mg_type.shift()), extra)
-        return data
+        return await bot.telegram.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type), extra)
     } catch (e) {
-        if (await catchily(e, chat_id, language_code)) {
+        let status = await catchily(e, chat_id, language_code)
+        if (status) {
+            if (status === 'redo') {
+                mg_type.unshift(current_mg_type)
+            }
             return await sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type)
         } else {
             honsole.warn('error send mg', chat_id, mg)
@@ -688,22 +697,23 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
         honsole.warn('error send photo', chat_id, photo_urls)
         return false
     }
+    bot.telegram.sendChatAction(chat_id, 'upload_photo').catch()
     try {
-        bot.telegram.sendChatAction(chat_id, 'upload_photo')
         let photo_url = photo_urls.shift()
         if (photo_url.substr(0, 3) === 'dl-') {
             photo_url = {
                 source: await download_file(photo_url.substr(3))
             }
         }
-        let data = await bot.telegram.sendPhoto(chat_id, photo_url, extra)
-        return data
-    }
-    catch (e) {
-        if (await catchily(e, chat_id, language_code)) {
+        return await bot.telegram.sendPhoto(chat_id, photo_url, extra)
+    } catch (e) {
+        let status = await catchily(e, chat_id, language_code)
+        if (status) {
+            if (status === 'redo') {
+                photo_urls.unshift(photo_url)
+            }
             return await sendPhotoWithRetry(chat_id, language_code, photo_urls, extra)
-        }
-        else {
+        } else {
             honsole.warn('error send photo', chat_id, photo_urls)
             return false
         }

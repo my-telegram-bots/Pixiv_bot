@@ -6,6 +6,7 @@ import { download_file, sleep, honsole, asyncForEach, exec } from '../common.js'
 // ugoira queue
 let ugoira_mp4_queue_list = []
 let ugoira_gif_queue_list = []
+
 /**
  * thumb url to regular and original url
  * @param {string} thumb_url
@@ -19,9 +20,9 @@ export async function thumb_to_all(illust, try_time = 0) {
     if (illust.type == 2) {
         return {
             size: [{
-                    width: illust.width ? illust.width : illust.imgs_.size[0].width,
-                    height: illust.height ? illust.height : illust.imgs_.size[0].height
-                }]
+                width: illust.width ? illust.width : illust.imgs_.size[0].width,
+                height: illust.height ? illust.height : illust.imgs_.size[0].height
+            }]
         }
     }
     let imgs_ = {
@@ -67,14 +68,14 @@ export async function thumb_to_all(illust, try_time = 0) {
         }
         else {
             illust.page = [{
-                    urls: {
-                        original: original_url.replace('i.pximg.net', 'i-cf.pximg.net'),
-                        regular: regular_url.replace('i.pximg.net', 'i-cf.pximg.net'),
-                        thumb: thumb_url.replace('i.pximg.net', 'i-cf.pximg.net'),
-                    },
-                    width: illust.width ? illust.width : illust.imgs_.size[0].width,
-                    height: illust.height ? illust.height : illust.imgs_.size[0].height
-                }]
+                urls: {
+                    original: original_url.replace('i.pximg.net', 'i-cf.pximg.net'),
+                    regular: regular_url.replace('i.pximg.net', 'i-cf.pximg.net'),
+                    thumb: thumb_url.replace('i.pximg.net', 'i-cf.pximg.net'),
+                },
+                width: illust.width ? illust.width : illust.imgs_.size[0].width,
+                height: illust.height ? illust.height : illust.imgs_.size[0].height
+            }]
         }
         await asyncForEach(illust.page, async (l, i) => {
             imgs_.thumb_urls[i] = l.urls.thumb.replace('i.pximg.net', 'i-cf.pximg.net')
@@ -93,7 +94,7 @@ export async function thumb_to_all(illust, try_time = 0) {
         return { ...imgs_ }
     }
     catch (error) {
-        if (error.response && error.response.status == 404) {
+        if (error.response && error.response.status === 404) {
             return false
         }
         console.warn(error)
