@@ -638,7 +638,7 @@ async function catchily(e, chat_id, language_code = 'en') {
                         await axios.post(config.tg.refetch_api, {
                             url: photo_urls.join('\n')
                         })
-                        console.log('[ok] fetch new url(s)', photo_urls)
+                        honsole.log('[ok] fetch new url(s)', photo_urls)
                     } catch (error) {
                         honsole.warn('[err] fetch new url(s)', error)
                     }

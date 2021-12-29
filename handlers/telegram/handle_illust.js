@@ -29,7 +29,7 @@ export async function handle_illust(id, flag) {
     }
     illust = {
         ...illust,
-        nsfw: illust.xRestrict > 0,
+        nsfw: illust.xRestrict > 0 || illust.sl > 5,
         inline: []
     }
     if (illust.type <= 1) {
