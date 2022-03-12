@@ -6,6 +6,7 @@ export async function handle() {
     mkdir('./tmp/timecode')
     mkdir('./tmp/mp4_0')
     mkdir('./tmp/mp4_1')
+    mkdir('./tmp/mp4')
     mkdir('./tmp/ugoira')
     mkdir('./tmp/palette')
     mkdir('./tmp/gif')

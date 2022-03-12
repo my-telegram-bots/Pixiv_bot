@@ -2,8 +2,9 @@ import db from './db.js'
 import { sleep, asyncForEach } from './handlers/common.js'
 import { update_illust, get_illust } from './handlers/pixiv/illust.js'
 import { head_url, thumb_to_all } from './handlers/pixiv/tools.js'
+import fs from 'fs'
 process.env.dev = 1
-export async function update_original_file_extension() {
+async function update_original_file_extension() {
     await db.db_initial()
     let d = await db.collection.illust.find({}).toArray()
     console.log('load illusts from local database', d.length)
@@ -23,7 +24,7 @@ export async function update_original_file_extension() {
     })
     process.exit()
 }
-export async function update_db_2021_june() {
+async function update_db_2021_june() {
     await db.db_initial()
     let d = await db.collection.illust.find({}).toArray()
     console.log('load illusts from local database', d.length)
@@ -39,7 +40,7 @@ export async function update_db_2021_june() {
     })
     process.exit()
 }
-export async function update_db_2021_july() {
+async function update_db_2021_july() {
     await db.db_initial()
     await db.collection.dropIndexes()
     await db.collection.telegraph.createIndex({
@@ -49,7 +50,32 @@ export async function update_db_2021_july() {
     })
     process.exit()
 }
-export async function update_png_file_error() {
+async function move_ugoira_folder_and_index_2022_march() {
+    const base_path = './tmp/mp4_1'
+    await asyncForEach(fs.readdirSync(base_path), f => {
+        let ff = f.split('.')
+        if (!isNaN(parseInt(f[0])) && ff[ff.length - 1] === 'mp4') {
+            let new_path = ['./tmp/mp4']
+            const id = ff[0]
+            // pixiv's illust will be grow up to 10000000 (length 9) next year.
+            if (id.length > 8) {
+                new_path = [...new_path, id.substr(0, 3)]
+            } else {
+                new_path = [...new_path, `0${id.substr(0, 2)}`]
+            }
+            if (!fs.existsSync(new_path.join('/'))) {
+                fs.mkdirSync(new_path.join('/'))
+            }
+            new_path.push(f)
+            fs.renameSync(`${base_path}/${f}`, new_path.join('/'))
+            console.log(`${base_path}/${f}`, '->', new_path.join('/'))
+        }
+    })
+}
+
+
+
+async function update_png_file_error() {
     await db.db_initial()
     let d = (await db.collection.illust.find({}).toArray()).reverse()
     console.log('load illusts from local database', d.length)
@@ -68,7 +94,7 @@ export async function update_png_file_error() {
     })
     process.exit()
 }
-export async function update_ugoira_null_size_data() {
+async function update_ugoira_null_size_data() {
     await db.db_initial()
     let d = (await db.collection.illust.find({
         type: 2
@@ -84,9 +110,9 @@ export async function update_ugoira_null_size_data() {
                 }, {
                     $set: {
                         'imgs_.size': [{
-                                width: parseInt(e[0]),
-                                height: parseInt(e[1])
-                            }]
+                            width: parseInt(e[0]),
+                            height: parseInt(e[1])
+                        }]
                     }
                 })
             }
@@ -97,7 +123,7 @@ export async function update_ugoira_null_size_data() {
     })
     process.exit()
 }
-export async function update_ugoira_1st_image_url() {
+async function update_ugoira_1st_image_url() {
     await db.db_initial()
     let d = (await db.collection.illust.find({
         type: 2
@@ -117,6 +143,7 @@ export async function update_ugoira_1st_image_url() {
     })
     process.exit()
 }
+
 try {
     // just some expliot ? LOL
     eval(process.argv[2] + '()')

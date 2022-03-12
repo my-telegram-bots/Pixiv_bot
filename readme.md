@@ -27,7 +27,9 @@ version 2.0.2 edit the illust collection in local database, you need exec the fo
 
     node update update_db_2021_june
 
+Version 2.0.3 has changed the file storage directory, you need exec  the following command.
 
+    node update move_ugoira_folder_and_index_2022_march
 ## config
 ### cookie
 To subscribe author and popular search.  
