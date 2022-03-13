@@ -57,20 +57,27 @@ async function move_ugoira_folder_and_index_2022_march() {
         if (!isNaN(parseInt(f[0])) && ff[ff.length - 1] === 'mp4') {
             let new_path = ['./tmp/mp4']
             const id = ff[0]
-            // pixiv's illust will be grow up to 10000000 (length 9) next year.
-            if (id.length > 8) {
-                new_path = [...new_path, id.substr(0, 3)]
+            if (id.length === 10) {
+                new_path = [...new_path, `${id.substr(0, 4)}`]
+                // pixiv's illust will be grow up to 10000000 (length 9) next year.
+            } else if (id.length === 9) {
+                new_path = [...new_path, `0${id.substr(0, 3)}`]
             } else {
-                new_path = [...new_path, `0${id.substr(0, 2)}`]
+                new_path = [...new_path, `00${id.substr(0, 2)}`]
             }
             if (!fs.existsSync(new_path.join('/'))) {
                 fs.mkdirSync(new_path.join('/'))
             }
             new_path.push(f)
-            fs.renameSync(`${base_path}/${f}`, new_path.join('/'))
             console.log(`${base_path}/${f}`, '->', new_path.join('/'))
+            if (process.env.confirm) {
+                fs.renameSync(`${base_path}/${f}`, new_path.join('/'))
+            }
         }
     })
+    if (!process.env.confirm) {
+        console.log(`Type confirm=1 node ${process.argv[2]} to exec`)
+    }
 }
 
 

@@ -109,7 +109,8 @@ export async function thumb_to_all(illust, try_time = 0) {
  * @returns
  */
 export async function ugoira_to_mp4(id, force = false, retry_time = 0) {
-    if (fs.existsSync(`./tmp/mp4_1/${id}.mp4`) && !force) {
+    let final_path = get_ugoira_path(id, 'mp4')
+    if (fs.existsSync(final_path) && !force) {
         return `${config.pixiv.ugoiraurl}/${id}.mp4`
     }
     if (retry_time > 3) {
@@ -138,19 +139,10 @@ export async function ugoira_to_mp4(id, force = false, retry_time = 0) {
             temp_frame += f.delay
             timecode += `${temp_frame}\n`
         }, this)
+        await clean_ugoira_cache(id)
         fs.writeFileSync(`./tmp/timecode/${id}`, timecode)
         // download ugoira.zip
         await download_file(ud.originalSrc, id, force)
-        fs.rmSync(`./tmp/ugoira/${id}`, {
-            recursive: true,
-            force: true
-        })
-        fs.rmSync(`./tmp/mp4_0/${id}.mp4`, {
-            force: true
-        })
-        fs.rmSync(`./tmp/mp4_1/${id}.mp4`, {
-            force: true
-        })
         // windows:
         // choco install ffmpeg unzip
         await exec(`unzip -n './tmp/file/${id}.zip' -d './tmp/ugoira/${id}'`)
@@ -161,7 +153,8 @@ export async function ugoira_to_mp4(id, force = false, retry_time = 0) {
         // thanks https://stackoverflow.com/questions/28086775/can-i-create-a-vfr-video-from-timestamped-images
         await exec(`ffmpeg -y -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         // step2 add fps metadata via mp4fpsmod
-        await exec(`mp4fpsmod -o ./tmp/mp4_1/${id}.mp4 -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
+        await exec(`mp4fpsmod -o ${final_path} -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
+        await clean_ugoira_cache(id)
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
     }
     catch (error) {
@@ -172,30 +165,78 @@ export async function ugoira_to_mp4(id, force = false, retry_time = 0) {
     return `${config.pixiv.ugoiraurl}/${id}.mp4`
 }
 /**
- * detect ugoira file
+ * get file path
  * @param {*} id
- * @param {0,1,2,3} type
- * @param {url,path} source
+ * @param {0,1,2,3,mp4,gif-medium,gif-large} type
+ * @param {url,path} prefix
  * @returns
  */
-export function detect_ugpira_file(id, type = 0, source = 'url') {
-    let filepath = ''
+export function get_ugoira_path(id, type = 0, prefix = 'tmp/') {
+    let file_path = ''
+    id = id.toString()
     switch (type) {
         case 0:
-            filepath = `./tmp/mp4_1/${id}.mp4`
+        case 'mp4':
+            // only mp4 need indexing
+            // if (id.length === 10) {
+            //     file_path = `tmp/mp4/${id.substr(0, 4)}/${id}.mp4`
+            //     // pixiv's illust will be grow up to 10000000 (length 9) next year.
+            // } else if (id.length === 9) {
+            //     file_path = `tmp/mp4/0${id.substr(0, 3)}/${id}.mp4`
+            // } else {
+            //     file_path = `tmp/mp4/${id.substr(0, 2).padStart(4,0)}/${id}.mp4`
+            // }
+            let index_path = `mp4/${id.substr(0, id.length - 6).padStart(4, 0)}`
+            if (!fs.existsSync(index_path)) {
+                fs.mkdirSync(index_path)
+            }
+            file_path = `${index_path}/${id}.mp4`
             break
         case 1:
-            filepath = `./tmp/gif/${id}-small.gif`
+        case 'gif-small':
+            file_path = `gif/${id}-small.gif`
             break
         case 2:
-            filepath = `./tmp/gif/${id}-medium.gif`
+        case 'gif-medium':
+            file_path = `gif/${id}-medium.gif`
             break
         case 3:
-            filepath = `./tmp/gif/${id}-large.gif`
+        case 'gif-large':
+            file_path = `gif/${id}-large.gif`
             break
     }
-    // let real_filepath = source === 'url' ? filepath.replace('./tmp/', config.pixiv.ugoiraurl) : filepath
-    return fs.existsSync(filepath) ? (source === 'url' ? filepath.replace('./tmp/', config.pixiv.ugoiraurl.replace('mp4_1', '')) : filepath) : null
+    return `${prefix}${file_path}`
+}
+
+/**
+ * detect ugoira file
+ * @param {*} id 
+ * @param {0,1,2,3,mp4,gif-medium,gif-large} type
+ * @param {*} prefix 
+ * @returns 
+ */
+export function detect_ugpira_file(path, type = 0, prefix = '') {
+    // 但愿在有生之年不会爆炸
+    if (!isNaN(parseInt(path))) {
+        path = get_ugoira_path(path, type)
+    }
+    return fs.existsSync(`${path}`) ? `${prefix}${path}` : null
+}
+
+export async function clean_ugoira_cache(id = '1') {
+    fs.rmSync(`tmp/file/${id}.zip`, {
+        force: true
+    })
+    fs.rmSync(`tmp/ugoira/${id}`, {
+        recursive: true,
+        force: true
+    })
+    fs.rmSync(`tmp/mp4_0/${id}.mp4`, {
+        force: true
+    })
+    fs.rmSync(`tmp/timecode/${id}`, {
+        force: true
+    })
 }
 /**
  * ugoira mp4 to gif

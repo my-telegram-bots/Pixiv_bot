@@ -411,7 +411,7 @@ async function tg_sender(ctx) {
                         if (!media) {
                             await ugoira_to_mp4(d.id)
                             media = {
-                                source: `./tmp/mp4_1/${d.id}.mp4`
+                                source: get_ugoira_path(d.id)
                             }
                         }
                         await bot.telegram.sendAnimation(chat_id, media, extra).then(async (data) => {
