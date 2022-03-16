@@ -2,7 +2,7 @@ import config from './config.js'
 import handlers from './handlers/index.js'
 import db from './db.js'
 import { update_setting } from './db.js'
-const { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, download_file, _l, k_os, k_link_setting, mg_create, mg_albumize, mg_filter, mg2telegraph, flagger, honsole, handle_new_configuration, exec, sleep, reescape_strings } = handlers
+const { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, download_file, _l, k_os, k_link_setting, mg_create, mg_albumize, mg_filter, mg2telegraph, flagger, honsole, handle_new_configuration, exec, sleep, reescape_strings, get_ugoira_path } = handlers
 import { tgBot as bot } from './bot.js'
 import axios from 'axios'
 
@@ -301,10 +301,10 @@ let chating_list = []
 async function tg_sender(ctx) {
     let chat_id = ctx.chat_id || ctx.message.chat.id
     if (chating_list.includes(chat_id)) {
-        await sleep(3000)
-        return tg_sender(ctx)
+       await sleep(3000)
+       return tg_sender(ctx)
     } else {
-        chating_list.push(chat_id)
+       chating_list.push(chat_id)
     }
     let user_id = ctx.user_id || ctx.from.id
     let text = ctx.text || ''
