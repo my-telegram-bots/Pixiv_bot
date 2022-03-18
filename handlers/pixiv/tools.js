@@ -108,10 +108,10 @@ export async function thumb_to_all(illust, try_time = 0) {
  * @param {*} force ignore exist file
  * @returns
  */
-export async function ugoira_to_mp4(id, force = false, retry_time = 0) {
+export async function ugoira_to_mp4(id, prefix = 'tmp/', force = false, retry_time = 0) {
     let final_path = get_ugoira_path(id, 'mp4')
     if (fs.existsSync(final_path) && !force) {
-        return `${config.pixiv.ugoiraurl}/${id}.mp4`
+        return prefix + final_path.replace('tmp/', '')
     }
     if (retry_time > 3) {
         honsole.error('convert', id, 'error')
@@ -120,7 +120,7 @@ export async function ugoira_to_mp4(id, force = false, retry_time = 0) {
     // simple queue
     if (ugoira_mp4_queue_list.length > 4 || ugoira_mp4_queue_list.includes(id)) {
         await sleep(1000)
-        return await ugoira_to_mp4(id, force, retry_time)
+        return await ugoira_to_mp4(id, prefix, force, retry_time)
     }
     ugoira_mp4_queue_list.push(id)
     id = parseInt(id)
@@ -160,9 +160,9 @@ export async function ugoira_to_mp4(id, force = false, retry_time = 0) {
     catch (error) {
         honsole.warn(error)
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
-        await ugoira_to_mp4(id, force, retry_time + 1)
+        await ugoira_to_mp4(id, prefix, force, retry_time + 1)
     }
-    return `${config.pixiv.ugoiraurl}/${id}.mp4`
+    return prefix + final_path.replace('tmp/', '')
 }
 /**
  * get file path
@@ -187,8 +187,8 @@ export function get_ugoira_path(id, type = 0, prefix = 'tmp/') {
             //     file_path = `tmp/mp4/${id.substr(0, 2).padStart(4,0)}/${id}.mp4`
             // }
             let index_path = `mp4/${id.substr(0, id.length - 6).padStart(4, 0)}`
-            if (!fs.existsSync(index_path)) {
-                fs.mkdirSync(index_path)
+            if (!fs.existsSync('tmp/' + index_path)) {
+                fs.mkdirSync('tmp/' + index_path)
             }
             file_path = `${index_path}/${id}.mp4`
             break
@@ -215,12 +215,12 @@ export function get_ugoira_path(id, type = 0, prefix = 'tmp/') {
  * @param {*} prefix 
  * @returns 
  */
-export function detect_ugpira_file(path, type = 0, prefix = '') {
+export function detect_ugpira_file(path, type = 0, prefix = 'tmp/') {
     // 但愿在有生之年不会爆炸
     if (!isNaN(parseInt(path))) {
         path = get_ugoira_path(path, type)
     }
-    return fs.existsSync(`${path}`) ? `${prefix}${path}` : null
+    return fs.existsSync(`${path}`) ? (`${prefix}${path.replace('tmp/', '')}`) : null
 }
 
 export async function clean_ugoira_cache(id = '1') {
@@ -246,7 +246,7 @@ export async function clean_ugoira_cache(id = '1') {
  * @param {number} real_width
  * @param {number} real_height
  */
-export async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height = 0, force = false, retry_time = 0) {
+export async function ugoira_to_gif(id, quality = 'large', prefix = 'tmp/', real_width = 0, real_height = 0, force = false, retry_time = 0) {
     let height = 0
     let width = 0
     // large also = origin (maybe)
@@ -254,17 +254,18 @@ export async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_
         quality = 'large'
     }
     if (fs.existsSync(`./tmp/gif/${id}-${quality}.gif`) && !force) {
-        return `${config.pixiv.ugoiraurl.replace('mp4_1', 'gif')}/${id}-${quality}.gif`
+        return `${config.pixiv.ugoiraurl.replace('mp4', 'gif')}${id}-${quality}.gif`
     }
     if (ugoira_gif_queue_list.length > 4 || ugoira_gif_queue_list.includes(id)) {
         await sleep(1000)
-        return await ugoira_to_gif(id, quality, real_width, real_height, force, retry_time)
+        return await ugoira_to_gif(id, quality, prefix, real_width, real_height, force, retry_time)
     }
     ugoira_gif_queue_list.push(id)
+    let mp4_path = get_ugoira_path(id, 'mp4')
     await ugoira_to_mp4(id)
     try {
         if (!real_width || !real_height) {
-            let e = (await exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 './tmp/mp4_1/${id}.mp4'`)).stdout.replace('\n', '').split('x')
+            let e = (await exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 '${mp4_path}'`)).stdout.replace('\n', '').split('x')
             real_width = e[0]
             real_height = e[1]
         }
@@ -287,9 +288,9 @@ export async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_
         // https://bhupesh-v.github.io/convert-videos-high-quality-gif-ffmpeg/
         // and who from ACGN taiwan (telegram)
         if (!fs.existsSync(`./tmp/palette/${id}-${quality}.png`)) {
-            await exec(`ffmpeg -y -i ./tmp/mp4_1/${id}.mp4 -vf "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos,palettegen" ./tmp/palette/${id}-${quality}.png`)
+            await exec(`ffmpeg -y -i '${mp4_path}' -vf "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos,palettegen" ./tmp/palette/${id}-${quality}.png`)
         }
-        await exec(`ffmpeg -y -t 30 -i ./tmp/mp4_1/${id}.mp4 -i ./tmp/palette/${id}-${quality}.png  -filter_complex "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos[x];[x][1:v]paletteuse" ./tmp/gif/${id}-${quality}-processing.gif`)
+        await exec(`ffmpeg -y -t 30 -i '${mp4_path}' -i ./tmp/palette/${id}-${quality}.png  -filter_complex "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos[x];[x][1:v]paletteuse" ./tmp/gif/${id}-${quality}-processing.gif`)
         // maybe hit cloudflare cache.
         // when the processing is complete, -processing.gif -> .gif
         fs.renameSync(`./tmp/gif/${id}-${quality}-processing.gif`, `./tmp/gif/${id}-${quality}.gif`)
@@ -299,9 +300,9 @@ export async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_
         console.warn(error)
         ugoira_gif_queue_list.splice(ugoira_gif_queue_list.indexOf(id), 1)
         await sleep(500)
-        return await ugoira_to_gif(id, quality, real_width, real_height, force, retry_time + 1)
+        return await ugoira_to_gif(id, quality, prefix, real_width, real_height, force, retry_time + 1)
     }
-    return `${config.pixiv.ugoiraurl.replace('mp4_1', 'gif')}/${id}-${quality}.gif`
+    return `${config.pixiv.ugoiraurl.replace('mp4', 'gif')}${id}-${quality}.gif`
 }
 /**
  * get url's file size (content-length)
