@@ -13,9 +13,8 @@
     "web": "node web.js"
   },
   "dependencies": {
-    "axios": "^0.21.4",
-    "mongodb": "^4.1.2",
-    "telegraf": "^4.4.2",
-    "telegraf-throttler": "^0.6.0"
+    "axios": "^0.26.1",
+    "mongodb": "^4.4.1",
+    "telegraf": "^4.7.0"
   }
 }
