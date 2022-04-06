@@ -97,6 +97,7 @@ title: Bot's configuration
               <code>%author_name%</code> author's name
               <br>
               <code>%p%</code> Show current page when muilt page current/total page example: 1/2
+              For +sc mode, bot also has a <code>%mid%</code> option
             </p>
           </details>
         </div>
@@ -128,6 +129,7 @@ title: Bot's configuration
           telegraph: false,
           tags: true,
           c_show_id: true,
+          show_id: true,
           setting: {
             format: {
               message: template,

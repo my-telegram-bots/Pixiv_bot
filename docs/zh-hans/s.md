@@ -100,7 +100,7 @@ title: 机器人配置
               <br>
               <code>%p%</code> 分p的时候显示当前第几p 格式为 当前p/总p数 1/2
               <br>
-              对于 +sc 模式，bot还有个 <code>%sid%</code> 选项
+              For +sc mode, bot also has a <code>%mid%</code> option
             </p>
           </details>
         </div>
@@ -131,6 +131,7 @@ title: 机器人配置
           remove_caption: false,
           telegraph: false,
           tags: true,
+          show_id: true,
           c_show_id: true,
           setting: {
             format: {

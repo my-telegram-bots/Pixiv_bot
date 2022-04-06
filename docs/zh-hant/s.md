@@ -98,7 +98,7 @@ title: 機器人配置
               <br>
               <code>%p%</code> 分p的時候顯示當前第幾p 格式為 當前p/總p數 1/2
               <br>
-              對於 +sc 模式，bot還有個 <code>%sid%</code> 選項
+              對於 +sc 模式，bot還有個 <code>%mid%</code> 選項
             </p>
           </details>
         </div>
@@ -130,6 +130,7 @@ title: 機器人配置
           telegraph: false,
           tags: true,
           c_show_id: true,
+          show_id: true,
           setting: {
             format: {
               message: template,
