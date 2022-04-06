@@ -19,7 +19,7 @@ export async function asyncForEach(array, callback) {
  * honsole => huggy console
  * record error and report
  */
- export const honsole = {
+export const honsole = {
     dev: function (...args) {
         if (process.env.dev) {
             console.log(...args)
@@ -89,3 +89,7 @@ export function generate_token(user_id, time = +new Date()) {
     return createHash('sha1').update(`${config.tg.salt}${user_id}${time}`).digest('hex').toString()
 }
 export const exec = { promisify }.promisify(({ exec: exec$0 }).exec)
+
+String.prototype.escapeHTML = function () {
+    return (this.replaceAll('&', '&amp;').replaceAll('>', '&gt;').replaceAll('<', '&lt;').replaceAll('"', '&quot;'))
+}

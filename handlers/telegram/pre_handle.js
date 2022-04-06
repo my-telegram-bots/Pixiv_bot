@@ -16,7 +16,7 @@ export function get_pixiv_ids(text) {
         // fanbox: [],
     }
     if (text && (typeof text === 'string' || typeof text === 'number')) {
-        text.replace(/-_-/g, ' ').replace(/www\./ig, '').replace(/http:\/\//ig, 'https://').replace(/https:\/\//ig, '\nhttps://').replace(/  /g, ' ').replace(/\+/g, ' ').replace(/\-/g, ' ').replace(/ /g, '\n').replace(/\/en/ig, '/').split('\n').forEach(u => {
+        get_values(text).rm_valued_text.replace(/-_-/g, ' ').replace(/www\./ig, '').replace(/http:\/\//ig, 'https://').replace(/https:\/\//ig, '\nhttps://').replace(/  /g, ' ').replace(/\+/g, ' ').replace(/\-/g, ' ').replace(/ /g, '\n').replace(/\/en/ig, '/').split('\n').forEach(u => {
             try {
                 if (!u || u.length < 6) {
                     return []
@@ -69,20 +69,27 @@ export function get_pixiv_ids(text) {
 }
 export function get_values(text = '') {
     let list = {}
-    text.split('\n').forEach(t => {
+    text = text.split('\n').filter(t => {
         if (t.includes('=')) {
             let st = t.replace('=', '\uff69').split('\uff69')
             st[0] = st[0].toLowerCase(); // may be Title or Author
             if (['title', 'author_name', 'author_url', 'an', 'au'].includes(st[0])) {
-                if (st[0] == 'an')
+                if (st[0] == 'an') {
                     list['author_name'] = st[1]
-                if (st[0] == 'au')
+                }
+                if (st[0] == 'au') {
                     list['author_url'] = st[1]
+                }
                 list[st[0]] = st[1]
+                return false
             }
         }
-    })
-    return list
+        return true
+    }).join('\n')
+    return {
+        ...list,
+        rm_valued_text: text
+    }
 }
 export async function flagger(bot, ctx) {
     let chat_id = ctx.chat_id
@@ -262,7 +269,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_open_link'), {
             ...default_extra,
             ...Markup.inlineKeyboard([
-                Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', ''))
+                Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', '').replace('/undefined',''))
             ]),
             reply_to_message_id: ctx.message.message_id
         }).catch((e) => {
