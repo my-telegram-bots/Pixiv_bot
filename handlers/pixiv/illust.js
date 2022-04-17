@@ -42,8 +42,7 @@ export async function get_illust(id, raw = false, try_time = 0) {
             // missing `illust.imgs_.cover_img_url`
             raw = true
         }
-    }
-    else {
+    } else {
         raw = true
     }
     if (raw) {
@@ -158,7 +157,7 @@ export async function update_illust(illust, extra_data = false, id_update_flag =
         }
     }
     ['id', 'title', 'type', 'comment', 'description', 'author_id', 'author_name', 'imgs_', 'tags', 'sl', 'restrict', 'x_restrict', /* 'create_date',*/ 'tg_file_id'].forEach(x => {
-        // I think pixiv isn't pass me a object function ?
+        // I think pixiv isn't pass me a object?
         if (illust[x] !== undefined) {
             real_illust[x] = illust[x]
         }

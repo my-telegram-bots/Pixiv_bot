@@ -300,12 +300,12 @@ let chating_list = []
  */
 async function tg_sender(ctx) {
     let chat_id = ctx.chat_id || ctx.message.chat.id
-    if (chating_list.includes(chat_id)) {
-       await sleep(3000)
-       return tg_sender(ctx)
-    } else {
-       chating_list.push(chat_id)
-    }
+    //if (chating_list.includes(chat_id)) {
+    //    await sleep(3000)
+    //    return tg_sender(ctx)
+    //} else {
+    //    chating_list.push(chat_id)
+    //}
     let user_id = ctx.user_id || ctx.from.id
     let text = ctx.text || ''
     let default_extra = ctx.default_extra
@@ -349,7 +349,7 @@ async function tg_sender(ctx) {
                 }
             }
             ctx.flag.q_id += 1
-            let mg = mg_create(d, ctx.flag)
+            let mg = await mg_create(d, ctx.flag)
             // send as file
             if (ctx.flag.asfile) {
                 await asyncForEach(mg, async (o) => {
@@ -407,11 +407,20 @@ async function tg_sender(ctx) {
                         }
                     } else if (d.type === 2) {
                         bot.telegram.sendChatAction(chat_id, 'upload_video')
-                        let media = mg.media_t
+                        let media = mg[0].media_t
                         if (!media) {
-                            await ugoira_to_mp4(d.id)
-                            media = {
-                                source: get_ugoira_path(d.id)
+                            if (mg[0].media_o) {
+                                media = {
+                                    source: mg[0].media_o
+                                }
+                            } else if (mg[0].media) {
+                                media = {
+                                    url: mg[0].media
+                                }
+                            } else {
+                                media = {
+                                    url: await ugoira_to_mp4(d.id)
+                                }
                             }
                         }
                         await bot.telegram.sendAnimation(chat_id, media, extra).then(async (data) => {
@@ -496,7 +505,7 @@ async function tg_sender(ctx) {
     if (text.includes('fanbox.cc/') && chat_id > 0) {
         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'fanbox_not_support'), default_extra)
     }
-    chating_list.splice(chating_list.indexOf(chat_id), 1)
+    // chating_list.splice(chating_list.indexOf(chat_id), 1)
     return true
 }
 

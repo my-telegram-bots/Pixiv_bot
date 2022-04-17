@@ -1,15 +1,15 @@
 import { format } from './format.js'
 import { asyncForEach, download_file, honsole } from '../common.js'
 import config from '../../config.js'
-import { ugoira_to_mp4 } from '../pixiv/tools.js'
+import { detect_ugpira_file, detect_ugpira_url, ugoira_to_mp4 } from '../pixiv/tools.js'
 const { ugoiraurl } = config.pixiv
-export function mg_create(illust, flag, url = false) {
+export async function mg_create(illust, flag, url = false) {
     let mediagroups = []
     if (illust) {
         if (illust.type == 2) {
             ugoira_to_mp4(illust.id)
         }
-        illust.imgs_.size.forEach((size, pid) => {
+        await asyncForEach(illust.imgs_.size, async (size, pid) => {
             let mediagroup_data = {
                 type: 'photo',
                 caption: format(illust, flag, 'message', pid),
@@ -41,10 +41,8 @@ export function mg_create(illust, flag, url = false) {
                 mediagroup_data = {
                     ...mediagroup_data,
                     type: 'video',
-                    media: {
-                        url: ugoiraurl + illust.id + '.mp4'
-                    },
-                    media_o: ugoiraurl + illust.id + '.mp4'
+                    media: await detect_ugpira_url(illust.id, 'mp4'),
+                    media_o: detect_ugpira_file(illust.id, 'mp4')
                 }
             }
             mediagroups.push(mediagroup_data)

@@ -58,8 +58,7 @@ export async function handle_illust(id, flag) {
                 parse_mode: 'MarkdownV2',
                 ...k_os(illust.id, flag)
             }
-        }
-        else {
+        } else {
             ugoira_to_mp4(illust.id)
         }
     }
