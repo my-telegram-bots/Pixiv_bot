@@ -52,8 +52,7 @@ export async function thumb_to_all(illust, try_time = 0) {
         console.log(regular_url)
     }
     if (!original_url.includes('orig')) {
-        console.warn('Inpossible! no origin url', original_url)
-        process.exit()
+        console.warn('Inpossible! no origin url', illust.id, original_url)
     }
     try {
         let original_img_length = await head_url(original_url)
@@ -67,8 +66,7 @@ export async function thumb_to_all(illust, try_time = 0) {
                 delete x.urls.thumb_mini
                 return x
             })
-        }
-        else {
+        } else {
             illust.page = [{
                 urls: {
                     original: original_url.replace('i.pximg.net', 'i-cf.pximg.net'),
@@ -104,42 +102,42 @@ export async function thumb_to_all(illust, try_time = 0) {
         return await thumb_to_all(illust, try_time + 1)
     }
 }
+
 /**
  * ugoira to mp4
  * @param {*} id illustId
  * @param {*} force ignore exist file
  * @returns url
  */
-export async function ugoira_to_mp4(id, prefix = './tmp/', force = false, retry_time = 0) {
+export async function ugoira_to_mp4(id, force = false, retry_time = 0) {
     let final_path = get_ugoira_path(id, 'mp4')
-    // let no_tmp_path = final_path.replace('tmp/', '')
-    // if (fs.existsSync(final_path) && !force) {
-    //     return prefix + no_tmp_path
-    // }
-    if (!force) {
-        let u = await detect_ugpira_url(id, 'mp4')
-        if (u) {
-            return u
-        }
+    let no_tmp_path = final_path.replace('tmp/', '')
+
+    let final_url = await detect_ugpira_url(id, 'mp4')
+
+    if (!force && final_url) {
+        return final_url
     }
+
     if (retry_time > 3) {
-        honsole.error('convert', id, 'error')
+        honsole.error('convert mp4', id, 'error')
         return false
     }
 
+    id = parseInt(id)
     // simple queue
     if (ugoira_mp4_queue_list.length > 4 || ugoira_mp4_queue_list.includes(id)) {
         await sleep(1000)
-        return await ugoira_to_mp4(id, prefix, force, retry_time)
+        return await ugoira_to_mp4(id, force, retry_time)
     }
+
     ugoira_mp4_queue_list.push(id)
-    id = parseInt(id)
     try {
         // get fps metadata (timecode)
         // powered by mp4fpsmod
         let ud = (await r_p_ajax(`/illust/${id}/ugoira_meta`)).data
         if (ud.error) {
-            return false
+            return false // 404 or not ugoira
         }
         ud = ud.body
         // set the duration of each frame
@@ -149,6 +147,7 @@ export async function ugoira_to_mp4(id, prefix = './tmp/', force = false, retry_
             temp_frame += f.delay
             timecode += `${temp_frame}\n`
         }, this)
+
         await clean_ugoira_cache(id)
         fs.writeFileSync(`./tmp/timecode/${id}`, timecode)
         // download ugoira.zip
@@ -164,19 +163,23 @@ export async function ugoira_to_mp4(id, prefix = './tmp/', force = false, retry_
         await exec(`ffmpeg -y -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         // step2 add fps metadata via mp4fpsmod
         await exec(`mp4fpsmod -o ${final_path} -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
+
         clean_ugoira_cache(id)
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
     } catch (error) {
         honsole.warn(error)
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
-        await ugoira_to_mp4(id, prefix, force, retry_time + 1)
+        await sleep(2000)
+        await ugoira_to_mp4(id, force, retry_time + 1)
     }
-    return prefix + final_path.replace('tmp/', '')
+    // return await detect_ugpira_url(id, 'mp4')
+    return prefix + no_tmp_path
 }
 /**
  * get file path
+ * real file location prefix is ./tmp/
  * @param {*} id
- * @param {0,1,2,3,mp4,gif-medium,gif-large} type
+ * @param {0,1,2,3,mp4,gif-medium,gif-large,gif-small} type
  * @param {url,path} prefix
  * @returns
  */
@@ -248,9 +251,7 @@ export async function detect_ugpira_url(id, type = 0) {
  */
 export function detect_ugpira_file(path, type = 0, prefix = 'tmp/') {
     // 但愿在有生之年不会爆炸
-    // if (!isNaN(parseInt(path))) {
-    //     path = get_ugoira_path(path, type)
-    // }
+    path = get_ugoira_path(path, type)
     return fs.existsSync(`${path}`) ? (`${prefix}${path.replace('tmp/', '')}`) : null
 }
 
@@ -269,6 +270,7 @@ export async function clean_ugoira_cache(id = '1') {
         force: true
     })
 }
+
 /**
  * ugoira mp4 to gif
  * ~~ why not apng to gif ? ~~ -> lazy
@@ -278,15 +280,18 @@ export async function clean_ugoira_cache(id = '1') {
  * @param {number} real_width
  * @param {number} real_height
  */
-export async function ugoira_to_gif(id, quality = 'large', prefix = 'tmp/', real_width = 0, real_height = 0, force = false, retry_time = 0) {
+export async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height = 0, force = false, retry_time = 0) {
     let height = 0
     let width = 0
     // large also = origin (maybe)
     if (!['large', 'medium', 'small'].includes(quality)) {
         quality = 'large'
     }
-    if (fs.existsSync(`./tmp/gif/${id}-${quality}.gif`) && !force) {
-        return `${config.pixiv.ugoiraurl.replace('mp4', 'gif')}${id}-${quality}.gif`
+    let final_path = get_ugoira_path(id, `gif-${quality}`)
+    let no_tmp_path = final_path.replace('tmp/', '')
+
+    if (fs.existsSync(final_path) && !force) {
+        return config.pixiv.ugoiraurl + no_tmp_path
     }
     if (retry_time > 3) {
         honsole.warn('gif retry time exceed 3', id)
@@ -294,7 +299,7 @@ export async function ugoira_to_gif(id, quality = 'large', prefix = 'tmp/', real
     }
     if (ugoira_gif_queue_list.length > 4 || ugoira_gif_queue_list.includes(id)) {
         await sleep(1000)
-        return await ugoira_to_gif(id, quality, prefix, real_width, real_height, force, retry_time)
+        return await ugoira_to_gif(id, quality, real_width, real_height, force, retry_time)
     }
     ugoira_gif_queue_list.push(id)
     let mp4_path = null
@@ -303,11 +308,11 @@ export async function ugoira_to_gif(id, quality = 'large', prefix = 'tmp/', real
     if (mp4_url.startsWith(config.pixiv.ugoiraurl)) {
         mp4_path = get_ugoira_path(id, 'mp4')
     } else {
-        // if not local, download it
+        // if not in local, download it
         mp4_path = await download_file(mp4_url, id)
     }
     try {
-        // got width and height
+        // get width and height
         if (!real_width || !real_height) {
             let e = (await exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 '${mp4_path}'`)).stdout.replace('\n', '').split('x')
             real_width = e[0]
@@ -345,9 +350,10 @@ export async function ugoira_to_gif(id, quality = 'large', prefix = 'tmp/', real
         honsole.warn(error)
         ugoira_gif_queue_list.splice(ugoira_gif_queue_list.indexOf(id), 1)
         await sleep(500)
-        return await ugoira_to_gif(id, quality, prefix, real_width, real_height, force, retry_time + 1)
+        return await ugoira_to_gif(id, quality, real_width, real_height, force, retry_time + 1)
     }
-    return `${config.pixiv.ugoiraurl}gif/${id}-${quality}.gif`
+    // return await detect_ugpira_url(id, `gif-${quality}`)
+    return config.pixiv.ugoiraurl + no_tmp_path
 }
 /**
  * get url's file size (content-length)
@@ -374,7 +380,8 @@ export async function head_url(url, try_time = 0) {
             headers: {
                 'User-Agent': config.pixiv.ua,
                 'Referer': 'https://www.pixiv.net'
-            }
+            },
+            timeout: 1000
         })
         if (!res.headers['content-length']) {
             if (try_time > 3) {

@@ -359,7 +359,7 @@ async function tg_sender(ctx) {
                         caption: o.caption.replaceAll('%mid%', '')
                     }
                     if (mg.type === 'video') {
-                        await ugoira_to_mp4(mg.id)
+                        o.media_o = await ugoira_to_mp4(mg.id)
                     }
                     await bot.telegram.sendDocument(chat_id, o.media_o, extra).catch(async (e) => {
                         if (await catchily(e, chat_id, ctx.l)) {
