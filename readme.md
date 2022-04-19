@@ -39,7 +39,7 @@ You can login via your browser and open developer tools to select network tab an
 ## ua
 get lastest chrome useragent: https://t.me/chrome_useragent
 ## pximgproxy
-i.pximg.net proxy, telegraph and send file maybe use it
+i.pximg.net proxy, telegraph and send ugoira maybe use it
 #### token
 https://t.me/botfather
 #### master_id
@@ -47,7 +47,9 @@ Report error and no management function
 #### access_token
 `access_token` is telegraph token can help you create telegra.ph pages.  
 see more https://telegra.ph
-
+#### refetch_api
+When bot recive a error message, it will try to send image link to refetch api.  
+See my another repo: [makeding/WebpageBot-api](https://github.com/makeding/WebpageBot-api)
 ## translate (i18n)
     1. clone project
     2. copy lang/en.js -> lang/_lang_code_.js

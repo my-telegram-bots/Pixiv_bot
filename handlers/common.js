@@ -58,7 +58,7 @@ export async function download_file(url, id, force = false, try_time = 0) {
     if (fs.existsSync(`./tmp/file/${filename}`) && !force) {
         return `./tmp/file/${filename}`
     }
-    if (dw_queue_list.length > 4 || dw_queue_list.includes(url)) {
+    if (dw_queue_list.length > 9 || dw_queue_list.includes(url)) {
         await sleep(1000)
         honsole.dev('downloading', id, url)
         return await download_file(url, id, force, try_time)

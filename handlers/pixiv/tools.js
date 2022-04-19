@@ -23,7 +23,8 @@ export async function thumb_to_all(illust, try_time = 0) {
             size: [{
                 width: illust.width ? illust.width : illust.imgs_.size[0].width,
                 height: illust.height ? illust.height : illust.imgs_.size[0].height
-            }]
+            }],
+            cover_img_url: illust.urls.original
         }
     }
     let imgs_ = {
@@ -173,7 +174,7 @@ export async function ugoira_to_mp4(id, force = false, retry_time = 0) {
         await ugoira_to_mp4(id, force, retry_time + 1)
     }
     // return await detect_ugpira_url(id, 'mp4')
-    return prefix + no_tmp_path
+    return config.pixiv.ugoiraurl + no_tmp_path
 }
 /**
  * get file path
