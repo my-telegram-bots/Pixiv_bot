@@ -5,6 +5,7 @@ import { _l } from './telegram/i18n.js'
 import { createHash } from 'crypto'
 import { promisify } from 'util'
 import { exec as exec$0 } from 'child_process'
+import { get_illust } from './pixiv/illust.js'
 /**
  * ForEach with async
  * @param {Array} array
@@ -36,7 +37,7 @@ export const honsole = {
     }
 }
 /**
- * download file
+ * download file from pixiv
  * @param {*} url
  * @param {*} id
  * @param {*} try_time
@@ -44,8 +45,15 @@ export const honsole = {
  */
 let dw_queue_list = []
 export async function download_file(url, id, force = false, try_time = 0) {
+    // bypass cache, maybe not work
     if (url.includes(config.pixiv.ugoiraurl)) {
         return url + '?' + (+new Date())
+    }
+    if (!id) {
+        if (url.includes('.pximg.net')) {
+            let t = url.substring(url.lastIndexOf('/') + 1)
+            id = t.substring(0, t.lastIndexOf('_'))
+        }
     }
     if (try_time > 5) {
         return false
@@ -69,13 +77,22 @@ export async function download_file(url, id, force = false, try_time = 0) {
             responseType: 'arraybuffer',
             headers: {
                 'User-Agent': config.pixiv.ua,
-                'Referer': 'https://www.pixiv.net'
+                // Refer policy only domain
+                'Referer': 'https://www.pixiv.net/'
             }
         })).data)
         dw_queue_list.splice(dw_queue_list.indexOf(id), 1)
         return `./tmp/file/${filename}`
-    }
-    catch (error) {
+    } catch (error) {
+        // maybe loooooop again LOL
+        if (error.response && error.response.status === 404) {
+            if (url.includes('pximg.net')) {
+                // 404 = need refetch illust in database
+                honsole.dev('[404] fetching raw data', id, url)
+                await get_illust(id, true)
+                return false
+            }
+        }
         console.warn(error)
         await sleep(1000)
         dw_queue_list.splice(dw_queue_list.indexOf(id), 1)

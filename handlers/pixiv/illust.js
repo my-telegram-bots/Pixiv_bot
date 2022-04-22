@@ -10,10 +10,10 @@ let illust_queue = []
  * get illust data
  * save illust data to MongoDB
  * @param {number} id illust_id
- * @param {boolean} raw true => return newest data from pixiv
+ * @param {boolean} fresh true => return newest data from pixiv
  * @param {object} flag configure
  */
-export async function get_illust(id, raw = false, try_time = 0) {
+export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
     if (try_time > 4) {
         return false
     }
@@ -27,25 +27,28 @@ export async function get_illust(id, raw = false, try_time = 0) {
     id = parseInt(id)
     if (illust_queue.includes(id)) {
         await sleep(300)
-        return await get_illust(id, raw, try_time)
+        return await get_illust(id, fresh, raw, try_time)
     }
     if (try_time > 5) {
         console.warn('pixiv maybe banned your server\'s ip\nor network error (DNS / firewall)')
         return false
     }
-    let illust = await db.collection.illust.findOne({
-        id: id
-    })
-    if (illust) {
-        delete illust._id
-        if (illust.type == 2 && !illust.imgs_.cover_img_url) {
-            // missing `illust.imgs_.cover_img_url`
-            raw = true
+    let illust = null
+    if (!fresh && !raw) {
+        illust = await db.collection.illust.findOne({
+            id: id
+        })
+        if (illust) {
+            delete illust._id
+            if (illust.type == 2 && !illust.imgs_.cover_img_url) {
+                // missing `illust.imgs_.cover_img_url`
+                fresh = true
+            }
+        } else {
+            fresh = true
         }
-    } else {
-        raw = true
     }
-    if (raw) {
+    if (fresh) {
         try {
             // 404 cache in memory (10 min)
             // to prevent cache attack the 404 result will be not in database.
@@ -54,14 +57,13 @@ export async function get_illust(id, raw = false, try_time = 0) {
                 if (+new Date() - illust_notfound_time_list[i] > 600000) { // 10 min
                     illust_notfound_id_list.splice(i, 1)
                     illust_notfound_time_list.splice(i, 1)
-                }
-                else {
+                } else {
                     return 404
                 }
             }
             // data example https://paste.huggy.moe/mufupocomo.json
             let illust_data = (await r_p_ajax.get('illust/' + id)).data
-            honsole.dev('fetch-raw-illust', illust_data)
+            honsole.dev('fetch-fresh-illust', illust_data)
             illust = await update_illust(illust_data.body)
             return illust
         }
@@ -69,20 +71,18 @@ export async function get_illust(id, raw = false, try_time = 0) {
             // network, session or Work has been deleted or the ID does not exist.
             if (error.response && error.response.status == 404) {
                 if (illust) {
-                    console.log('origin 404, fallback old data', id)
+                    console.warn('origin 404, fallback old data', id)
                     return illust
-                }
-                else {
+                } else {
                     honsole.warn(new Date(), '404 illust', id)
                     illust_notfound_id_list.push(id)
                     illust_notfound_time_list.push(+new Date())
                     return 404
                 }
-            }
-            else {
+            } else {
                 honsole.warn(error)
                 await sleep(500)
-                return await get_illust(id, raw, try_time + 1)
+                return await get_illust(id, fresh, raw, try_time + 1)
             }
         }
     }
@@ -140,6 +140,9 @@ export async function update_illust(illust, extra_data = false, id_update_flag =
     // }
     if (illust.type == 2) {
         if (!illust.urls.original) {
+            // get_illust will redo this action.
+            // only have this condition when subscribe or fetch author's all illusts.
+            // dirty
             return await get_illust(illust.id, true)
         }
         illust.imgs_ = {

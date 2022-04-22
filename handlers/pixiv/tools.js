@@ -3,13 +3,15 @@ import { r_p_ajax } from './request.js'
 import fs from 'fs'
 import config from '../../config.js'
 import { download_file, sleep, honsole, asyncForEach, exec } from '../common.js'
+import { get_illust } from './illust.js'
 // ugoira queue
 // maybe need redis ?
 let ugoira_mp4_queue_list = []
 let ugoira_gif_queue_list = []
 
 /**
- * thumb url to regular and original url
+ * thumb url to regular and original urls
+ * and got original file size
  * @param {string} thumb_url
  * @param {number} page_count
  * @returns
@@ -18,6 +20,7 @@ export async function thumb_to_all(illust, try_time = 0) {
     if (try_time > 3) {
         return false
     }
+    // ugoira only need cover_url I see
     if (illust.type == 2) {
         return {
             size: [{
@@ -44,6 +47,7 @@ export async function thumb_to_all(illust, try_time = 0) {
         .replace('_square1200', '∏b∏')
         .replace('_custom1200', '∏b∏')
         .replace('_master1200', '∏b∏')
+        .replace('i.pximg.net', 'i-cf.pximg.net')
     let thumb_url = base_url.replace('∏a∏', '/c/250x250_80_a2/img-master').replace('∏b∏', '_square1200')
     let original_url = base_url.replace('∏a∏', '/img-original').replace('∏b∏', '')
     let regular_url = base_url.replace('∏a∏', '/img-master').replace('∏b∏', '_master1200')
@@ -57,10 +61,15 @@ export async function thumb_to_all(illust, try_time = 0) {
     }
     try {
         let original_img_length = await head_url(original_url)
+        // only 
+        let get_page_flag = false
         if (original_img_length == 404) {
-            original_url = original_url.replace('.jpg', '.png')
+            // 404 = not only jpg but also gif
+            get_page_flag = true
+            // let suffix = illust_raw.urls.original
+            // original_url = original_url.replace('.jpg', '.png')
         }
-        if ((illust.page_count && illust.page_count > 1) || (illust.pageCount && illust.pageCount > 1) || (illust.imgs_ && illust.imgs_.size && illust.imgs_.size.length > 1)) {
+        if (get_page_flag || (illust.page_count && illust.page_count > 1) || (illust.pageCount && illust.pageCount > 1) || (illust.imgs_ && illust.imgs_.size && illust.imgs_.size.length > 1)) {
             honsole.dev('query pages from pixiv', illust.id)
             illust.page = (await r_p_ajax('illust/' + illust.id + '/pages')).data.body.map((x, p) => {
                 x.urls.thumb = thumb_url.replace(`p0`, `p${p}`)
@@ -70,18 +79,18 @@ export async function thumb_to_all(illust, try_time = 0) {
         } else {
             illust.page = [{
                 urls: {
-                    original: original_url.replace('i.pximg.net', 'i-cf.pximg.net'),
-                    regular: regular_url.replace('i.pximg.net', 'i-cf.pximg.net'),
-                    thumb: thumb_url.replace('i.pximg.net', 'i-cf.pximg.net'),
+                    original: original_url,
+                    regular: regular_url,
+                    thumb: thumb_url,
                 },
                 width: illust.width ? illust.width : illust.imgs_.size[0].width,
                 height: illust.height ? illust.height : illust.imgs_.size[0].height
             }]
         }
         await asyncForEach(illust.page, async (l, i) => {
-            imgs_.thumb_urls[i] = l.urls.thumb.replace('i.pximg.net', 'i-cf.pximg.net')
-            imgs_.regular_urls[i] = l.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net')
-            imgs_.original_urls[i] = l.urls.original.replace('i.pximg.net', 'i-cf.pximg.net')
+            imgs_.thumb_urls[i] = l.urls.thumb
+            imgs_.regular_urls[i] = l.urls.regular
+            imgs_.original_urls[i] = l.urls.original
             imgs_.size[i] = {
                 width: l.width,
                 height: l.height
