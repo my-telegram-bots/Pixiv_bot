@@ -376,7 +376,7 @@ export async function head_url(url, try_time = 0) {
         return 99999999
     }
     if (try_time > 6) {
-        honsole.error('can\'t get', url, 'content-length')
+        honsole.error("can't get", url, 'content-length')
         return false
     }
     url = url.replace('i-cf.pixiv.net', 'i.pixiv.net')
@@ -394,11 +394,10 @@ export async function head_url(url, try_time = 0) {
             timeout: 1000
         })
         if (!res.headers['content-length']) {
-            if (try_time > 3) {
+            if (try_time > 1) {
                 // real content-length
                 return res.data.length
-            }
-            else {
+            } else {
                 throw 'n_cl'; // no have content-length
             }
         }
@@ -406,8 +405,14 @@ export async function head_url(url, try_time = 0) {
         // it less than real_value
         // pixiv's content-length * .1.05 ≈ real_value
         return parseInt(res.headers['content-length'])
-    }
-    catch (error) {
+    } catch (error) {
+        if (error.code) {
+            // timeout
+            // 文件太大了，以程序行为，没有统计大小的必要了
+            if (error.code === 'ECONNABORTED') {
+                return 9999999
+            }
+        }
         if (error.response && error.response.status == 404) {
             // maybe not return 404 (length)
             return 404
