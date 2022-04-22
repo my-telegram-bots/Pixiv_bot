@@ -53,6 +53,9 @@ title: Bot's configuration
             <!-- self xss warning -->
             <span class="container" v-html="format(current_template)"></span>
           </div>
+          <div class="custom-block danger">
+            <p>to show = * _ * []() character, please escape it (\# , \( , \[)), otherwise Telegram will report an error.</p>
+          </div>
           <div class="textareacard">
             <textarea v-model="current_template"></textarea>
           </div>

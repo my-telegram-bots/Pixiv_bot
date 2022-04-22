@@ -53,6 +53,9 @@ title: 機器人配置
             <!-- self xss warning -->
             <span class="container" v-html="format(current_template)"></span>
           </div>
+          <div class="custom-block danger">
+            <p>請注意，如果要展示 = * _ * []() 請在前面轉義（\# , \( , \[），否則 Telegram 會報錯。</p>
+          </div>
           <div class="textareacard">
             <textarea v-model="current_template"></textarea>
           </div>
