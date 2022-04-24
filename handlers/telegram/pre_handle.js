@@ -170,6 +170,8 @@ export async function flagger(bot, ctx) {
         // caption end
         // send all illusts as mediagroup
         album: (d_f.album && !ctx.text.includes('-album')) || ctx.text.includes('+album'),
+        // album will keep same numbers per mediagroup
+        album_same: (d_f.album_same && (!ctx.text.includes('-samealbum') || !ctx.text.includes('-sa'))) || ctx.text.includes('+samealbum') || ctx.text.includes('+sa'),
         // descending order 
         desc: (d_f.desc && !ctx.text.includes('-desc')) || ctx.text.includes('+desc'),
         // send as telegraph
@@ -269,7 +271,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_open_link'), {
             ...default_extra,
             ...Markup.inlineKeyboard([
-                Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', '').replace('/undefined',''))
+                Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', '').replace('/undefined', ''))
             ]),
             reply_to_message_id: ctx.message.message_id
         }).catch((e) => {
@@ -287,8 +289,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         if (ctx.text.substr(0, 3) == 'eyJ') {
             try {
                 new_setting = JSON.parse(Buffer.from(ctx.text, 'base64').toString('utf8'))
-            }
-            catch (error) {
+            } catch (error) {
                 // message type is doesn't base64
                 await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error'))
                 honsole.warn('parse base64 configuration failed', ctx.text, error)

@@ -369,19 +369,16 @@ async function tg_sender(ctx) {
                                         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'file_too_large', o.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)), default_extra)
                                     }
                                 })
-                            }
-                            else {
+                            } else {
                                 await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
                             }
                         }
                     })
                 })
-            }
-            else {
+            } else {
                 if (ctx.flag.telegraph || (ctx.flag.album && (ids.illust.length > 1 || (d.imgs_ && d.imgs_.size.length > 1)))) {
                     temp_data.mg = [...temp_data.mg, ...mg]
-                }
-                else {
+                } else {
                     if (d.type === 2 && ctx.startPayload) {
                         // see https://core.telegram.org/bots/api#inlinekeyboardbutton
                         // Especially useful when combined with switch_pm… actions – in this case the user will be automatically returned to the chat they switched from, skipping the chat selection screen.
@@ -403,7 +400,7 @@ async function tg_sender(ctx) {
                             }
                             await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, extra)
                         } else {
-                            temp_data.mg = [...temp_data.mg, ...mg_albumize(mg)]
+                            temp_data.mg = [...temp_data.mg, ...mg_albumize(mg, ctx.flag.album_same)]
                         }
                     } else if (d.type === 2) {
                         bot.telegram.sendChatAction(chat_id, 'upload_video')
@@ -462,7 +459,7 @@ async function tg_sender(ctx) {
             }
         } else {
             if (ctx.flag.album) {
-                temp_data.mg = mg_albumize(temp_data.mg, ctx.flag.single_caption)
+                temp_data.mg = mg_albumize(temp_data.mg, ctx.flag.album_same, ctx.flag.single_caption)
             }
             if (temp_data.mg.length > 0) {
                 let extra = default_extra
@@ -583,7 +580,7 @@ db.db_initial().then(async () => {
         }
     }
     await bot.launch().then(async () => {
-        console.log(new Date(), 'bot started!')
+        console.log(new Date(), `bot @${bot.botInfo.username} started!`)
         bot.telegram.sendMessage(config.tg.master_id, `${new Date().toString()} bot started!`)
     }).catch((e) => {
         console.error('You are offline or bad bot token', e)
@@ -707,8 +704,9 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
         return false
     }
     bot.telegram.sendChatAction(chat_id, 'upload_photo').catch()
+    let raw_photo_url = photo_urls.shift()
+    let photo_url = raw_photo_url
     try {
-        let photo_url = photo_urls.shift()
         if (photo_url.substr(0, 3) === 'dl-') {
             photo_url = {
                 source: await download_file(photo_url.substr(3))
@@ -719,7 +717,7 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
         let status = await catchily(e, chat_id, language_code)
         if (status) {
             if (status === 'redo') {
-                photo_urls.unshift(photo_url)
+                photo_urls.unshift(raw_photo_url)
             }
             return await sendPhotoWithRetry(chat_id, language_code, photo_urls, extra)
         } else {

@@ -51,16 +51,55 @@ export async function mg_create(illust, flag, url = false) {
     honsole.dev('mg_create', mediagroups)
     return mediagroups
 }
-export function mg_albumize(mg, single_caption = false) {
+export function mg_albumize(mg = [], same = false, single_caption = false) {
     // 10 item to a group
     let t = []
+    let split_i = 10
+    // if (mg.length > 10 && mg.length < 100) {
+    //     12 = 6 + 6 
+    //     14 = 7 + 7
+    //     21 = 7 + 7 + 7
+    //     16 = 8 + 8
+    //     24 = 8 + 8 + 8
+    //     32 = 8 + 8 + 8 + 8
+    //     48 = 8 + 8 + 8 + 8 + 8
+    //     18 = 9 + 9
+    //     27 = 9 + 9 + 9
+    //     36 = 9 + 9 + 9 + 9
+    // }
+    // maybe with image ratio to split
+    // so it disabled by default (album_same)
+    // some image is not square | width > height /2 | height > width /2
+    if (same) {
+        switch (mg.length) {
+            case 12:
+                split_i = 6
+                break
+            case 14:
+            case 21:
+                split_i = 7
+                break
+            case 16:
+            case 24:
+            case 32:
+            case 48:
+                split_i = 8
+                break
+            case 18:
+            case 27:
+            case 36:
+                split_i = 9
+            // default:
+            //     break;
+        }
+    }
     mg.forEach((m, mid) => {
-        let gid = Math.floor(mid / 10)
-        let id = mid % 10
+        let gid = Math.floor(mid / split_i)
+        let id = mid % split_i
         if (!t[gid]) {
             t[gid] = []
         }
-        m.caption = m.caption.replaceAll('%mid%', mid % 10 + 1)
+        m.caption = m.caption.replaceAll('%mid%', mid % split_i + 1)
         // So It's doesn't support | prefix
         t[gid][id] = {
             ...m,
