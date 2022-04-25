@@ -642,7 +642,7 @@ async function catchily(e, chat_id, language_code = 'en') {
                 if (config.tg.refetch_api && photo_urls) {
                     try {
                         await axios.post(config.tg.refetch_api, {
-                            url: photo_urls.join('\n')
+                            url: photo_urls.join('\n').replaceAll('i.pximg.net','i-cf.pximg.net')
                         })
                         honsole.log('[ok] fetch new url(s)', photo_urls)
                     } catch (error) {
