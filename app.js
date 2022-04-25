@@ -356,7 +356,10 @@ async function tg_sender(ctx) {
                     bot.telegram.sendChatAction(chat_id, 'upload_document')
                     let extra = {
                         ...default_extra,
-                        caption: o.caption.replaceAll('%mid%', '')
+                        caption: o.caption.replaceAll('%mid%', ''),
+                        thumb: {
+                            url: o.media_r
+                        }
                     }
                     if (mg.type === 'video') {
                         o.media_o = await ugoira_to_mp4(mg.id)
@@ -364,7 +367,14 @@ async function tg_sender(ctx) {
                     await bot.telegram.sendDocument(chat_id, o.media_o, extra).catch(async (e) => {
                         if (await catchily(e, chat_id, ctx.l)) {
                             if (d.type <= 2) {
-                                await bot.telegram.sendDocument(chat_id, { source: await download_file(o.media_o, o.id) }, { ...extra, thumb: { source: await download_file(o.media_r ? o.media_r : o.media_o, o.id) } }).catch(async (e) => {
+                                await bot.telegram.sendDocument(chat_id, {
+                                    source: await download_file(o.media_o, o.id)
+                                }, {
+                                    ...extra,
+                                    thumb: {
+                                        source: await download_file(o.media_r ? o.media_r : o.media_o, o.id)
+                                    }
+                                }).catch(async (e) => {
                                     if (await catchily(e, chat_id, ctx.l)) {
                                         await bot.telegram.sendMessage(chat_id, _l(ctx.l, 'file_too_large', o.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)), default_extra)
                                     }
@@ -642,7 +652,7 @@ async function catchily(e, chat_id, language_code = 'en') {
                 if (config.tg.refetch_api && photo_urls) {
                     try {
                         await axios.post(config.tg.refetch_api, {
-                            url: photo_urls.join('\n').replaceAll('i.pximg.net','i-cf.pximg.net')
+                            url: photo_urls.join('\n')
                         })
                         honsole.log('[ok] fetch new url(s)', photo_urls)
                     } catch (error) {

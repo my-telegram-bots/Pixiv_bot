@@ -88,9 +88,9 @@ export async function thumb_to_all(illust, try_time = 0) {
             }]
         }
         await asyncForEach(illust.page, async (l, i) => {
-            imgs_.thumb_urls[i] = l.urls.thumb
-            imgs_.regular_urls[i] = l.urls.regular
-            imgs_.original_urls[i] = l.urls.original
+            imgs_.thumb_urls[i] = l.urls.thumb.replace('i.pximg.net', 'i-cf.pximg.net')
+            imgs_.regular_urls[i] = l.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net')
+            imgs_.original_urls[i] = l.urls.original.replace('i.pximg.net', 'i-cf.pximg.net')
             imgs_.size[i] = {
                 width: l.width,
                 height: l.height
@@ -383,7 +383,7 @@ export async function head_url(url, try_time = 0) {
     try {
         // original may be a .png file
         // send head reqeust to check.
-        honsole.log('trying', try_time, url)
+        honsole.log('[head_url] trying', try_time, url)
         let res = await axios({
             url: url,
             method: try_time > 1 ? 'GET' : 'HEAD',
@@ -410,6 +410,7 @@ export async function head_url(url, try_time = 0) {
             // timeout
             // 文件太大了，以程序行为，没有统计大小的必要了
             if (error.code === 'ECONNABORTED') {
+                honsole.log('[head_url] timeout', url)
                 return 9999999
             }
         }

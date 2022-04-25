@@ -27,7 +27,7 @@ export async function handle() {
  * mkdir
  * @param {*} path
  */
-export async function mkdir(path) {
+export function mkdir(path) {
     try {
         fs.mkdirSync(path)
     }

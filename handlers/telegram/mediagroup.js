@@ -27,8 +27,7 @@ export async function mg_create(illust, flag, url = false) {
             if (illust.tg_file_id) {
                 if (typeof illust.tg_file_id == 'string') {
                     mediagroup_data.media_t = illust.tg_file_id
-                }
-                else {
+                } else {
                     mediagroup_data.media_t = illust.tg_file_id[pid]
                 }
             }
@@ -36,8 +35,7 @@ export async function mg_create(illust, flag, url = false) {
                 mediagroup_data.fsize = illust.imgs_.fsize[pid]
                 mediagroup_data.media_o = illust.imgs_.original_urls[pid]
                 mediagroup_data.media_r = illust.imgs_.regular_urls[pid]
-            }
-            else if (illust.type == 2) {
+            } else if (illust.type == 2) {
                 mediagroup_data = {
                     ...mediagroup_data,
                     type: 'video',

@@ -28,7 +28,7 @@ export async function mg2telegraph(mg, title, user_id, author_name, author_url) 
             if (d.type == 'video') {
                 url = await ugoira_to_mp4(d.id)
             }
-            url = url.replace('i-cf.pximg.net', config.pixiv.pximgproxy)
+            url = url.replace('i-cf.pximg.net', config.pixiv.pximgproxy).replace('i.pximg.net', config.pixiv.pximgproxy)
             // caption = '' = -> muilt images
             if (d.caption == '') {
                 t_data[t_data_id].content.push({
