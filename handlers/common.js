@@ -1,4 +1,4 @@
-import { default as axios } from 'axios'
+import axios from 'axios'
 import config from '../config.js'
 import fs from 'fs'
 import { _l } from './telegram/i18n.js'
@@ -73,11 +73,13 @@ export async function download_file(url, id, force = false, try_time = 0) {
     }
     try {
         dw_queue_list.push(url)
-        fs.writeFileSync(`./tmp/file/${filename}`, (await axios.get(url, {
+        fs.writeFileSync(`./tmp/file/${filename}`, (await axios({
+            url: url,
+            method: 'GET',
             responseType: 'arraybuffer',
             headers: {
                 'User-Agent': config.pixiv.ua,
-                // Refer policy only domain
+                // Referer policy only include domain/
                 'Referer': 'https://www.pixiv.net/'
             }
         })).data)

@@ -56,6 +56,7 @@ See my another repo: [makeding/WebpageBot-api](https://github.com/makeding/Webpa
     3. create pull request
 
 ## todolist
+- cache control (./tmp) to instead of cleanner.sh
 - subscribe (10%)
 - error handle (50%)
 - web version (5%)

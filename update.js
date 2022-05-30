@@ -150,7 +150,49 @@ async function update_ugoira_1st_image_url() {
     })
     process.exit()
 }
+// async function update_pximg_hostname() {
+//     await db.db_initial()
+//     let d = (await db.collection.illust.find({}).toArray())
+//     console.log('load illusts from local database', d.length)
+//     await asyncForEach(d, async (illust, i) => {
+//         if (illust.type == 1) {
 
+//         }
+//     })
+//     process.exit()
+// }
+
+async function set_storage_endpoint_for_ugoira_illust() {
+    if (!process.argv[3] || !process.argv[4]) {
+        console.log('usage set_storage_endpoint_for_ugoira_illust <endpoint filename txt> <endpoint name>')
+        process.exit()
+    }
+    // ls mp4/* > output.txt or another way, one line one illust id
+    let lsoutput = fs.readFileSync(process.argv[3], 'utf8')
+    let endpoint_name = process.argv[4]
+    // gets id (remove .mp4)
+    //                                               NaN LOL
+    let endpoint_ids = lsoutput.split('\n').map(x => parseInt(x.split('.')[0]))
+    await db.db_initial()
+    console.log('loading illusts from local database')
+    let d = (await db.collection.illust.find({
+        type: 2
+    }).toArray())
+    console.log('load ugroia illusts from local database', d.length)
+    await asyncForEach(d, async (illust, i) => {
+        if (endpoint_ids.includes(illust.id)) {
+            await db.collection.illust.updateOne({
+                id: illust.id
+            }, {
+                $set: {
+                    'storage_endpoint': endpoint_name
+                }
+            })
+            console.log('set', i, illust.id, illust.storage_endpoint)
+        }
+    })
+    process.exit()
+}
 try {
     // just some expliot ? LOL
     eval(process.argv[2] + '()')

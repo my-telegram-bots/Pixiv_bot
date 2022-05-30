@@ -44,8 +44,7 @@ export function get_pixiv_ids(text) {
                 if (u.length > 7 && !isNaN(parseInt(u.replace('#', '').replace('id=', '').replace('id', '')))) {
                     // match #idxxxxxxx #xxxxxxx
                     ids.illust.push(parseInt(u.replace('#', '').replace('id', '').replace('=', '')))
-                }
-                else {
+                } else {
                     throw 'switch to general id matcher'
                 }
             }
@@ -242,8 +241,7 @@ export async function flagger(bot, ctx) {
 }
 export async function handle_new_configuration(bot, ctx, default_extra) {
     if (ctx.chat && ctx.chat.type === 'channel') {
-    }
-    else if (ctx.message.sender_chat) {
+    } else if (ctx.message.sender_chat) {
         // chat -> link message
         return
     }
@@ -278,8 +276,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
             console.log(e)
         })
         return
-    }
-    else {
+    } else {
         if (ctx.text == '/s reset') {
             await db.delete_setting(ctx.chat.id)
             await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_reset'), default_extra)
@@ -294,8 +291,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
                 await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error'))
                 honsole.warn('parse base64 configuration failed', ctx.text, error)
             }
-        }
-        else if (ctx.text.length > 2 && (ctx.text.includes('+') || ctx.text.includes('-') || ctx.flag.value_update_flag)) {
+        } else if (ctx.text.length > 2 && (ctx.text.includes('+') || ctx.text.includes('-') || ctx.flag.value_update_flag)) {
             new_setting = {
                 default: ctx.flag
             }
@@ -304,8 +300,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
             honsole.log(new_setting)
             if (await db.update_setting(new_setting, ctx.chat.id, ctx.flag)) {
                 await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_saved'), default_extra)
-            }
-            else {
+            } else {
                 await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error'), default_extra)
             }
         }
