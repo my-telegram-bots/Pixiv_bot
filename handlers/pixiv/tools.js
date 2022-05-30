@@ -120,7 +120,7 @@ export async function thumb_to_all(illust, try_time = 0) {
  * @returns url
  */
 export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
-    const id = illust.id || illust
+    const id = illust.id ? parseInt(illust.id) : parseInt(illust)
     let final_path = get_ugoira_path(id, 'mp4')
     let no_tmp_path = final_path.replace('tmp/', '')
 
@@ -135,7 +135,6 @@ export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
         return false
     }
 
-    id = parseInt(id)
     // simple queue
     if (ugoira_mp4_queue_list.length > 4 || ugoira_mp4_queue_list.includes(id)) {
         await sleep(1000)
@@ -181,12 +180,7 @@ export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
         // add some code send file to some endpoints
         // lazy....
         // so u need commit this file when pull and diff changes
-        axios.post('http://192.168.191.71/ugoira/fetch.php', {
-            data: fs.readFileSync(final_path).toString("hex"),
-            filename: no_tmp_path,
-        }).then(x => {
-            console.log('to lu', x.data)
-        })
+
     } catch (error) {
         honsole.warn(error)
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
