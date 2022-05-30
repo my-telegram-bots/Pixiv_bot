@@ -59,7 +59,7 @@ export async function handle_illust(id, flag) {
                 ...k_os(illust.id, flag)
             }
         } else {
-            ugoira_to_mp4(illust.id)
+            ugoira_to_mp4(illust)
         }
     }
     return illust

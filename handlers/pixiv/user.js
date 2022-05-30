@@ -96,7 +96,7 @@ export async function get_user_illusts(author_id, page = 0, try_time = 0) {
         }
         await asyncForEach(illusts, async (illust, id) => {
             if (illust.type == 2) {
-                ugoira_to_mp4(illust.id)
+                ugoira_to_mp4(illust)
             }
             if (illust.flag) {
                 honsole.log('test', illust)

@@ -7,7 +7,7 @@ export async function mg_create(illust, flag, url = false) {
     let mediagroups = []
     if (illust) {
         if (illust.type == 2) {
-            ugoira_to_mp4(illust.id)
+            ugoira_to_mp4(illust)
         }
         await asyncForEach(illust.imgs_.size, async (size, pid) => {
             let mediagroup_data = {
@@ -39,7 +39,7 @@ export async function mg_create(illust, flag, url = false) {
                 mediagroup_data = {
                     ...mediagroup_data,
                     type: 'video',
-                    media: await detect_ugpira_url(illust.id, 'mp4'),
+                    media: await detect_ugpira_url(illust, 'mp4'),
                     media_o: detect_ugpira_file(illust.id, 'mp4')
                 }
             }
@@ -149,14 +149,12 @@ export async function mg_filter(mg, type = 't') {
         }
         if (x.media) {
             xx.media = x.media
-        }else {
+        } else {
             xx.media = x.media_t ? x.media_t : x.media_o
         }
         if (x.type == 'video') {
             // nothing download in ugoira
-            xx.media = {
-                url: await ugoira_to_mp4(x.id)
-            }
+            xx.media = { ...x.media }
             if (type.includes('dl') || type.includes('r')) {
                 xx.media.url = `${xx.media.url}?${+new Date()}`
             }

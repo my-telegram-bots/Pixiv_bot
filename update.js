@@ -188,7 +188,7 @@ async function set_storage_endpoint_for_ugoira_illust() {
                     'storage_endpoint': endpoint_name
                 }
             })
-            console.log('set', i, illust.id, illust.storage_endpoint)
+            console.log('set', i, illust.id, endpoint_name)
         }
     })
     process.exit()

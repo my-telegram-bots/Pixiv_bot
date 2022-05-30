@@ -119,11 +119,12 @@ export async function thumb_to_all(illust, try_time = 0) {
  * @param {*} force ignore exist file
  * @returns url
  */
-export async function ugoira_to_mp4(id, force = false, retry_time = 0) {
+export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
+    const id = illust.id || illust
     let final_path = get_ugoira_path(id, 'mp4')
     let no_tmp_path = final_path.replace('tmp/', '')
 
-    let final_url = await detect_ugpira_url(id, 'mp4')
+    let final_url = await detect_ugpira_url(illust, 'mp4')
 
     if (!force && final_url) {
         return final_url
@@ -170,12 +171,22 @@ export async function ugoira_to_mp4(id, force = false, retry_time = 0) {
         fs.copyFileSync(`./tmp/ugoira/${id}/${(ud.frames.length - 1).toString().padStart(6, 0)}.jpg`, `./tmp/ugoira/${id}/${(ud.frames.length).toString().padStart(6, 0)}.jpg`)
         // step1 jpg -> mp4 (no fps metadata)
         // thanks https://stackoverflow.com/questions/28086775/can-i-create-a-vfr-video-from-timestamped-images
+        // need add metadata?
         await exec(`ffmpeg -y -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
         // step2 add fps metadata via mp4fpsmod
         await exec(`mp4fpsmod -o ${final_path} -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
 
         clean_ugoira_cache(id)
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
+        // add some code send file to some endpoints
+        // lazy....
+        // so u need commit this file when pull and diff changes
+        axios.post('http://192.168.191.71/ugoira/fetch.php', {
+            data: fs.readFileSync(final_path).toString("hex"),
+            filename: no_tmp_path,
+        }).then(x => {
+            console.log('to lu', x.data)
+        })
     } catch (error) {
         honsole.warn(error)
         ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
@@ -232,22 +243,24 @@ export function get_ugoira_path(id, type = 0, prefix = 'tmp/') {
 
 /**
  * detect ugoira file url
- * @param {*} id 
+ * @param {*} illust or id
  * @param {0,1,2,3,mp4,gif-medium,gif-large} type
- * @param {*} prefix 
  * @returns 
  */
-export async function detect_ugpira_url(id, type = 0) {
+export async function detect_ugpira_url(illust, type = 0) {
+    const id = illust.id || illust
     let final_path = get_ugoira_path(id, type)
     let no_tmp_path = final_path.replace('tmp/', '')
     // 但愿在有生之年不会爆炸
     // if (!isNaN(parseInt(path))) {
     //     path = get_ugoira_path(path, type)
     // }
+    if (illust.storage_endpoint && (type === 0 || type === 'mp4')) {
+
+    }
     if (fs.existsSync(final_path)) {
         return `${config.pixiv.ugoiraurl}${no_tmp_path}`
-    }
-    else {
+    } else {
         return null
     }
 }
@@ -290,7 +303,8 @@ export async function clean_ugoira_cache(id = '1') {
  * @param {number} real_width
  * @param {number} real_height
  */
-export async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_height = 0, force = false, retry_time = 0) {
+export async function ugoira_to_gif(illust, quality = 'large', real_width = 0, real_height = 0, force = false, retry_time = 0) {
+    const id = illust.id || illust
     let height = 0
     let width = 0
     // large also = origin (maybe)
@@ -313,7 +327,7 @@ export async function ugoira_to_gif(id, quality = 'large', real_width = 0, real_
     }
     ugoira_gif_queue_list.push(id)
     let mp4_path = null
-    let mp4_url = await ugoira_to_mp4(id)
+    let mp4_url = await ugoira_to_mp4(illust)
     // check resouce is local
     if (mp4_url.startsWith(config.pixiv.ugoiraurl)) {
         mp4_path = get_ugoira_path(id, 'mp4')

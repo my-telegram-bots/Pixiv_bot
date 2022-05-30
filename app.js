@@ -426,7 +426,7 @@ async function tg_sender(ctx) {
                                 }
                             } else {
                                 media = {
-                                    url: await ugoira_to_mp4(d.id)
+                                    url: await ugoira_to_mp4(d)
                                 }
                             }
                         }
