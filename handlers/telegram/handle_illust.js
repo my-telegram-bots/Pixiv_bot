@@ -46,16 +46,23 @@ export async function handle_illust(id, flag) {
                 ...k_os(illust.id, flag)
             }
         })
-    }
-    else if (illust.type == 2) {
+    } else if (illust.type == 2) {
         // inline + ugoira 只有在现存动图的情况下有意义
-        if (illust.tg_file_id) {
+        if (illust.tg_file_id || illust.storage_endpoint) {
+            let options = {}
+            if (illust.tg_file_id) {
+                options.mpeg4_file_id = illust.tg_file_id
+            } else if (illust.storage_endpoint) {
+                options.mpeg4_url = await ugoira_to_mp4(illust)
+                // too large
+                options.thumb_url = illust.imgs_.cover_img_url
+            }
             illust.inline[0] = {
                 type: 'mpeg4_gif',
                 id: 'p' + illust.id,
-                mpeg4_file_id: illust.tg_file_id,
                 caption: format(illust, flag, 'inline', 1),
                 parse_mode: 'MarkdownV2',
+                ...options,
                 ...k_os(illust.id, flag)
             }
         } else {
