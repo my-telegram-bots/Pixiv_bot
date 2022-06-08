@@ -202,7 +202,7 @@ export async function flagger(bot, ctx) {
         let { title, author_name, author_url } = get_values(ctx.text.substr(0, 3) == '/s ' ? ctx.text.replace('/s ', '') : ctx.text)
         let v = {}
         if (title && title.length >= 256) {
-            bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_title_too_long'), {
+            bot.api.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_title_too_long'), {
                 ...default_extra,
                 reply_to_message_id: ctx.message.message_id
             })
@@ -215,7 +215,7 @@ export async function flagger(bot, ctx) {
             }
         }
         catch (error) {
-            bot.telegram.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_author'), {
+            bot.api.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_author'), {
                 ...default_extra,
                 reply_to_message_id: ctx.message.message_id
             })
@@ -247,9 +247,9 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
     }
     //                                     1087968824 is a anonymous admin account
     else if (ctx.chat.id < 0 && ctx.from.id !== 1087968824) {
-        let u = await bot.telegram.getChatMember(ctx.chat.id, ctx.from.id)
+        let u = await bot.api.getChatMember(ctx.chat.id, ctx.from.id)
         if (u.status !== 'administrator' && u.status !== 'creator') {
-            await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_administrator'), default_extra)
+            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_administrator'), default_extra)
             return
         }
     }
@@ -266,7 +266,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         // alert who open old config (based on configuration generate time)
         ctx.flag.setting.time = +new Date()
         delete ctx.flag.setting.dbless
-        await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_open_link'), {
+        await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_open_link'), {
             ...default_extra,
             ...Markup.inlineKeyboard([
                 Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', '').replace('/undefined', ''))
@@ -279,7 +279,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
     } else {
         if (ctx.text == '/s reset') {
             await db.delete_setting(ctx.chat.id)
-            await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_reset'), default_extra)
+            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_reset'), default_extra)
             return
         }
         let new_setting = {}
@@ -288,7 +288,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
                 new_setting = JSON.parse(Buffer.from(ctx.text, 'base64').toString('utf8'))
             } catch (error) {
                 // message type is doesn't base64
-                await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error'))
+                await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error'))
                 honsole.warn('parse base64 configuration failed', ctx.text, error)
             }
         } else if (ctx.text.length > 2 && (ctx.text.includes('+') || ctx.text.includes('-') || ctx.flag.value_update_flag)) {
@@ -299,9 +299,9 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         if (JSON.stringify(new_setting).length > 2) {
             honsole.log(new_setting)
             if (await db.update_setting(new_setting, ctx.chat.id, ctx.flag)) {
-                await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_saved'), default_extra)
+                await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_saved'), default_extra)
             } else {
-                await bot.telegram.sendMessage(ctx.chat.id, _l(ctx.l, 'error'), default_extra)
+                await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error'), default_extra)
             }
         }
         return

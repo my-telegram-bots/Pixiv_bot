@@ -13,7 +13,13 @@
     "web": "node web.js"
   },
   "dependencies": {
+    "@grammyjs/runner": "^1.0.3",
+    "@grammyjs/transformer-throttler": "^1.1.2",
     "axios": "^0.26.1",
+    "grammy": "^1.8.3",
+    "koa": "^2.13.4",
+    "koa-bodyparser": "^4.3.0",
+    "koa-router": "^10.1.1",
     "mongodb": "^4.4.1",
     "telegraf": "^4.7.0"
   }

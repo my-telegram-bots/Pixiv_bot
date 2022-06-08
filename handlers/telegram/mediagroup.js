@@ -154,9 +154,9 @@ export async function mg_filter(mg, type = 't') {
         }
         if (x.type == 'video') {
             // nothing download in ugoira
-            xx.media = { ...x.media }
+            xx.media = x.media
             if (type.includes('dl') || type.includes('r')) {
-                xx.media.url = `${xx.media.url}?${+new Date()}`
+                xx.media = `${xx.media}?${+new Date()}`
             }
         } else {
             if (type.includes('o')) {
