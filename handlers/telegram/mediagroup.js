@@ -2,6 +2,7 @@ import { format } from './format.js'
 import { asyncForEach, download_file, honsole } from '../common.js'
 import config from '../../config.js'
 import { detect_ugpira_file, detect_ugpira_url, ugoira_to_mp4 } from '../pixiv/tools.js'
+import { InputFile } from 'grammy'
 const { ugoiraurl } = config.pixiv
 export async function mg_create(illust, flag, url = false) {
     let mediagroups = []
@@ -171,7 +172,7 @@ export async function mg_filter(mg, type = 't') {
             if (type.includes('dl') && !x.media_t) {
                 // dlo => download media_o file
                 // dlr => download media_r file
-                xx.media = await download_file(x['media_' + type.replace('dl', '')])
+                xx.media = new InputFile(await download_file(x['media_' + type.replace('dl', '')]))
             } else if (type == 'r') {
                 xx.media = x.media_r ? x.media_r : x.media_o
             }

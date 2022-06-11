@@ -8,6 +8,8 @@ import { tgBot as bot } from './bot.js'
 import axios from 'axios'
 import { InputFile } from 'grammy'
 
+
+// step 0 initial some necessary variables
 bot.use(async (ctx, next) => {
     // simple i18n
     ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code
@@ -89,6 +91,7 @@ bot.command('id', async (ctx) => {
     })
 })
 
+// step1 initial config
 bot.use(async (ctx, next) => {
     let configuration_mode = false
     if ((ctx.command === 's' || ctx.text.substring(0, 3) === 'eyJ') ||
@@ -149,16 +152,16 @@ bot.on('callback_query', async (ctx) => {
                 }
             }
         } else {
-            await ctx.answerCbQuery(reescape_strings(_l(ctx.l, 'error_not_a_gc_administrator')), {
+            await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error_not_a_gc_administrator')), {
                 show_alert: true
             })
             return
         }
     }
     if (apply_flag) {
-        ctx.answerCbQuery(reescape_strings(_l(ctx.l, 'saved')))
+        ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'saved')))
     } else {
-        ctx.answerCbQuery(reescape_strings(_l(ctx.l, 'error')))
+        ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error')))
     }
 })
 
@@ -288,12 +291,6 @@ bot.on(':text', async (ctx) => {
  */
 async function tg_sender(ctx) {
     let chat_id = ctx.chat_id || ctx.message.chat.id
-    //if (chating_list.includes(chat_id)) {
-    //    await sleep(3000)
-    //    return tg_sender(ctx)
-    //} else {
-    //    chating_list.push(chat_id)
-    //}
     let user_id = ctx.user_id || ctx.from.id
     let text = ctx.text || ''
     let default_extra = ctx.default_extra
@@ -330,8 +327,7 @@ async function tg_sender(ctx) {
     }
     if (illusts.length > 0) {
         await asyncForEach(illusts, async (illust) => {
-            let d = illust
-            if (d === 404) {
+            if (illust === 404) {
                 if (chat_id > 0) {
                     await bot.api.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra)
                     return
@@ -339,7 +335,7 @@ async function tg_sender(ctx) {
             }
             // telegraph
             ctx.flag.q_id += 1
-            let mg = await mg_create(d, ctx.flag)
+            let mg = await mg_create(illust, ctx.flag)
             // send as file
             if (ctx.flag.asfile) {
                 await asyncForEach(mg, async (o) => {
@@ -359,7 +355,7 @@ async function tg_sender(ctx) {
                     }
                     await bot.api.sendDocument(chat_id, o.media_o, extra).catch(async (e) => {
                         if (await catchily(e, chat_id, ctx.l)) {
-                            if (d.type <= 2) {
+                            if (illust.type <= 2) {
                                 await bot.api.sendDocument(chat_id, new InputFile(await download_file(o.media_o, o.id)), {
                                     ...extra,
                                     thumb: new InputFile(await download_file(o.media_r ? o.media_r : o.media_o, o.id))
@@ -375,10 +371,10 @@ async function tg_sender(ctx) {
                     })
                 })
             } else {
-                if (ctx.flag.telegraph || (ctx.flag.album && (ids.illust.length > 1 || (d.imgs_ && d.imgs_.size.length > 1)))) {
+                if (ctx.flag.telegraph || (ctx.flag.album && (ids.illust.length > 1 || (illust.imgs_ && illust.imgs_.size.length > 1)))) {
                     temp_data.mg = [...temp_data.mg, ...mg]
                 } else {
-                    if (d.type === 2 && ctx.match) {
+                    if (illust.type === 2 && ctx.match) {
                         // see https://core.telegram.org/bots/api#inlinekeyboardbutton
                         // Especially useful when combined with switch_pm… actions – in this case the user will be automatically returned to the chat they switched from, skipping the chat selection screen.
                         // So we need inline share button to switch chat window even if user don't want share button
@@ -387,9 +383,9 @@ async function tg_sender(ctx) {
                     let extra = {
                         ...default_extra,
                         caption: mg[0].caption.replaceAll('%mid%', ''),
-                        ...k_os(d.id, ctx.flag)
+                        ...k_os(illust.id, ctx.flag)
                     }
-                    if (d.type <= 1) {
+                    if (illust.type <= 1) {
                         if (mg.length === 1) {
                             let photo_urls = [mg[0].media_o, `dl-${mg[0].media_o}`, mg[0].media_r, `dl-${mg[0].media_r}`]
                             // Telegram will download and send the file. 5 MB max size for photos
@@ -401,14 +397,14 @@ async function tg_sender(ctx) {
                         } else {
                             temp_data.mg = [...temp_data.mg, ...mg_albumize(mg, ctx.flag.album_same)]
                         }
-                    } else if (d.type === 2) {
+                    } else if (illust.type === 2) {
                         bot.api.sendChatAction(chat_id, 'upload_video')
                         let media = mg[0].media_t
                         if (!media) {
                             if (mg[0].media_o) {
                                 media = mg[0].media_o
                             } else {
-                                media = await ugoira_to_mp4(d)
+                                media = await ugoira_to_mp4(illust)
                             }
                         }
                         if (media.includes('tmp/')) {
@@ -416,10 +412,10 @@ async function tg_sender(ctx) {
                         }
                         await bot.api.sendAnimation(chat_id, media, extra).then(async (data) => {
                             // save ugoira file_id and next time bot can reply without send file
-                            if (!d.tg_file_id && data.document) {
+                            if (!illust.tg_file_id && data.document) {
                                 let col = db.collection.illust
                                 await col.updateOne({
-                                    id: d.id
+                                    id: illust.id
                                 }, {
                                     $set: {
                                         tg_file_id: data.document.file_id
@@ -480,6 +476,7 @@ async function tg_sender(ctx) {
             }
         }
     }
+
     if (ids.novel.length > 0) {
         await asyncForEach(ids.novel, async (id) => {
             bot.api.sendChatAction(chat_id, 'typing')
@@ -494,7 +491,6 @@ async function tg_sender(ctx) {
     if (text.includes('fanbox.cc/') && chat_id > 0) {
         await bot.api.sendMessage(chat_id, _l(ctx.l, 'fanbox_not_support'), default_extra)
     }
-    // chating_list.splice(chating_list.indexOf(chat_id), 1)
     return true
 }
 
@@ -650,8 +646,7 @@ async function catchily(e, chat_id, language_code = 'en') {
                 }
             }
         }
-    }
-    catch (error) {
+    } catch (error) {
         console.warn(error)
         return false
     }
@@ -707,7 +702,7 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
     let photo_url = raw_photo_url
     try {
         if (photo_url.substring(0, 3) === 'dl-') {
-            photo_url = await download_file(photo_url.substring(3))
+            photo_url = new InputFile(await download_file(photo_url.substring(3)))
         }
         return await bot.api.sendPhoto(chat_id, photo_url, extra)
     } catch (e) {

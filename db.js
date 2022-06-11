@@ -68,8 +68,8 @@ export async function update_setting(value, chat_id, flag) {
         }
         for (let i in value) {
             // only match add_ and del_ prefix
-            let action = i.substr(0, 3)
-            let ii = i.substr(4)
+            let action = i.substring(0, 3)
+            let ii = i.substring(4)
             let v = null
             let index = null
             // time based value
