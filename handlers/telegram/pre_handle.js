@@ -199,7 +199,7 @@ export async function flagger(bot, ctx) {
         ctx.flag.open = ctx.flag.share = false
     }
     if (ctx.message) {
-        let { title, author_name, author_url } = get_values(ctx.text.substr(0, 3) == '/s ' ? ctx.text.replace('/s ', '') : ctx.text)
+        let { title, author_name, author_url } = get_values(ctx.text.substring(0, 3) == '/s ' ? ctx.text.replace('/s ', '') : ctx.text)
         let v = {}
         if (title && title.length >= 256) {
             bot.api.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_title_too_long'), {
@@ -283,7 +283,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
             return
         }
         let new_setting = {}
-        if (ctx.text.substr(0, 3) == 'eyJ') {
+        if (ctx.text.substring(0, 3) == 'eyJ') {
             try {
                 new_setting = JSON.parse(Buffer.from(ctx.text, 'base64').toString('utf8'))
             } catch (error) {

@@ -6,6 +6,7 @@ import { update_setting } from './db.js'
 const { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, download_file, _l, k_os, k_link_setting, mg_create, mg_albumize, mg_filter, mg2telegraph, flagger, honsole, handle_new_configuration, exec, sleep, reescape_strings, get_ugoira_path } = handlers
 import { tgBot as bot } from './bot.js'
 import axios from 'axios'
+import { InputFile } from 'grammy'
 
 bot.use(async (ctx, next) => {
     // simple i18n
@@ -21,7 +22,7 @@ bot.use(async (ctx, next) => {
                 ctx.text = ctx.message.text
                 ctx.stext = ctx.message.text.split(' ')
                 if (ctx.message.entities && ctx.message.entities.length > 0) {
-                    ctx.command = ctx.message.text.substr(1, ctx.message.entities[0].length - 1)
+                    ctx.command = ctx.message.text.substring(1, ctx.message.entities[0].length - 1)
                 }
                 if (ctx.stext[0].includes('@')) {
                     let at = ctx.stext[0].split('@')
@@ -90,8 +91,8 @@ bot.command('id', async (ctx) => {
 
 bot.use(async (ctx, next) => {
     let configuration_mode = false
-    if ((ctx.command === 's' || ctx.text.substr(0, 3) === 'eyJ') ||
-        (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.from.id === bot.botInfo.id && ctx.message.reply_to_message.text.substr(0, 5) === '#link')) {
+    if ((ctx.command === 's' || ctx.text.substring(0, 3) === 'eyJ') ||
+        (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.from.id === bot.botInfo.id && ctx.message.reply_to_message.text.substring(0, 5) === '#link')) {
         configuration_mode = true
     }
     ctx.ids = get_pixiv_ids(ctx.text)
@@ -209,12 +210,12 @@ bot.command('link', async (ctx) => {
 bot.on(':text', async (ctx) => {
     let chat_id = ctx.chat_id
     let user_id = ctx.user_id
-    if (ctx.command === 's' || ctx.text.substr(0, 3) === 'eyJ') {
+    if (ctx.command === 's' || ctx.text.substring(0, 3) === 'eyJ') {
         await handle_new_configuration(bot, ctx, ctx.default_extra)
         return
     }
     // @link
-    if (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.text && ctx.message.reply_to_message.text.substr(0, 5) === '#link') {
+    if (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.text && ctx.message.reply_to_message.text.substring(0, 5) === '#link') {
         if (ctx.from.id === 1087968824) {
             await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
         }
@@ -281,7 +282,6 @@ bot.on(':text', async (ctx) => {
     return
 })
 
-let chating_list = []
 /**
  * build ctx object can send illust / novel manually (subscribe / auto push)
  * @param {*} ctx
@@ -305,8 +305,9 @@ async function tg_sender(ctx) {
     }
     let ids = ctx.ids
     let illusts = []
+    // fetch authors' all illusts
+    // alpha version (owner only)
     if (ids.author.length > 0) {
-        // alpha version (owner only)
         if (user_id === config.tg.master_id) {
             bot.api.sendChatAction(chat_id, 'typing')
             await asyncForEach(ids.author, async (id) => {
@@ -336,6 +337,7 @@ async function tg_sender(ctx) {
                     return
                 }
             }
+            // telegraph
             ctx.flag.q_id += 1
             let mg = await mg_create(d, ctx.flag)
             // send as file
@@ -345,23 +347,22 @@ async function tg_sender(ctx) {
                     let extra = {
                         ...default_extra,
                         caption: o.caption.replaceAll('%mid%', ''),
-                        thumb: {
-                            url: o.media_r
-                        }
+                        thumb: o.media_r
                     }
                     if (mg.type === 'video') {
-                        o.media_o = await ugoira_to_mp4(mg.id)
+                        if (!o.media_o) {
+                            o.media_o = await ugoira_to_mp4(mg.id)
+                        }
+                        if (!o.media_o.includes('https://')) {
+                            o.media_o = new InputFile(o.media_o)
+                        }
                     }
                     await bot.api.sendDocument(chat_id, o.media_o, extra).catch(async (e) => {
                         if (await catchily(e, chat_id, ctx.l)) {
                             if (d.type <= 2) {
-                                await bot.api.sendDocument(chat_id, {
-                                    source: await download_file(o.media_o, o.id)
-                                }, {
+                                await bot.api.sendDocument(chat_id, new InputFile(await download_file(o.media_o, o.id)), {
                                     ...extra,
-                                    thumb: {
-                                        source: await download_file(o.media_r ? o.media_r : o.media_o, o.id)
-                                    }
+                                    thumb: new InputFile(await download_file(o.media_r ? o.media_r : o.media_o, o.id))
                                 }).catch(async (e) => {
                                     if (await catchily(e, chat_id, ctx.l)) {
                                         await bot.api.sendMessage(chat_id, _l(ctx.l, 'file_too_large', o.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)), default_extra)
@@ -405,18 +406,13 @@ async function tg_sender(ctx) {
                         let media = mg[0].media_t
                         if (!media) {
                             if (mg[0].media_o) {
-                                media = {
-                                    source: mg[0].media_o
-                                }
-                            } else if (mg[0].media) {
-                                media = {
-                                    url: mg[0].media
-                                }
+                                media = mg[0].media_o
                             } else {
-                                media = {
-                                    url: await ugoira_to_mp4(d)
-                                }
+                                media = await ugoira_to_mp4(d)
                             }
+                        }
+                        if (media.includes('tmp/')) {
+                            media = new InputFile(media)
                         }
                         await bot.api.sendAnimation(chat_id, media, extra).then(async (data) => {
                             // save ugoira file_id and next time bot can reply without send file
@@ -710,10 +706,8 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
     let raw_photo_url = photo_urls.shift()
     let photo_url = raw_photo_url
     try {
-        if (photo_url.substr(0, 3) === 'dl-') {
-            photo_url = {
-                source: await download_file(photo_url.substr(3))
-            }
+        if (photo_url.substring(0, 3) === 'dl-') {
+            photo_url = await download_file(photo_url.substring(3))
         }
         return await bot.api.sendPhoto(chat_id, photo_url, extra)
     } catch (e) {

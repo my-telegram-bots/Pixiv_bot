@@ -58,12 +58,12 @@ async function move_ugoira_folder_and_index_2022_march() {
             let new_path = ['./tmp/mp4']
             const id = ff[0]
             if (id.length === 10) {
-                new_path = [...new_path, `${id.substr(0, 4)}`]
+                new_path = [...new_path, `${id.substring(0, 4)}`]
                 // pixiv's illust will be grow up to 10000000 (length 9) next year.
             } else if (id.length === 9) {
-                new_path = [...new_path, `0${id.substr(0, 3)}`]
+                new_path = [...new_path, `0${id.substring(0, 3)}`]
             } else {
-                new_path = [...new_path, `00${id.substr(0, 2)}`]
+                new_path = [...new_path, `00${id.substring(0, 2)}`]
             }
             if (!fs.existsSync(new_path.join('/'))) {
                 fs.mkdirSync(new_path.join('/'))

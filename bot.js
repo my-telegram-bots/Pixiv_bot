@@ -11,3 +11,8 @@ export const tgBot = new Bot(config.tg.token, {
 
 const throttler = apiThrottler()
 tgBot.api.config.use(throttler)
+
+tgBot.on('channel_post', (ctx, next) => {
+    ctx.update.message = ctx.update.channel_post
+    next()
+})

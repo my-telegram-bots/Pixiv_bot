@@ -24,6 +24,7 @@ export async function mg_create(illust, flag, url = false) {
             if (flag.single_caption) {
                 mediagroup_data.scaption = format(illust, flag, 'message', -1)
             }
+            // if illust data have file_id
             if (illust.tg_file_id) {
                 if (typeof illust.tg_file_id == 'string') {
                     mediagroup_data.media_t = illust.tg_file_id
@@ -36,11 +37,12 @@ export async function mg_create(illust, flag, url = false) {
                 mediagroup_data.media_o = illust.imgs_.original_urls[pid]
                 mediagroup_data.media_r = illust.imgs_.regular_urls[pid]
             } else if (illust.type == 2) {
+                let url = await detect_ugpira_url(illust, 'mp4')
                 mediagroup_data = {
                     ...mediagroup_data,
                     type: 'video',
-                    media: await detect_ugpira_url(illust, 'mp4'),
-                    media_o: detect_ugpira_file(illust.id, 'mp4')
+                    media: url,
+                    media_o: url
                 }
             }
             mediagroups.push(mediagroup_data)
@@ -167,11 +169,9 @@ export async function mg_filter(mg, type = 't') {
                 }
             }
             if (type.includes('dl') && !x.media_t) {
-                xx.media = {
-                    // dlo => download media_o file
-                    // dlr => download media_r file
-                    source: await download_file(x['media_' + type.replace('dl', '')])
-                }
+                // dlo => download media_o file
+                // dlr => download media_r file
+                xx.media = await download_file(x['media_' + type.replace('dl', '')])
             } else if (type == 'r') {
                 xx.media = x.media_r ? x.media_r : x.media_o
             }
