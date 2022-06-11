@@ -130,8 +130,7 @@ bot.on('callback_query', async (ctx) => {
                     reply_markup: {}
                 })
                 apply_flag = true
-            }
-            else {
+            } else {
                 try {
                     let link_setting = {
                         chat_id: stext[2],
@@ -157,8 +156,7 @@ bot.on('callback_query', async (ctx) => {
     }
     if (apply_flag) {
         ctx.answerCbQuery(reescape_strings(_l(ctx.l, 'saved')))
-    }
-    else {
+    } else {
         ctx.answerCbQuery(reescape_strings(_l(ctx.l, 'error')))
     }
 })
@@ -169,8 +167,7 @@ bot.command('link', async (ctx) => {
     let user_id = ctx.from.id
     if (ctx.from.id === 1087968824) {
         await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
-    }
-    else {
+    } else {
         if (chat_id > 0 || await is_chat_admin(chat_id, user_id)) {
             // if (ctx.flag.setting.link_chat_list && JSON.stringify(ctx.flag.setting.link_chat_list).length > 2) {
             let new_flag = true
@@ -203,8 +200,7 @@ bot.command('link', async (ctx) => {
                     }
                 })
             }
-        }
-        else {
+        } else {
             await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
         }
     }
@@ -239,8 +235,7 @@ bot.on(':text', async (ctx) => {
                 ...ctx.default_extra,
                 ...k_link_setting(ctx.l, default_linked_setting)
             })
-        }
-        else {
+        } else {
             await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
         }
         return
@@ -252,8 +247,7 @@ bot.on(':text', async (ctx) => {
         if (ctx.message.sender_chat && ctx.message.sender_chat.id === linked_chat_id) {
             direct_flag = false
             // sync mode
-        }
-        else if ((ctx.type !== 'channel') && (chat_id > 0 || link_setting.sync === 0 || (link_setting.sync === 1 && ctx.message.text.includes('@' + bot.botInfo.username)))) {
+        } else if ((ctx.type !== 'channel') && (chat_id > 0 || link_setting.sync === 0 || (link_setting.sync === 1 && ctx.message.text.includes('@' + bot.botInfo.username)))) {
             // admin only
             if (chat_id > 0 || link_setting.administrator_only === 0 || (link_setting.administrator_only === 1 && await is_chat_admin(chat_id, user_id))) {
                 let new_ctx = {
@@ -457,8 +451,7 @@ async function tg_sender(ctx) {
                     })
                     await bot.api.sendMessage(chat_id, _l(ctx.l, 'telegraph_iv'), default_extra)
                 }
-            }
-            catch (error) {
+            } catch (error) {
                 console.warn(error)
             }
         } else {
@@ -497,8 +490,7 @@ async function tg_sender(ctx) {
             let d = await handle_novel(id)
             if (d) {
                 await bot.api.sendMessage(chat_id, `${d.telegraph_url}`)
-            }
-            else {
+            } else {
                 await bot.api.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra)
             }
         })
@@ -549,8 +541,13 @@ bot.on('inline_query', async (ctx) => {
             res_options.next_offset = offset + 1
         }
         res = res.splice(offset * 20, 20)
-    }
-    else if (query.replaceAll(' ', '') === '') { // why not use .trim() ? LOL
+        // ids.illust > 8 -> .length > 64 = cant send /start with deeplink
+        // lazy... I would like to store ids in database or redis
+        if (res.length > 1 && ids.illust.length < 8) {
+            res_options.switch_pm_text = _l(ctx.l, 'pm_to_get_all_illusts')
+            res_options.switch_pm_parameter = ids.illust.join('-')
+        }
+    } else if (query.replaceAll(' ', '') === '') { // why not use .trim() ? LOL
         let data = await handle_ranking([offset], ctx.flag)
         res = data.data
         if (data.next_offset) {
@@ -629,7 +626,7 @@ async function catchily(e, chat_id, language_code = 'en') {
                 // just a moment
             } else if (description.includes('Too Many Requests')) {
                 console.log(chat_id, 'sleep', e.response.parameters.retry_after, 's')
-                await sleep(e.response.parameters.retry_after * 1000)
+                // await sleep(e.response.parameters.retry_after * 1000)
                 return 'redo'
             } else if (description.includes('failed to get HTTP URL content') || description.includes('wrong file identifier/HTTP URL specified') || description.includes('wrong type of the web page content') || description.includes('group send failed')) {
                 let photo_urls = []

@@ -9,6 +9,7 @@ export const illust_404 = "該当作品は削除されたか、存在しない�
 export const file_too_large = "ファイルが大きすぎてボットが直接送ることができませんので、手動でファイルをダウンロードしてみてください\n{}"
 export const telegraph_iv = "しばらく待つと、Telegram instatview が生成されます。"
 export const pm_to_generate_ugoira = "クリックして動いらを生成する"
+export const pm_to_get_all_illusts = "クリックして全イラストを取得する"
 export const error = "エラーが発生しました"
 export const setting_open_link = "以下のリンクをクリックして、ボットを設定してください。"
 export const setting_reset = "設定がリセットされました。"
