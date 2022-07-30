@@ -21,7 +21,7 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
         return id
     }
     id = typeof id == 'string' ? id : id.toString()
-    if (id.length < 6 || id.length > 8 || id === 'NaN') {
+    if (id.length > 9 || id === 'NaN') {
         return false
     }
     id = parseInt(id)

@@ -16,7 +16,7 @@ export function get_pixiv_ids(text) {
         // fanbox: [],
     }
     if (text && (typeof text === 'string' || typeof text === 'number')) {
-        get_values(text).rm_valued_text.replace(/-_-/g, ' ').replace(/www\./ig, '').replace(/http:\/\//ig, 'https://').replace(/https:\/\//ig, '\nhttps://').replace(/  /g, ' ').replace(/\+/g, ' ').replace(/\-/g, ' ').replace(/ /g, '\n').replace(/\/en/ig, '/').split('\n').forEach(u => {
+        get_values(text).rm_valued_text.replace(/-_-/g, ' ').replace(/www\./ig, '').replace(/http:\/\//ig, 'https://').replace(/https:\/\//ig, '\nhttps://').replace(/  /g, ' ').replace(/\+/g, ' ').replace(/\-/g, ' ').replace(/ /g, '\n').replace(/\/en/ig, '').split('\n').forEach(u => {
             try {
                 if (!u || u.length < 6) {
                     return []
@@ -34,21 +34,29 @@ export function get_pixiv_ids(text) {
                 }
                 // general search
                 try {
-                    let uu = new URL(u).searchParams
-                    if (uu.get('illust_id')) {
-                        ids.illust.push(parseInt(uu.get('illust_id')))
+                    const uu = new URL(u)
+                    const uup = uu.searchParams
+                    const uup_id = uup.get('illust_id')
+                    if (uup_id) {
+                        ids.illust.push(parseInt(uup_id))
+                        return
                     }
-                }
-                catch (error) {
+                    const pathname = uu.pathname
+                    if (pathname.startsWith('/artworks/')) {
+                        const s_pathname = pathname.split('/')
+                        ids.illust.push(parseInt(s_pathname[s_pathname.length - 1]))
+                        return
+                    }
+                } catch (error) {
                 }
                 if (u.length > 7 && !isNaN(parseInt(u.replace('#', '').replace('id=', '').replace('id', '')))) {
                     // match #idxxxxxxx #xxxxxxx
                     ids.illust.push(parseInt(u.replace('#', '').replace('id', '').replace('=', '')))
+                    return
                 } else {
                     throw 'switch to general id matcher'
                 }
-            }
-            catch (error) {
+            } catch (error) {
                 // https://www.pixiv.net/en/artworks/87466156
                 // https://www.pixiv.net/artworks/87466156
                 // http://www.pixiv.net/artworks/87466156
@@ -56,12 +64,12 @@ export function get_pixiv_ids(text) {
                 // pixiv.net/i/87466156
                 // 87466156
                 // match text only have id (may resulted spam)
-                let t = u.replaceAll('https://', '').replace('pixiv.net', '').replace('artworks', '').replace('i', '').replaceAll('/', '').split('?')[0].split('#')[0]
-                if (!isNaN(t) && t && t.length === 8) {
+                let t = u.replace('https://', '').replace('pixiv.net', '').replace('artworks', '').replace('i', '').replaceAll('/', '').split('?')[0].split('#')[0]
+                if (!isNaN(t) && t && t.length >= 8) {
                     ids.illust.push(parseInt(t))
                 }
             }
-            honsole.dev('url:', u, ids)
+            // honsole.dev('url:', u, ids)
         })
     }
     return { ...ids }
