@@ -16,47 +16,41 @@ export function get_pixiv_ids(text) {
         // fanbox: [],
     }
     if (text && (typeof text === 'string' || typeof text === 'number')) {
-        get_values(text).rm_valued_text.replace(/-_-/g, ' ').replace(/www\./ig, '').replace(/http:\/\//ig, 'https://').replace(/https:\/\//ig, '\nhttps://').replace(/  /g, ' ').replace(/\+/g, ' ').replace(/\-/g, ' ').replace(/ /g, '\n').replace(/\/en/ig, '').split('\n').forEach(u => {
+        //                  remove value text   nothing               remove www.               force add https://                          remove dup https://                         force https://                      https with newline                     remove all +- and space                                  force newline (for split) remove all /en
+        get_values(text).rm_valued_text.replace(/-_-/g, ' ').replace(/www\./ig, '').replace(/pixiv\.net\//ig, 'https://pixiv.net/').replace(/https:\/\/https:\/\//ig, 'https://').replace(/http:\/\//ig, 'https://').replace(/https:\/\//ig, '\nhttps://').replace(/  /g, ' ').replace(/\+/g, ' ').replace(/\-/g, ' ').replace(/ /g, '\n').replace(/\/en/ig, '').split('\n').forEach(u => {
+            // url match
             try {
-                if (!u || u.length < 6) {
-                    return []
-                    // Match url(s)
-                }
-                if (u.includes('novel')) {
-                    if (!isNaN(parseInt(u.replace('https://pixiv.net/novel/show.php?id=', '').split('&')[0]))) {
-                        ids.novel.push(parseInt(u.replace('https://pixiv.net/novel/show.php?id=', '').split('&')[0]))
-                    }
-                }
-                if (u.includes('user')) {
-                    if (!isNaN(parseInt(u.replace('https://pixiv.net/users/', '').split('?')[0].split('&')[0]))) {
-                        ids.author.push(parseInt(u.replace('https://pixiv.net/users/', '').split('?')[0].split('&')[0]))
-                    }
-                }
-                // general search
-                try {
-                    const uu = new URL(u)
-                    const uup = uu.searchParams
-                    const uup_id = uup.get('illust_id')
-                    if (uup_id) {
-                        ids.illust.push(parseInt(uup_id))
-                        return
-                    }
-                    const pathname = uu.pathname
-                    if (pathname.startsWith('/artworks/')) {
-                        const s_pathname = pathname.split('/')
-                        ids.illust.push(parseInt(s_pathname[s_pathname.length - 1]))
-                        return
-                    }
-                } catch (error) {
-                }
-                if (u.length > 7 && !isNaN(parseInt(u.replace('#', '').replace('id=', '').replace('id', '')))) {
-                    // match #idxxxxxxx #xxxxxxx
-                    ids.illust.push(parseInt(u.replace('#', '').replace('id', '').replace('=', '')))
+                const uu = new URL(u)
+                if (uu.hostname !== 'pixiv.net') {
                     return
-                } else {
-                    throw 'switch to general id matcher'
+                }
+                const pathname = uu.pathname
+                if (pathname.startsWith('/artworks/') || pathname.startsWith('/i/')) {
+                    const s_pathname = pathname.split('/')
+                    ids.illust.push(parseInt(s_pathname[s_pathname.length - 1]))
+                    return
+                } else if (pathname.startsWith('/member_illust.php')) {
+                    ids.illust.push(parseInt(uu.searchParams.get('illust_id')))
+                    return
+                } else if (pathname.startsWith('/novel/show.php')) {
+                    ids.novel.push(parseInt(uu.searchParams.get('id')))
+                    return
+                } else if (pathname.startsWith('/users/') || pathname.startsWith('/u/')) {
+                    const s_pathname = pathname.split('/')
+                    ids.author.push(parseInt(s_pathname[s_pathname.length - 1]))
+                    return
                 }
             } catch (error) {
+            }
+            // general match (match illust id)
+            if ((u.length === 8 || u.length === 9) && !isNaN(Number(u.replace('#', '').replace('id=', '').replace('id', '')))) {
+                // match #idxxxxxxx #xxxxxxx
+                let id = Number(u.replace('#', '').replace('id', '').replace('=', ''))
+                // if (id > 0 && id < 200000000) {
+                ids.illust.push(id)
+                return
+                // }
+            } else {
                 // https://www.pixiv.net/en/artworks/87466156
                 // https://www.pixiv.net/artworks/87466156
                 // http://www.pixiv.net/artworks/87466156
@@ -64,12 +58,12 @@ export function get_pixiv_ids(text) {
                 // pixiv.net/i/87466156
                 // 87466156
                 // match text only have id (may resulted spam)
-                let t = u.replace('https://', '').replace('pixiv.net', '').replace('artworks', '').replace('i', '').replaceAll('/', '').split('?')[0].split('#')[0]
-                if (!isNaN(t) && t && t.length >= 8) {
-                    ids.illust.push(parseInt(t))
-                }
+                // let t = u.replace('https://', '').replace('pixiv.net', '').replace('artworks', '').replace('i', '').replaceAll('/', '').split('?')[0].split('#')[0]
+                // if (!isNaN(t) && t && t.length >= 8) {
+                //     ids.illust.push(parseInt(t))
+                // }
             }
-            // honsole.dev('url:', u, ids)
+            honsole.dev('text', u, ids)
         })
     }
     return { ...ids }
