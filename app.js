@@ -80,7 +80,8 @@ bot.command('id', async (ctx) => {
 // step1 initial config
 bot.use(async (ctx, next) => {
     if ((ctx.command === 's' || ctx.text.substring(0, 3) === 'eyJ') ||
-        (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.from.id === bot.botInfo.id && ctx.message.reply_to_message.text.substring(0, 5) === '#link')) {
+        (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.from.id === bot.botInfo.id &&
+            ctx.message.reply_to_message.text && ctx.message.reply_to_message.text.substring(0, 5) === '#link')) {
     } else {
         ctx.ids = get_pixiv_ids(ctx.text)
         if (!ctx.callbackQuery && !ctx.inlineQuery
@@ -370,8 +371,10 @@ async function tg_sender(ctx) {
                     let extra = {
                         ...default_extra,
                         caption: mg[0].caption.replaceAll('%mid%', ''),
-                        ...k_os(illust.id, ctx.us),
-                        has_spoiler: ctx.us.spoiler
+                        ...k_os(illust.id, ctx.us)
+                    }
+                    if (ctx.us.spoiler) {
+                        extra.has_spoiler = ctx.us.spoiler
                     }
                     if (illust.type <= 1) {
                         if (mg.length === 1) {
@@ -693,7 +696,6 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
         honsole.warn('error send photo', chat_id, photo_urls)
         return false
     }
-    console.log(extra)
     bot.api.sendChatAction(chat_id, 'upload_photo').catch()
     let raw_photo_url = photo_urls.shift()
     let photo_url = raw_photo_url
