@@ -3,7 +3,7 @@ import config from './config.js'
 import handlers from './handlers/index.js'
 import db from './db.js'
 import { update_setting } from './db.js'
-const { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, download_file, _l, k_os, k_link_setting, mg_create, mg_albumize, mg_filter, mg2telegraph, flagger, honsole, handle_new_configuration, exec, sleep, reescape_strings, get_ugoira_path } = handlers
+const { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, download_file, _l, k_os, k_link_setting, mg_create, mg_albumize, mg_filter, mg2telegraph, read_user_setting, honsole, handle_new_configuration, exec, sleep, reescape_strings, get_ugoira_path } = handlers
 import { tgBot as bot } from './bot.js'
 import axios from 'axios'
 import { InputFile } from 'grammy'
@@ -17,45 +17,31 @@ bot.use(async (ctx, next) => {
     ctx.default_extra = {
         parse_mode: 'MarkdownV2'
     }
-    try {
-        if (ctx.message) {
-            if (ctx.message.text) {
-                // remove command[@username] : /start@Pixiv_bot -> /start
-                ctx.text = ctx.message.text
-                ctx.stext = ctx.message.text.split(' ')
-                if (ctx.message.entities && ctx.message.entities.length > 0) {
-                    ctx.command = ctx.message.text.substring(1, ctx.message.entities[0].length - 1)
-                }
-                if (ctx.stext[0].includes('@')) {
-                    let at = ctx.stext[0].split('@')
-                    if (!at[1] || at[1].toLowerCase() !== bot.botInfo.username.toLowerCase()) {
-                        ctx.command = ''
-                    } // else {
-                    //     ctx.message.text = ctx.message.text.replace(new RegExp(bot.botInfo.username, 'i'), '')
-                    //     ctx.message.entities[0].length = ctx.command.length + 1
-                    // }
-                }
+    if (!!ctx.message) {
+        if (ctx.message.text) {
+            // remove command[@username] : /start@Pixiv_bot -> /start
+            ctx.text = ctx.message.text
+            if (ctx.message.entities && ctx.text.startsWith('/')) {
+                ctx.command = ctx.message.text.substring(1, ctx.message.entities[0].length).replace(`@${bot.botInfo.username}`, '')
             }
-            ctx.default_extra.reply_to_message_id = ctx.message.message_id
-            ctx.default_extra.allow_sending_without_reply = true
-            if (ctx.update.channel_post) {
-                ctx.chat_id = ctx.channelPost.chat.id
-                // channel post is anonymous
-                ctx.user_id = 1087968824
-            } else {
-                ctx.chat_id = ctx.message.chat.id
-                ctx.user_id = ctx.from.id
-            }
-        } else if (ctx.inlineQuery && ctx.inlineQuery.query) {
-            ctx.text = ctx.inlineQuery.query
-            ctx.chat_id = ctx.inlineQuery.from.id
-            ctx.user_id = ctx.inlineQuery.from.id
-        } else if (ctx.callbackQuery && ctx.callbackQuery.data) {
-            ctx.chat_id = ctx.callbackQuery.message.chat.id
-            ctx.user_id = ctx.callbackQuery.from.id
         }
-    } catch (error) {
-        honsole.warn('handle_basic_msg', error)
+        ctx.default_extra.reply_to_message_id = ctx.message.message_id
+        ctx.default_extra.allow_sending_without_reply = true
+        if (!!ctx.update.channel_post) {
+            ctx.chat_id = ctx.channelPost.chat.id
+            // channel post is anonymous
+            ctx.user_id = 1087968824
+        } else {
+            ctx.chat_id = ctx.message.chat.id
+            ctx.user_id = ctx.from.id
+        }
+    } else if (!!ctx.inlineQuery) {
+        ctx.text = ctx.inlineQuery.query
+        ctx.chat_id = ctx.inlineQuery.from.id
+        ctx.user_id = ctx.inlineQuery.from.id
+    } else if (!!ctx.callbackQuery) {
+        ctx.chat_id = ctx.callbackQuery.message.chat.id
+        ctx.user_id = ctx.callbackQuery.from.id
     }
     return await next()
 })
@@ -69,7 +55,7 @@ bot.command('start', async (ctx, next) => {
             ...ctx.default_extra
         })
     } else {
-        // callback to bot.on function
+        // callback to next bot.on handler
         return await next()
     }
 })
@@ -80,7 +66,7 @@ bot.command('help', async (ctx) => {
         parse_mode: ''
     })
 })
-
+// gift: get id even if channel
 bot.command('id', async (ctx) => {
     let text = ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : ''
     // channel post maybe didn't have .from
@@ -93,21 +79,23 @@ bot.command('id', async (ctx) => {
 
 // step1 initial config
 bot.use(async (ctx, next) => {
-    let configuration_mode = false
     if ((ctx.command === 's' || ctx.text.substring(0, 3) === 'eyJ') ||
         (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.from.id === bot.botInfo.id && ctx.message.reply_to_message.text.substring(0, 5) === '#link')) {
-        configuration_mode = true
-    }
-    ctx.ids = get_pixiv_ids(ctx.text)
-    if (!ctx.callbackQuery && !ctx.inlineQuery && JSON.stringify(ctx.ids).length === 36 & !configuration_mode && !['link'].includes(ctx.command) && !ctx.text.includes('fanbox.cc')) {
-        // bot have nothing to do
-        return
+    } else {
+        ctx.ids = get_pixiv_ids(ctx.text)
+        if (!ctx.callbackQuery && !ctx.inlineQuery
+            && JSON.stringify(ctx.ids).length === 36 // have terrible bug in the feature.
+            && !['link'].includes(ctx.command)
+            && !ctx.text.includes('fanbox.cc')) {
+            // bot have nothing to do.
+            return
+        }
     }
     // read configuration
-    ctx.flag = await flagger(bot, ctx)
-    honsole.dev('input ->', ctx.chat, ctx.text, ctx.flag)
-    if (ctx.flag === 'error') {
-        honsole.warn('flag error', ctx.text)
+    ctx.us = await read_user_setting(bot, ctx)
+    honsole.dev('input ->', ctx.chat, ctx.text, ctx.us)
+    if (ctx.us === 'error') {
+        honsole.warn('Get user setting error', ctx.text)
         return
     } else {
         return await next()
@@ -138,7 +126,7 @@ bot.on('callback_query', async (ctx) => {
                 try {
                     let link_setting = {
                         chat_id: stext[2],
-                        ...ctx.flag.setting.link_chat_list[stext[2]]
+                        ...ctx.us.setting.link_chat_list[stext[2]]
                     }
                     link_setting[stext[1].replace('link_', '')] = stext[4]
                     await update_setting({
@@ -173,10 +161,10 @@ bot.command('link', async (ctx) => {
         await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
     } else {
         if (chat_id > 0 || await is_chat_admin(chat_id, user_id)) {
-            // if (ctx.flag.setting.link_chat_list && JSON.stringify(ctx.flag.setting.link_chat_list).length > 2) {
+            // if (ctx.us.setting.link_chat_list && JSON.stringify(ctx.us.setting.link_chat_list).length > 2) {
             let new_flag = true
-            if (ctx.flag.setting.link_chat_list) {
-                for (const linked_chat_id in ctx.flag.setting.link_chat_list) {
+            if (ctx.us.setting.link_chat_list) {
+                for (const linked_chat_id in ctx.us.setting.link_chat_list) {
                     // support muilt linked chat
                     // It's hard think permission
                     // So only link 1
@@ -185,11 +173,10 @@ bot.command('link', async (ctx) => {
                             ...ctx.default_extra,
                             ...k_link_setting(ctx.l, {
                                 chat_id: linked_chat_id,
-                                ...ctx.flag.setting.link_chat_list[linked_chat_id]
+                                ...ctx.us.setting.link_chat_list[linked_chat_id]
                             })
                         })
-                    }
-                    else {
+                    } else {
                         await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
                     }
                     new_flag = false
@@ -246,8 +233,8 @@ bot.on(':text', async (ctx) => {
     }
 
     let direct_flag = true
-    for (const linked_chat_id in ctx.flag.setting.link_chat_list) {
-        let link_setting = ctx.flag.setting.link_chat_list[linked_chat_id]
+    for (const linked_chat_id in ctx.us.setting.link_chat_list) {
+        let link_setting = ctx.us.setting.link_chat_list[linked_chat_id]
         if (ctx.message.sender_chat && ctx.message.sender_chat.id === linked_chat_id) {
             direct_flag = false
             // sync mode
@@ -263,7 +250,7 @@ bot.on(':text', async (ctx) => {
                     },
                     type: link_setting.type
                 }
-                delete new_ctx.flag
+                delete new_ctx.us
                 await tg_sender(new_ctx)
                 if (link_setting.repeat < 2) {
                     direct_flag = false
@@ -297,8 +284,8 @@ async function tg_sender(ctx) {
     let temp_data = {
         mg: []
     }
-    if (!ctx.flag) {
-        ctx.flag = await flagger(bot, ctx)
+    if (!ctx.us) {
+        ctx.us = await read_user_setting(bot, ctx)
     }
     let ids = ctx.ids
     let illusts = []
@@ -314,7 +301,7 @@ async function tg_sender(ctx) {
     }
     if (ids.illust.length > 0) {
         await asyncForEach(ids.illust, async (id) => {
-            let d = await handle_illust(id, ctx.flag)
+            let d = await handle_illust(id, ctx.us)
             if (d) {
                 // if (d.type <= 1) bot.api.sendChatAction(chat_id, 'upload_photo')
                 // if (d.type == 2) bot.api.sendChatAction(chat_id, 'upload_video')
@@ -322,7 +309,7 @@ async function tg_sender(ctx) {
             }
         })
     }
-    if (ctx.flag.desc) {
+    if (ctx.us.desc) {
         illusts = illusts.reverse()
     }
     if (illusts.length > 0) {
@@ -334,10 +321,10 @@ async function tg_sender(ctx) {
                 }
             }
             // telegraph
-            ctx.flag.q_id += 1
-            let mg = await mg_create(illust, ctx.flag)
+            ctx.us.q_id += 1
+            let mg = await mg_create(illust, ctx.us)
             // send as file
-            if (ctx.flag.asfile) {
+            if (ctx.us.asfile) {
                 await asyncForEach(mg, async (o) => {
                     bot.api.sendChatAction(chat_id, 'upload_document')
                     let extra = {
@@ -371,19 +358,20 @@ async function tg_sender(ctx) {
                     })
                 })
             } else {
-                if (ctx.flag.telegraph || (ctx.flag.album && (ids.illust.length > 1 || (illust.imgs_ && illust.imgs_.size.length > 1)))) {
+                if (ctx.us.telegraph || (ctx.us.album && (ids.illust.length > 1 || (illust.imgs_ && illust.imgs_.size.length > 1)))) {
                     temp_data.mg = [...temp_data.mg, ...mg]
                 } else {
                     if (illust.type === 2 && ctx.match) {
                         // see https://core.telegram.org/bots/api#inlinekeyboardbutton
                         // Especially useful when combined with switch_pm… actions – in this case the user will be automatically returned to the chat they switched from, skipping the chat selection screen.
                         // So we need inline share button to switch chat window even if user don't want share button
-                        ctx.flag.share = true
+                        ctx.us.share = true
                     }
                     let extra = {
                         ...default_extra,
                         caption: mg[0].caption.replaceAll('%mid%', ''),
-                        ...k_os(illust.id, ctx.flag)
+                        ...k_os(illust.id, ctx.us),
+                        has_spoiler: ctx.us.spoiler
                     }
                     if (illust.type <= 1) {
                         if (mg.length === 1) {
@@ -395,7 +383,7 @@ async function tg_sender(ctx) {
                             }
                             await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, extra)
                         } else {
-                            temp_data.mg = [...temp_data.mg, ...mg_albumize(mg, ctx.flag.album_same)]
+                            temp_data.mg = [...temp_data.mg, ...mg_albumize(mg, ctx.us.album_same)]
                         }
                     } else if (illust.type === 2) {
                         bot.api.sendChatAction(chat_id, 'upload_video')
@@ -432,11 +420,11 @@ async function tg_sender(ctx) {
             }
         })
         // eslint-disable-next-line no-empty
-        if (ctx.flag.asfile) {
-        } else if (ctx.flag.telegraph) {
+        if (ctx.us.asfile) {
+        } else if (ctx.us.telegraph) {
             try {
                 bot.api.sendChatAction(chat_id, 'typing')
-                let res_data = await mg2telegraph(temp_data.mg, ctx.flag.telegraph_title, user_id, ctx.flag.telegraph_author_name, ctx.flag.telegraph_author_url)
+                let res_data = await mg2telegraph(temp_data.mg, ctx.us.telegraph_title, user_id, ctx.us.telegraph_author_name, ctx.us.telegraph_author_url)
                 if (res_data) {
                     await asyncForEach(res_data, async (d) => {
                         await bot.api.sendMessage(chat_id, d.ids.join('\n') + '\n' + d.telegraph_url)
@@ -447,11 +435,14 @@ async function tg_sender(ctx) {
                 console.warn(error)
             }
         } else {
-            if (ctx.flag.album) {
-                temp_data.mg = mg_albumize(temp_data.mg, ctx.flag.album_same, ctx.flag.single_caption)
+            if (ctx.us.album) {
+                temp_data.mg = mg_albumize(temp_data.mg, ctx.us.album_same, ctx.us.single_caption)
             }
             if (temp_data.mg.length > 0) {
-                let extra = default_extra
+                let extra = {
+                    ...default_extra,
+                    has_spoiler: ctx.us.spoiler
+                }
                 await asyncForEach(temp_data.mg, async (mg, i) => {
                     let data = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, extra, ['o', 'r', 'dlo', 'dlr'])
                     if (data) {
@@ -505,12 +496,12 @@ bot.on('inline_query', async (ctx) => {
     offset = parseInt(offset)
     let res_options = {
         cache_time: 20,
-        is_personal: ctx.flag.setting.dbless ? false : true // personal result
+        is_personal: ctx.us.setting.dbless ? false : true // personal result
     }
     let ids = ctx.ids
     if (ids.illust.length > 0) {
         await asyncForEach([...ids.illust.reverse()], async (id) => {
-            let d = await handle_illust(id, ctx.flag)
+            let d = await handle_illust(id, ctx.us)
             if (!d || d === 404) {
                 return
             }
@@ -540,7 +531,7 @@ bot.on('inline_query', async (ctx) => {
             res_options.switch_pm_parameter = ids.illust.join('-')
         }
     } else if (query.replaceAll(' ', '') === '') { // why not use .trim() ? LOL
-        let data = await handle_ranking([offset], ctx.flag)
+        let data = await handle_ranking([offset], ctx.us)
         res = data.data
         if (data.next_offset) {
             res_options.next_offset = data.next_offset
@@ -600,40 +591,38 @@ async function catchily(e, chat_id, language_code = 'en') {
         bot.api.sendMessage(config.tg.master_id, e, {
             disable_web_page_preview: true
         })
-        if (e.response) {
-            let description = e.response.description
-            if (description.includes('MEDIA_CAPTION_TOO_LONG')) {
+        if (!e.ok) {
+            const description = e.description.toLowerCase()
+            if (description.includes('media_caption_too_long')) {
                 bot.api.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra)
                 return false
-            } else if (description.includes('can\'t parse entities: Character')) {
-                bot.api.sendMessage(chat_id, _l(language_code, 'error_format', e.response.description))
+            } else if (description.includes('can\'t parse entities: character')) {
+                bot.api.sendMessage(chat_id, _l(language_code, 'error_format', e.description))
                 return false
                 // banned by user
-            } else if (description.includes('Forbidden:')) {
+            } else if (description.includes('forbidden:')) {
                 return false
                 // not have permission
             } else if (description.includes('not enough rights to send')) {
                 bot.api.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra)
                 return false
                 // just a moment
-            } else if (description.includes('Too Many Requests')) {
-                console.log(chat_id, 'sleep', e.response.parameters.retry_after, 's')
-                // await sleep(e.response.parameters.retry_after * 1000)
+            } else if (description.includes('too many requests')) {
+                console.log(chat_id, 'sleep', e.description.parameters.retry_after, 's')
+                // await sleep(e.description.parameters.retry_after * 1000)
                 return 'redo'
-            } else if (description.includes('failed to get HTTP URL content') || description.includes('wrong file identifier/HTTP URL specified') || description.includes('wrong type of the web page content') || description.includes('group send failed')) {
+            } else if (description.includes('failed to get http url content') || description.includes('wrong file identifier/http url specified') || description.includes('wrong type of the web page content') || description.includes('group send failed')) {
                 let photo_urls = []
-                if (e.on) {
-                    if (e.on.method === 'sendPhoto') {
-                        photo_urls[0] = e.on.payload.photo
-                    } else if (e.on.method === 'sendMediaGroup' && e.on.payload.media) {
-                        photo_urls = e.on.payload.media.filter(m => {
-                            return m.media && typeof m.media === 'string' && m.media.includes('https://')
-                        }).map(m => {
-                            return m.media
-                        })
-                    }
+                if (e.method === 'sendPhoto') {
+                    photo_urls[0] = e.payload.photo
+                } else if (e.method === 'sendMediaGroup' && e.payload.media) {
+                    photo_urls = e.payload.media.filter(m => {
+                        return m.media && typeof m.media === 'string' && m.media.includes('https://')
+                    }).map(m => {
+                        return m.media
+                    })
                 }
-                // honsole.dev(photo_urls)
+                honsole.dev(photo_urls)
                 if (config.tg.refetch_api && photo_urls) {
                     try {
                         await axios.post(config.tg.refetch_api, {
@@ -697,6 +686,7 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
         honsole.warn('error send photo', chat_id, photo_urls)
         return false
     }
+    console.log(extra)
     bot.api.sendChatAction(chat_id, 'upload_photo').catch()
     let raw_photo_url = photo_urls.shift()
     let photo_url = raw_photo_url
@@ -736,3 +726,4 @@ async function is_chat_admin(chat_id, user_id) {
     }
     return false
 }
+

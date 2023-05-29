@@ -92,16 +92,16 @@ export function get_values(text = '') {
         rm_valued_text: text
     }
 }
-export async function flagger(bot, ctx) {
+export async function read_user_setting(bot, ctx) {
     let chat_id = ctx.chat_id
-    let user_id = ctx.user_id || ctx.from.id
+    const user_id = ctx.user_id || ctx.from.id
     if (!ctx.type) {
         ctx.type = ctx.chat ? ctx.chat.type : 'inline'
     }
     if (!chat_id) {
         chat_id = ctx.message ? ctx.message.chat.id : user_id
     }
-    ctx.flag = {
+    ctx.us = {
         // I don't wanna save the 'string' data in default (maybe the format will be changed in the future)
         // see telegram/fotmat.js to get real data
         setting: {
@@ -137,27 +137,27 @@ export async function flagger(bot, ctx) {
     }
     if (setting) {
         setting.default = {
-            ...ctx.flag.setting.default,
+            ...ctx.us.setting.default,
             ...setting.default
         }
-        for (const key in ctx.flag.setting.default) {
+        for (const key in ctx.us.setting.default) {
             if (typeof setting.default[key] == undefined) {
-                setting.default[key] = ctx.flag.setting.default[key]
+                setting.default[key] = ctx.us.setting.default[key]
             }
         }
-        ctx.flag.setting = setting
-        ctx.flag.setting.dbless = false
-        delete ctx.flag.setting._id
-        delete ctx.flag.setting.id
+        ctx.us.setting = setting
+        ctx.us.setting.dbless = false
+        delete ctx.us.setting._id
+        delete ctx.us.setting.id
     }
-    if (!ctx.flag.setting.format)
-        ctx.flag.setting.format = {}
-    if (!ctx.flag.setting.default)
-        ctx.flag.setting.default = {}
+    if (!ctx.us.setting.format)
+        ctx.us.setting.format = {}
+    if (!ctx.us.setting.default)
+        ctx.us.setting.default = {}
     // default flag -> d_f
-    let d_f = ctx.flag.setting.default ? ctx.flag.setting.default : {}
-    ctx.flag = {
-        ...ctx.flag,
+    let d_f = ctx.us.setting.default ? ctx.us.setting.default : {}
+    ctx.us = {
+        ...ctx.us,
         // caption start
         tags: (d_f.tags && !ctx.text.includes('-tag')) || ctx.text.includes('+tag'),
         open: (d_f.open && !ctx.text.includes('-open')) || ctx.text.includes('+open'),
@@ -182,23 +182,23 @@ export async function flagger(bot, ctx) {
     }
     // group only value
     if (ctx.chat && ctx.chat.id < 0) {
-        ctx.flag.overwrite = (d_f.overwrite && !ctx.text.includes('-overwrite')) || ctx.text.includes('+overwrite')
+        ctx.us.overwrite = (d_f.overwrite && !ctx.text.includes('-overwrite')) || ctx.text.includes('+overwrite')
     }
-    if (ctx.flag.telegraph) {
-        ctx.flag.album = true
-        ctx.flag.tags = true
+    if (ctx.us.telegraph) {
+        ctx.us.album = true
+        ctx.us.tags = true
     }
-    if (ctx.flag.single_caption) {
-        ctx.flag.album = true
+    if (ctx.us.single_caption) {
+        ctx.us.album = true
     }
     if (ctx.text.includes('+rm')) {
-        ctx.flag.remove_caption = ctx.flag.remove_keyboard = false
+        ctx.us.remove_caption = ctx.us.remove_keyboard = false
     }
     if (ctx.text.includes('-rm')) {
-        ctx.flag.remove_caption = ctx.flag.remove_keyboard = true
+        ctx.us.remove_caption = ctx.us.remove_keyboard = true
     }
-    if (ctx.flag.remove_keyboard) {
-        ctx.flag.open = ctx.flag.share = false
+    if (ctx.us.remove_keyboard) {
+        ctx.us.open = ctx.us.share = false
     }
     if (ctx.message) {
         let { title, author_name, author_url } = get_values(ctx.text.substring(0, 3) == '/s ' ? ctx.text.replace('/s ', '') : ctx.text)
@@ -232,14 +232,14 @@ export async function flagger(bot, ctx) {
             }
         }
         if (JSON.stringify(v).length > 2) {
-            ctx.flag = {
-                ...ctx.flag,
+            ctx.us = {
+                ...ctx.us,
                 ...v,
                 value_update_flag: true
             }
         }
     }
-    return ctx.flag
+    return ctx.us
 }
 export async function handle_new_configuration(bot, ctx, default_extra) {
     if (ctx.chat && ctx.chat.type === 'channel') {
@@ -257,21 +257,21 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
     }
     if (ctx.text == '/s') {
         // lazy....
-        ctx.flag.setting = {
+        ctx.us.setting = {
             format: {
-                message: ctx.flag.setting.format.message ? ctx.flag.setting.format.message : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%',
-                mediagroup_message: ctx.flag.setting.format.mediagroup_message ? ctx.flag.setting.format.mediagroup_message : '%[%mid% %title%% |p%%](%url%)%\n|tags%',
-                inline: ctx.flag.setting.format.inline ? ctx.flag.setting.format.inline : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%'
+                message: ctx.us.setting.format.message ? ctx.us.setting.format.message : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%',
+                mediagroup_message: ctx.us.setting.format.mediagroup_message ? ctx.us.setting.format.mediagroup_message : '%[%mid% %title%% |p%%](%url%)%\n|tags%',
+                inline: ctx.us.setting.format.inline ? ctx.us.setting.format.inline : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%'
             },
-            default: ctx.flag.setting.default
+            default: ctx.us.setting.default
         }
         // alert who open old config (based on configuration generate time)
-        ctx.flag.setting.time = +new Date()
-        delete ctx.flag.setting.dbless
+        ctx.us.setting.time = +new Date()
+        delete ctx.us.setting.dbless
         await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_open_link'), {
             ...default_extra,
             ...Markup.inlineKeyboard([
-                Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.flag.setting), 'utf8').toString('base64')}`.replace('/en', '').replace('/undefined', ''))
+                Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.us.setting), 'utf8').toString('base64')}`.replace('/en', '').replace('/undefined', ''))
             ]),
             reply_to_message_id: ctx.message.message_id
         }).catch((e) => {
@@ -293,14 +293,14 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
                 await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error'))
                 honsole.warn('parse base64 configuration failed', ctx.text, error)
             }
-        } else if (ctx.text.length > 2 && (ctx.text.includes('+') || ctx.text.includes('-') || ctx.flag.value_update_flag)) {
+        } else if (ctx.text.length > 2 && (ctx.text.includes('+') || ctx.text.includes('-') || ctx.us.value_update_flag)) {
             new_setting = {
-                default: ctx.flag
+                default: ctx.us
             }
         }
         if (JSON.stringify(new_setting).length > 2) {
             honsole.log(new_setting)
-            if (await db.update_setting(new_setting, ctx.chat.id, ctx.flag)) {
+            if (await db.update_setting(new_setting, ctx.chat.id, ctx.us)) {
                 await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_saved'), default_extra)
             } else {
                 await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error'), default_extra)

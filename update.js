@@ -181,14 +181,27 @@ async function set_storage_endpoint_for_ugoira_illust() {
     console.log('load ugroia illusts from local database', d.length)
     await asyncForEach(d, async (illust, i) => {
         if (endpoint_ids.includes(illust.id)) {
-            await db.collection.illust.updateOne({
-                id: illust.id
-            }, {
-                $set: {
-                    'storage_endpoint': endpoint_name
-                }
-            })
-            console.log('set', i, illust.id, endpoint_name)
+            if (illust.storage_endpoint != endpoint_name) {
+                await db.collection.illust.updateOne({
+                    id: illust.id
+                }, {
+                    $set: {
+                        'storage_endpoint': endpoint_name
+                    }
+                })
+                console.log('set', i, illust.id, endpoint_name)
+            }
+        } else {
+            try {
+                await db.collection.illust.updateOne({
+                    id: illust.id
+                }, {
+                    $unset: ['storage_endpoint']
+                })
+            } catch (error) {
+
+            }
+            console.log('unset', i, illust.id, endpoint_name)
         }
     })
     process.exit()
