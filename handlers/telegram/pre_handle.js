@@ -178,7 +178,10 @@ export async function read_user_setting(bot, ctx) {
         // send as telegraph
         telegraph: ctx.text.includes('+graph') || ctx.text.includes('+telegraph'),
         // send as file
-        asfile: (d_f.asfile && !ctx.text.includes('-file')) || ctx.text.includes('+file')
+        asfile: (d_f.asfile && !ctx.text.includes('-file')) || ctx.text.includes('+file'),
+        // spoiler
+        // But I have no idea to deisgn the logic.
+        spoiler: !ctx.text.includes('-sp') && ctx.text.includes('+sp'),
     }
     // group only value
     if (ctx.chat && ctx.chat.id < 0) {

@@ -3,8 +3,7 @@ import { asyncForEach, download_file, honsole } from '../common.js'
 import config from '../../config.js'
 import { detect_ugpira_file, detect_ugpira_url, ugoira_to_mp4 } from '../pixiv/tools.js'
 import { InputFile } from 'grammy'
-const { ugoiraurl } = config.pixiv
-export async function mg_create(illust, flag, url = false) {
+export async function mg_create(illust, us) {
     let mediagroups = []
     if (illust) {
         if (illust.type == 2) {
@@ -13,17 +12,17 @@ export async function mg_create(illust, flag, url = false) {
         await asyncForEach(illust.imgs_.size, async (size, pid) => {
             let mediagroup_data = {
                 type: 'photo',
-                caption: format(illust, flag, 'message', pid),
+                caption: format(illust, us, 'message', pid),
                 parse_mode: 'MarkdownV2',
                 id: illust.id,
                 p: pid
             }
             // mg2telegraph 还需要作品的 id
-            if (flag.telegraph) {
-                mediagroup_data.q_id = flag.q_id
+            if (us.telegraph) {
+                mediagroup_data.q_id = us.q_id
             }
-            if (flag.single_caption) {
-                mediagroup_data.scaption = format(illust, flag, 'message', -1)
+            if (us.single_caption) {
+                mediagroup_data.scaption = format(illust, us, 'message', -1)
             }
             // if illust data have file_id
             if (illust.tg_file_id) {
@@ -52,7 +51,7 @@ export async function mg_create(illust, flag, url = false) {
     honsole.dev('mg_create', mediagroups)
     return mediagroups
 }
-export function mg_albumize(mg = [], same = false, single_caption = false) {
+export function mg_albumize(mg = [], us) {
     // 10(maybe) item to a group
     let t = []
     let split_i = 10
@@ -71,7 +70,7 @@ export function mg_albumize(mg = [], same = false, single_caption = false) {
     // maybe with image ratio to split
     // so it disabled by default (album_same)
     // some image is not square | width > height /2 | height > width /2
-    if (same) {
+    if (us.album_same) {
         switch (mg.length) {
             case 12:
                 split_i = 6
@@ -106,7 +105,7 @@ export function mg_albumize(mg = [], same = false, single_caption = false) {
             ...m,
             caption: m.caption
         }
-        if (single_caption && m.id) {
+        if (us.single_caption && m.id) {
             if (id == 0) {
                 t[gid][0].sc = []
                 t[gid][id].caption = ''
@@ -121,8 +120,8 @@ export function mg_albumize(mg = [], same = false, single_caption = false) {
             })
         }
     })
-    if (single_caption) {
-        t.map((m, gid) => {
+    if (us.single_caption) {
+        t.forEach((m, gid) => {
             let caption = []
             let temp = m[0].sc.filter(x => {
                 caption.push(x.caption)
@@ -139,12 +138,15 @@ export function mg_albumize(mg = [], same = false, single_caption = false) {
     honsole.dev('mg_create', t)
     return t
 }
-export async function mg_filter(mg, type = 't') {
+export async function mg_filter(mg, type = 't', has_spoiler = false) {
     honsole.dev('filter_type', type)
     let t = []
     await asyncForEach(mg, async (x) => {
         let xx = {
             type: x.type
+        }
+        if (has_spoiler) {
+            xx.has_spoiler = true
         }
         if (x.caption) {
             xx.caption = x.caption

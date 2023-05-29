@@ -436,9 +436,10 @@ async function tg_sender(ctx) {
             }
         } else {
             if (ctx.us.album) {
-                temp_data.mg = mg_albumize(temp_data.mg, ctx.us.album_same, ctx.us.single_caption)
+                temp_data.mg = mg_albumize(temp_data.mg, ctx.us)
             }
             if (temp_data.mg.length > 0) {
+                // dirty but work...
                 let extra = {
                     ...default_extra,
                     has_spoiler: ctx.us.spoiler
@@ -655,10 +656,16 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
         honsole.warn('empty mg', chat_id, mg)
         return false
     }
+    // dirty but work
+    // this function not have .us variable
+    const has_spoiler = extra.has_spoiler
+    if (has_spoiler) {
+        delete extra.has_spoiler
+    }
     let current_mg_type = mg_type.shift()
     bot.api.sendChatAction(chat_id, 'upload_photo').catch()
     try {
-        return await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type), extra)
+        return await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type, has_spoiler), extra)
     } catch (e) {
         let status = await catchily(e, chat_id, language_code)
         if (status) {
@@ -726,4 +733,3 @@ async function is_chat_admin(chat_id, user_id) {
     }
     return false
 }
-
