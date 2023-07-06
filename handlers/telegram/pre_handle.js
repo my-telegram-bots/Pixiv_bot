@@ -125,7 +125,13 @@ export async function read_user_setting(bot, ctx) {
             id: chat_id
         })
     }
-    if (ctx.chat_id !== ctx.user_id && ctx.from && (ctx.text.includes('+god') || (!setting || !setting.default || !setting.default.overwrite))) {
+    // get user's custom settings
+    // 1st: = group
+    if (ctx.chat_id < 0 &&
+        // 2st: include +god
+        (ctx.text.includes('+god') ||
+            // or group settings not  includes result
+            (!setting || !setting.default || !setting.default.overwrite))) {
         let setting_user = await db.collection.chat_setting.findOne({
             id: user_id
         })
@@ -150,10 +156,12 @@ export async function read_user_setting(bot, ctx) {
         delete ctx.us.setting._id
         delete ctx.us.setting.id
     }
-    if (!ctx.us.setting.format)
+    if (!ctx.us.setting.format) {
         ctx.us.setting.format = {}
-    if (!ctx.us.setting.default)
+    }
+    if (!ctx.us.setting.default) {
         ctx.us.setting.default = {}
+    }
     // default flag -> d_f
     let d_f = ctx.us.setting.default ? ctx.us.setting.default : {}
     ctx.us = {
@@ -252,13 +260,20 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
     }
     //                                     1087968824 is a anonymous admin account
     else if (ctx.chat.id < 0 && ctx.from.id !== 1087968824) {
-        let u = await bot.api.getChatMember(ctx.chat.id, ctx.from.id)
-        if (u.status !== 'administrator' && u.status !== 'creator') {
+        let admin_flag = false
+        try {
+            let { status } = await bot.api.getChatMember(ctx.chat.id, ctx.from.id)
+            if (status === 'administrator' || status === 'creator') {
+                admin_flag = true
+            }
+        } catch (e) {
+        }
+        if (!admin_flag) {
             await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_administrator'), default_extra)
             return
         }
     }
-    if (ctx.text == '/s') {
+    if (ctx.command === 's') {
         // lazy....
         ctx.us.setting = {
             format: {
@@ -278,7 +293,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
             ]),
             reply_to_message_id: ctx.message.message_id
         }).catch((e) => {
-            console.log(e)
+            honsole.warn(e)
         })
         return
     } else {

@@ -31,7 +31,6 @@ export function _l(lang, item, ...value) {
     let result = l[lang][item]
     let count = l[lang][item].match(/\\\{\\\}/g) || []
     count.forEach((x, id) => {
-        console.log(id, value[id])
         result = result.replace(x, escape_strings(value[id]))
     })
     return result

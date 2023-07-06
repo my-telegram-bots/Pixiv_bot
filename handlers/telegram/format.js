@@ -33,8 +33,7 @@ export function format(td, flag, mode = 'message', p) {
             template += '%\n|tags%'
             mode = 'telegraph'
         }
-    }
-    else if (!flag.setting.format[mode]) {
+    } else if (!flag.setting.format[mode]) {
         switch (mode) {
             case 'message':
             case 'inline':
@@ -46,14 +45,12 @@ export function format(td, flag, mode = 'message', p) {
                 template += '%\n|tags%'
                 break
         }
-    }
-    else {
+    } else {
         template = flag.setting.format[mode]
     }
     if (template == '') {
         return ''
-    }
-    else {
+    } else {
         let splited_template = template.replaceAll('\\%', '\uff69').split('%'); // 迫真转义 这个符号不会有人打出来把！！！
         let replace_list = [
             ['title', td.title.trim()],
@@ -67,15 +64,13 @@ export function format(td, flag, mode = 'message', p) {
         if (td) {
             if (td.imgs_ && td.imgs_.size && td.imgs_.size.length > 1 && p !== -1) {
                 replace_list.push(['p', `${(p + 1)}/${td.imgs_.size.length}`])
-            }
-            else {
+            } else {
                 replace_list.push(['p', ''])
             }
             if (flag.tags) {
                 let tags = '#' + td.tags.join(' #')
                 replace_list.push(['tags', tags])
-            }
-            else {
+            } else {
                 replace_list.push(['tags', ''])
             }
         }
@@ -84,8 +79,7 @@ export function format(td, flag, mode = 'message', p) {
         if (flag.single_caption) {
             if (!td) {
                 replace_list.push(['mid', flag.mid])
-            }
-            else {
+            } else {
                 replace_list.push(['mid', '%mid%'])
             }
         }
@@ -154,11 +148,9 @@ export function Treplace(mode, r, name, value) {
                 return value
             }
             return escape_strings(value)
-        }
-        else if (l.includes('author_') || mode == 'telegraph') {
+        } else if (l.includes('author_') || mode == 'telegraph') {
             return l
-        }
-        else {
+        } else {
             return escape_strings(l)
         }
     }).join('').replaceAll('\uffb4', '|')
