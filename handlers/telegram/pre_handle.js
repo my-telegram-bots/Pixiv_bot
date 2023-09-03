@@ -24,7 +24,10 @@ export function get_pixiv_ids(text) {
                 if (uu.hostname !== 'pixiv.net') {
                     return
                 }
-                const pathname = uu.pathname
+                let pathname = uu.pathname
+                if (pathname.endsWith('/')) {
+                    pathname = pathname.slice(0, -1)
+                }
                 if (pathname.startsWith('/artworks/') || pathname.startsWith('/i/')) {
                     const s_pathname = pathname.split('/')
                     ids.illust.push(parseInt(s_pathname[s_pathname.length - 1]))
