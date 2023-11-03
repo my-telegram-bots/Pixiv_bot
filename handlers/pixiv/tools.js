@@ -47,7 +47,7 @@ export async function thumb_to_all(illust, try_time = 0) {
         .replace('_square1200', '∏b∏')
         .replace('_custom1200', '∏b∏')
         .replace('_master1200', '∏b∏')
-        .replace('i.pximg.net', 'i-cf.pximg.net')
+        .replace('i-cf.pximg.net', 'i.pximg.net')
     let thumb_url = base_url.replace('∏a∏', '/c/250x250_80_a2/img-master').replace('∏b∏', '_square1200')
     let original_url = base_url.replace('∏a∏', '/img-original').replace('∏b∏', '')
     let regular_url = base_url.replace('∏a∏', '/img-master').replace('∏b∏', '_master1200')
@@ -88,9 +88,9 @@ export async function thumb_to_all(illust, try_time = 0) {
             }]
         }
         await asyncForEach(illust.page, async (l, i) => {
-            imgs_.thumb_urls[i] = l.urls.thumb.replace('i.pximg.net', 'i-cf.pximg.net')
-            imgs_.regular_urls[i] = l.urls.regular.replace('i.pximg.net', 'i-cf.pximg.net')
-            imgs_.original_urls[i] = l.urls.original.replace('i.pximg.net', 'i-cf.pximg.net')
+            imgs_.thumb_urls[i] = l.urls.thumb//.replace('i.pximg.net', 'i-cf.pximg.net')
+            imgs_.regular_urls[i] = l.urls.regular//.replace('i.pximg.net', 'i-cf.pximg.net')
+            imgs_.original_urls[i] = l.urls.original//.replace('i.pximg.net', 'i-cf.pximg.net')
             imgs_.size[i] = {
                 width: l.width,
                 height: l.height

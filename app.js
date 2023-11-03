@@ -349,7 +349,7 @@ async function tg_sender(ctx) {
                                     thumb: new InputFile(await download_file(o.media_r ? o.media_r : o.media_o, o.id))
                                 }).catch(async (e) => {
                                     if (await catchily(e, chat_id, ctx.l)) {
-                                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'file_too_large', o.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy)), default_extra)
+                                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'file_too_large', o.media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), default_extra)
                                     }
                                 })
                             } else {

@@ -276,7 +276,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
             return
         }
     }
-    if (ctx.command === 's') {
+    if (ctx.text == '/s') {
         // lazy....
         ctx.us.setting = {
             format: {

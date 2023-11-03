@@ -58,7 +58,7 @@ export async function download_file(url, id, force = false, try_time = 0) {
     if (try_time > 5) {
         return false
     }
-    url = url.replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
+    url = url.replace('https://i-cf.pximg.net/', 'https://i.pximg.net/')
     let filename = url.split('/').slice(-1)[0]
     if (url.includes('.zip')) {
         filename = id + '.zip'

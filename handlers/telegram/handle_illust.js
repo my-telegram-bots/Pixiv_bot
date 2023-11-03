@@ -45,6 +45,10 @@ export async function handle_illust(id, flag) {
                 parse_mode: 'MarkdownV2',
                 ...k_os(illust.id, flag)
             }
+            // but telegram doesn't support spoiler in inline mode
+            if (flag.spoiler) {
+                illust.inline[pid].has_spoiler = true
+            }
         })
     } else if (illust.type == 2) {
         // inline + ugoira 只有在现存动图的情况下有意义
@@ -64,6 +68,9 @@ export async function handle_illust(id, flag) {
                 parse_mode: 'MarkdownV2',
                 ...options,
                 ...k_os(illust.id, flag)
+            }
+            if (flag.spoiler) {
+                illust.inline[0].has_spoiler = true
             }
         } else {
             ugoira_to_mp4(illust)

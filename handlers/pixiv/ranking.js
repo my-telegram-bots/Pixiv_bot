@@ -50,7 +50,7 @@ export async function ranking(page = 1, mode = 'daily', date = false, filter_typ
         data: data.contents.filter((p) => {
             return filter_type.indexOf(parseInt(p.illust_type)) > -1
         }).map((p) => {
-            p.url = p.url.replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
+            p.url = p.url//.replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
             return {
                 id: p.illust_id,
                 title: p.title,
