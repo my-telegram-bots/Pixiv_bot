@@ -172,6 +172,7 @@ export async function read_user_setting(bot, ctx) {
         // caption start
         tags: (d_f.tags && !ctx.text.includes('-tag')) || ctx.text.includes('+tag'),
         open: (d_f.open && !ctx.text.includes('-open')) || ctx.text.includes('+open'),
+        caption_extraction : (d_f.caption_extraction && !ctx.text.includes('-caption')) || ctx.text.includes('+caption'),
         // can't use switch_inline_query in a channel chat, because a user will not be able to use the button without knowing bot's username
         share: (ctx.type !== 'channel' && (d_f.share && !ctx.text.includes('-share')) || ctx.text.includes('+share')),
         remove_keyboard: (d_f.remove_keyboard && !ctx.text.includes('+kb')) || ctx.text.includes('-kb'),

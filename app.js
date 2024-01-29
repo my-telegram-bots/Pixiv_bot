@@ -18,9 +18,8 @@ bot.use(async (ctx, next) => {
         parse_mode: 'MarkdownV2'
     }
     if (!!ctx.message) {
-        if (ctx.message.text) {
+        if (ctx.text = ctx.message.text || ctx.message.caption || '') {
             // remove command[@username] : /start@Pixiv_bot -> /start
-            ctx.text = ctx.message.text
             if (ctx.message.entities && ctx.text.startsWith('/')) {
                 ctx.command = ctx.message.text.substring(1, ctx.message.entities[0].length).replace(`@${bot.botInfo.username}`, '')
             }
@@ -198,7 +197,7 @@ bot.command('link', async (ctx) => {
     }
 })
 
-bot.on(':text', async (ctx) => {
+bot.on([':text', ':caption'], async (ctx) => {
     let chat_id = ctx.chat_id
     let user_id = ctx.user_id
     if (ctx.command === 's' || ctx.text.substring(0, 3) === 'eyJ') {
@@ -233,7 +232,7 @@ bot.on(':text', async (ctx) => {
         return
     }
 
-    let direct_flag = true
+    let direct_flag =  (ctx.message.caption && !ctx.us.caption_extraction) ? false : true
     for (const linked_chat_id in ctx.us.setting.link_chat_list) {
         let link_setting = ctx.us.setting.link_chat_list[linked_chat_id]
         if (ctx.message.sender_chat && ctx.message.sender_chat.id === linked_chat_id) {
