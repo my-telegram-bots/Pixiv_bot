@@ -11,13 +11,14 @@ const br = { tag: 'br' }
  */
 export async function mg2telegraph(mg, title, user_id, author_name, author_url) {
     let t_data = [{
-            content: [],
-            ids: []
-        }]
+        content: [],
+        ids: []
+    }]
     let t_data_id = 0
     try {
         await asyncForEach(mg, async (d) => {
-            let url = d.media_r
+            let url = null
+            // telegraph cant fetch the file size over 2M
             // if (d.type == 'photo') {
             //     // image too large and telegram will disable the instat view in telegraph
             //     if (d.fsize > 2048000) {
@@ -28,7 +29,12 @@ export async function mg2telegraph(mg, title, user_id, author_name, author_url) 
             if (d.type == 'video') {
                 url = await ugoira_to_mp4(d.id)
             }
-            url = url.replace('i-cf.pximg.net', config.pixiv.pximgproxy).replace('i.pximg.net', config.pixiv.pximgproxy)
+            // iv support.webp for reduce file size and fetch time
+            else if (config.tg.webp) {
+                url = d.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy).replace('i.pximg.net', config.pixiv.pximgproxy) + '.webp'
+            } else {
+                url = d.media_r.replace('i-cf.pximg.net', config.pixiv.pximgproxy).replace('i.pximg.net', config.pixiv.pximgproxy)
+            }
             // caption = '' = -> muilt images
             if (d.caption == '') {
                 t_data[t_data_id].content.push({
@@ -104,9 +110,9 @@ export async function novel2telegraph(novel, user_id) {
         content.splice(i, 0, br)
     }
     return await publish2telegraph(novel.title, user_id, [{
-            "tag": "p",
-            "children": content
-        }], novel.userName, `https://www.pixiv.net/users/${novel.userId}`, '')
+        "tag": "p",
+        "children": content
+    }], novel.userName, `https://www.pixiv.net/users/${novel.userId}`, '')
 }
 /**
  * publish to telegra.ph
