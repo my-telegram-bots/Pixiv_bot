@@ -434,17 +434,20 @@ async function tg_sender(ctx) {
                 })
             }
         }
-        if (ctx.us.asfile) {
+        if (ctx.us.asfile || ctx.us.append_file) {
             await asyncForEach(ctx.us.desc ? illusts.reverse() : illusts, async (illust) => {
+                let { reply_to_message_id } = default_extra
                 await asyncForEach(illust.mediagroup, async (o) => {
                     bot.api.sendChatAction(chat_id, 'upload_document')
                     let extra = {
                         ...default_extra,
                         caption: o.caption.replaceAll('%mid%', ''),
-                        disable_content_type_detection: true
+                        disable_content_type_detection: true,
+                        reply_to_message_id
                     }
                     if (o.type === 'video') {
-                        ugoira_to_mp4(o.id)
+                        // ¿
+                        o.media_o = await ugoira_to_mp4(o.id)
                         const ugoira_path = get_ugoira_path(o.id)
                         if (fs.existsSync(ugoira_path)) {
                             o.media_o = new InputFile(get_ugoira_path(o.id))
@@ -452,11 +455,15 @@ async function tg_sender(ctx) {
                             o.media_o = new InputFile(new URL(o.media_o))
                         }
                     }
-                    await bot.api.sendDocument(chat_id, o.media_o, extra).catch(async (e) => {
+                    await bot.api.sendDocument(chat_id, o.media_o, extra).then(x => {
+                        reply_to_message_id = x.message_id
+                    }).catch(async (e) => {
                         if (await catchily(e, chat_id, ctx.l)) {
                             if (illust.type <= 2) {
                                 await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(o.media_o)), {
                                     ...extra,
+                                }).then(x => {
+                                    reply_to_message_id = x.message_id
                                 }).catch(async (e) => {
                                     if (await catchily(e, chat_id, ctx.l)) {
                                         await bot.api.sendMessage(chat_id, _l(ctx.l, 'file_too_large', o.media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), default_extra)

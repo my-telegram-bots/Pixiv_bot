@@ -193,6 +193,7 @@ export async function read_user_setting(bot, ctx) {
         telegraph: ctx.text.includes('+graph') || ctx.text.includes('+telegraph'),
         // send as file
         asfile: (d_f.asfile && !ctx.text.includes('-file')) || ctx.text.includes('+file'),
+        append_file: (d_f.append_file && (!ctx.text.includes('-af') || !ctx.text.includes('-appendfile'))) || (ctx.text.includes('+af') || ctx.text.includes('+appendfile')),
         // spoiler
         // But I have no idea to deisgn the logic.
         spoiler: !ctx.text.includes('-sp') && ctx.text.includes('+sp'),
