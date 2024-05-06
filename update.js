@@ -207,16 +207,15 @@ async function set_storage_endpoint_for_ugoira_illust() {
     process.exit()
 }
 
-async function set_imgs_without_domain_2023_may() {
+async function set_imgs_without_i_cf_2023_may() {
     await db.db_initial()
     console.log('loading all illusts from local database')
-    let offset = 4539
+    let offset = 0
     let d = (await db.collection.illust.find({ type: 0 }).toArray())
     console.log('load all illusts from local database', d.length)
     await sleep(10)
     await asyncForEach(d, async (illust, i) => {
         if (illust.type === 2) {
-            return
             console.log('to', i + offset, illust.id)
             if (illust.imgs_.cover_img_url) {
                 if (illust.imgs_.cover_img_url.startsWith('https://i-cf.pximg.net')) {
@@ -270,6 +269,32 @@ async function set_imgs_without_domain_2023_may() {
     })
     process.exit()
 }
+
+async function override_user_setting_album_2024_may() {
+    await db.db_initial()
+    console.log('loading all chat_settings from local database')
+    let d = (await db.collection.chat_setting.find().toArray())
+    console.log('loaded', d.length)
+    // await sleep(10)
+    await asyncForEach(d, async (u, i) => {
+        if (u.default && !u.default.album && typeof u.default.album == 'boolean') {
+            console.log(u)
+            // return
+            await db.collection.chat_setting.updateOne({
+                id: u.id
+            }, {
+                $set: {
+                    default: {
+                        album: true,
+                        album_one: false
+                    }
+                }
+            })
+        }
+    })
+    process.exit()
+}
+
 try {
     // just some expliot ? LOL
     eval(process.argv[2] + '()')

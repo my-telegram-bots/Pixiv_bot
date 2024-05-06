@@ -1,7 +1,7 @@
 import { format } from './format.js'
-import { asyncForEach, download_file, honsole } from '../common.js'
+import { asyncForEach, fetch_tmp_file, honsole } from '../common.js'
 import config from '../../config.js'
-import { detect_ugpira_file, detect_ugpira_url, ugoira_to_mp4 } from '../pixiv/tools.js'
+import { detect_ugpira_url, ugoira_to_mp4 } from '../pixiv/tools.js'
 import { InputFile } from 'grammy'
 export async function mg_create(illust, us) {
     let mediagroups = []
@@ -68,9 +68,9 @@ export function mg_albumize(mg = [], us) {
     //     36 = 9 + 9 + 9 + 9
     // }
     // maybe with image ratio to split
-    // so it disabled by default (album_same)
+    // so it disabled by default (album_equal)
     // some image is not square | width > height /2 | height > width /2
-    if (us.album_same) {
+    if (us.album_equal) {
         switch (mg.length) {
             case 12:
                 split_i = 6
@@ -135,7 +135,7 @@ export function mg_albumize(mg = [], us) {
             delete t[gid][0].sc
         })
     }
-    honsole.dev('mg_create', t)
+    honsole.dev('mg_albumize', t)
     return t
 }
 export async function mg_filter(mg, type = 't', has_spoiler = false) {
@@ -174,7 +174,7 @@ export async function mg_filter(mg, type = 't', has_spoiler = false) {
             if (type.includes('dl') && !x.media_t) {
                 // dlo => download media_o file
                 // dlr => download media_r file
-                xx.media = new InputFile(await download_file(x['media_' + type.replace('dl', '')]))
+                xx.media = new InputFile(await fetch_tmp_file(x['media_' + type.replace('dl', '')]))
             } else if (type == 'r') {
                 xx.media = x.media_r ? x.media_r : x.media_o
             }

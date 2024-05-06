@@ -32,7 +32,12 @@ Version 2.0.3 has changed the file storage directory, you need exec the followin
     node update move_ugoira_folder_and_index_2022_nov
 Version 2.0.4 remove hard hostname `i-cf.pximg.net` and prefix will auto generate by handle_pximg_url function
 
-    node update set_imgs_without_domain_2023_nov
+    node update set_imgs_without_i_cf_2023_may
+
+Version 2.0.4 user settings' `album` mirgate to `album_one`
+
+    node update override_user_setting_album_2024_may
+    
 and changed ugoira url in config.json (without /mp4/), you need modify the config.json.
 ## config
 ### cookie

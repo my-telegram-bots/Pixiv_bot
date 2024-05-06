@@ -101,6 +101,32 @@ export async function download_file(url, id, force = false, try_time = 0) {
         return await download_file(url, id, try_time + 1)
     }
 }
+/**
+ * fetch file in memory
+ * @param {*} url 
+ * @returns arraybuffer
+ */
+export async function fetch_tmp_file(url, retry_time = 0) {
+    if (retry_time > 3) {
+        return null
+    }
+    try {
+        return (await axios.get(url, {
+            responseType: 'arraybuffer',
+            headers: {
+                'User-Agent': config.pixiv.ua,
+                // Referer policy only include domain/
+                'Referer': 'https://www.pixiv.net/'
+            }
+        })).data
+    } catch (error) {
+        await sleep(1000)
+        if (error.response && error.response.status === 404) {
+            return null
+        }
+        return await fetch_tmp_file(url, retry_time + 1)
+    }
+}
 export function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
 }

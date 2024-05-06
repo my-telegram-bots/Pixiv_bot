@@ -3,6 +3,7 @@ import { asyncForEach, honsole } from '../common.js'
 import { get_illust } from '../pixiv/illust.js'
 import { format } from './format.js'
 import { ugoira_to_mp4 } from '../pixiv/tools.js'
+import { mg_create } from './mediagroup.js'
 export async function handle_illusts(ids, flag) {
     if (!ids instanceof Array) {
         ids = [ids]
@@ -24,12 +25,15 @@ export async function handle_illust(id, flag) {
         illust = await get_illust(id)
     }
     honsole.dev('i', illust.id)
-    if (typeof illust == 'number' || !illust) {
+
+    //  返回错误代码，follow get_illust 虽然只有 404 就是
+    if (typeof illust === 'number' || !illust) {
         return illust
     }
     illust = {
         ...illust,
         nsfw: illust.xRestrict > 0 || illust.sl > 5,
+        ai: !illust.ai_type === undefined || illust.ai_type === 2,
         inline: []
     }
     if (illust.type <= 1) {
@@ -76,5 +80,6 @@ export async function handle_illust(id, flag) {
             ugoira_to_mp4(illust)
         }
     }
+    illust.mediagroup = await mg_create(illust, flag)
     return illust
 }

@@ -181,10 +181,12 @@ export async function read_user_setting(bot, ctx) {
         single_caption: (!ctx.inlineQuery && ((d_f.single_caption && !ctx.text.includes('-sc'))) || ctx.text.includes('+sc')),
         show_id: !ctx.text.includes('-id'),
         // caption end
-        // send all illusts as mediagroup
+        // send as mediagroup when a illust with multiple images
         album: (d_f.album && !ctx.text.includes('-album')) || ctx.text.includes('+album'),
+        // all works in one mediagroup
+        album_one: (d_f.album_one && (!ctx.text.includes('-one'))) || ctx.text.includes('+one'),
         // album will keep same numbers per mediagroup
-        album_same: (d_f.album_same && (!ctx.text.includes('-samealbum') || !ctx.text.includes('-sa'))) || ctx.text.includes('+samealbum') || ctx.text.includes('+sa'),
+        album_equal: (d_f.album_equal && !ctx.text.includes('-equal')) || ctx.text.includes('+equal'),
         // descending order 
         desc: (d_f.desc && !ctx.text.includes('-desc')) || ctx.text.includes('+desc'),
         // send as telegraph
