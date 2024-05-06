@@ -17,7 +17,7 @@ export function get_pixiv_ids(text) {
     }
     if (text && (typeof text === 'string' || typeof text === 'number')) {
         //                  remove value text   nothing               remove www.               force add https://                          remove dup https://                         force https://                      https with newline                     remove all +- and space                                  force newline (for split) remove all /en
-        get_values(text).rm_valued_text.replace(/-_-/g, ' ').replace(/www\./ig, '').replace(/pixiv\.net\//ig, 'https://pixiv.net/').replace(/https:\/\/https:\/\//ig, 'https://').replace(/http:\/\//ig, 'https://').replace(/https:\/\//ig, '\nhttps://').replace(/  /g, ' ').replace(/\+/g, ' ').replace(/\-/g, ' ').replace(/ /g, '\n').replace(/\/en/ig, '').split('\n').forEach(u => {
+        get_values(text).rm_valued_text.replace(/-_-/g, ' ').replace(/www\./ig, '').replace(/pixiv\.net\//ig, 'https://pixiv.net/').replace(/https:\/\/https:\/\//ig, 'https://').replace(/http:\/\//ig, 'https://').replace(/https:\/\//ig, '\nhttps://').replace(/  /g, ' ').replace(/\+/g, ' +').replace(/\-/g, ' -').replace(/ /g, '\n').replace(/\/en/ig, '').split('\n').forEach(u => {
             // url match
             try {
                 const uu = new URL(u)
@@ -122,7 +122,7 @@ export async function read_user_setting(bot, ctx) {
         },
         q_id: 0 // telegraph albumized value
     }
-    let setting = false
+    let setting = null
     if (ctx.chat || ctx.inlineQuery || ctx.callbackQuery) {
         setting = await db.collection.chat_setting.findOne({
             id: chat_id
@@ -132,9 +132,9 @@ export async function read_user_setting(bot, ctx) {
     // 1st: = group
     if (ctx.chat_id < 0 &&
         // 2st: include +god
-        (ctx.text.includes('+god') ||
-            // or group settings not  includes result
-            (!setting || !setting.default || !setting.default.overwrite))) {
+        ctx.text.includes('+god') ||
+        // or group settings not includes result
+        setting?.default?.overwrite !== true) {
         let setting_user = await db.collection.chat_setting.findOne({
             id: user_id
         })
@@ -206,7 +206,7 @@ export async function read_user_setting(bot, ctx) {
         ctx.us.album = true
         ctx.us.tags = true
     }
-    if (ctx.us.single_caption) {
+    if (ctx.us.single_caption || ctx.us.album_one || ctx.us.album_equal) {
         ctx.us.album = true
     }
     if (ctx.text.includes('+rm')) {
