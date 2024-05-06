@@ -322,7 +322,7 @@ async function tg_sender(ctx) {
             let mg = illust.mediagroup
             // send as file
             if (!ctx.us.asfile) {
-                if (!ctx.us.album || (illusts.length == 1 && mg.length === 1)) {
+                if (!ctx.us.telegraph && (!ctx.us.album || (illusts.length == 1 && mg.length === 1))) {
                     // see https://core.telegram.org/bots/api#inlinekeyboardbutton
                     // Especially useful when combined with switch_pm… actions – in this case the user will be automatically returned to the chat they switched from, skipping the chat selection screen.
                     // So we need inline share button to switch chat window even if user don't want share button
