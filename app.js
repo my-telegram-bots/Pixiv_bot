@@ -65,6 +65,8 @@ bot.command('help', async (ctx) => {
         parse_mode: ''
     })
 })
+
+
 // gift: get id even if channel
 bot.command('id', async (ctx) => {
     let text = ctx.chat.id < 0 ? `#chatid: \`${ctx.chat.id}\`\n` : ''
@@ -84,7 +86,7 @@ bot.use(async (ctx, next) => {
     } else {
         ctx.ids = get_pixiv_ids(ctx.text)
         if (!ctx.callbackQuery && !ctx.inlineQuery
-            && JSON.stringify(ctx.ids).length === 36 // have terrible bug in the feature.
+            && JSON.stringify(ctx.ids).length === 36 // have horrible bug in the feature LOL.
             && !['link'].includes(ctx.command)
             && !ctx.text.includes('fanbox.cc')) {
             // bot have nothing to do.
@@ -232,7 +234,7 @@ bot.on([':text', ':caption'], async (ctx) => {
         return
     }
 
-    let direct_flag =  (ctx.message.caption && !ctx.us.caption_extraction) ? false : true
+    let direct_flag = (ctx.message.caption && !ctx.us.caption_extraction) ? false : true
     for (const linked_chat_id in ctx.us.setting.link_chat_list) {
         let link_setting = ctx.us.setting.link_chat_list[linked_chat_id]
         if (ctx.message.sender_chat && ctx.message.sender_chat.id === linked_chat_id) {
@@ -557,10 +559,11 @@ db.db_initial().then(async () => {
         try {
             await exec('which ffmpeg')
             await exec('which mp4fpsmod')
+            await exec('which unzip')
         }
         catch (error) {
-            console.error('You must install ffmpeg and mp4fpsmod to enable ugoira to mp4 function', error)
-            console.error('If you want to run but won\'t install ffmpeg and mp4fpsmod, please exec following command:')
+            console.error('You must install ffmpeg, mp4fpsmod and unzip to active ugoira to mp4 function', error)
+            console.error('If you want to run bot but won\'t install these above, please exec following command:')
             console.error('DEPENDIONLESS=1 node app.js')
             console.log('bye')
             process.exit()
