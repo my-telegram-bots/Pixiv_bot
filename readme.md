@@ -29,8 +29,10 @@ version 2.0.2 edit the illust collection in local database, you need exec the fo
 
 Version 2.0.3 has changed the file storage directory, you need exec the following command.
 
-    node update move_ugoira_folder_and_index_2022_march
+    node update move_ugoira_folder_and_index_2022_nov
+Version 2.0.4 remove hard hostname `i-cf.pximg.net` and prefix will auto generate by handle_pximg_url function
 
+    node update set_imgs_without_domain_2023_nov
 and changed ugoira url in config.json (without /mp4/), you need modify the config.json.
 ## config
 ### cookie

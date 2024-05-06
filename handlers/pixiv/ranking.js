@@ -37,7 +37,7 @@ export async function ranking(page = 1, mode = 'daily', date = false, filter_typ
             params: params
         })).data
         try {
-            col.insertOne({
+            await col.insertOne({
                 id: data.mode + data.date + '_' + page,
                 ...data,
             })

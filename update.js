@@ -174,7 +174,7 @@ async function set_storage_endpoint_for_ugoira_illust() {
     //                                               NaN LOL
     let endpoint_ids = lsoutput.split('\n').map(x => parseInt(x.split('.')[0]))
     await db.db_initial()
-    console.log('loading illusts from local database')
+    console.log('loading ugroia illusts from local database')
     let d = (await db.collection.illust.find({
         type: 2
     }).toArray())
@@ -202,6 +202,70 @@ async function set_storage_endpoint_for_ugoira_illust() {
 
             }
             console.log('unset', i, illust.id, endpoint_name)
+        }
+    })
+    process.exit()
+}
+
+async function set_imgs_without_domain_2023_may() {
+    await db.db_initial()
+    console.log('loading all illusts from local database')
+    let offset = 4539
+    let d = (await db.collection.illust.find({ type: 0 }).toArray())
+    console.log('load all illusts from local database', d.length)
+    await sleep(10)
+    await asyncForEach(d, async (illust, i) => {
+        if (illust.type === 2) {
+            return
+            console.log('to', i + offset, illust.id)
+            if (illust.imgs_.cover_img_url) {
+                if (illust.imgs_.cover_img_url.startsWith('https://i-cf.pximg.net')) {
+                    console.log('set ugoira', illust.id)
+                    await db.collection.illust.updateOne({
+                        id: illust.id
+                    }, {
+                        $set: {
+                            'imgs_': {
+                                ...illust.imgs_,
+                                cover_img_url: illust.imgs_.cover_img_url.replace('https://i-cf.pximg.net', 'https://i.pximg.net')
+                            }
+                        }
+                    })
+                }
+            } else {
+                console.log('warning no ugoira cover', illust.id)
+            }
+        } else {
+            // console.log('to', i + offset, illust.id, parseInt(illust.imgs_.original_urls[0]))
+            if (parseInt(illust.imgs_.original_urls[0])) {
+                console.log('handle error data', i, illust.id)
+                await db.collection.illust.updateOne({
+                    id: illust.id
+                }, {
+                    $set: {
+                        'imgs_': {
+                            ...illust.imgs_,
+                            thumb_urls: illust.imgs_.thumb_urls.filter(u => !parseInt(u)).map(u => u.replace('https://i-cf.pximg.net', 'https://i.pximg.net')),
+                            regular_urls: illust.imgs_.regular_urls.filter(u => !parseInt(u)).map(u => u.replace('https://i-cf.pximg.net', 'https://i.pximg.net')),
+                            original_urls: illust.imgs_.original_urls.filter(u => !parseInt(u)).map(u => u.replace('https://i-cf.pximg.net', 'https://i.pximg.net'))
+                        }
+                    }
+                })
+            } else if (illust.imgs_.original_urls[0].startsWith('https://i-cf.pximg.net')) {
+                console.log('set', illust.id)
+                await db.collection.illust.updateOne({
+                    id: illust.id
+                }, {
+                    $set: {
+                        'imgs_': {
+                            ...illust.imgs_,
+                            thumb_urls: illust.imgs_.thumb_urls.map(u => u.replace('https://i-cf.pximg.net', 'https://i.pximg.net')),
+                            regular_urls: illust.imgs_.regular_urls.map(u => u.replace('https://i-cf.pximg.net', 'https://i.pximg.net')),
+                            original_urls: illust.imgs_.original_urls.map(u => u.replace('https://i-cf.pximg.net', 'https://i.pximg.net')),
+                        }
+                    }
+                })
+            }
         }
     })
     process.exit()

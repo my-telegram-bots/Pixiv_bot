@@ -4,9 +4,9 @@ import config from './config.js'
 import { apiThrottler } from '@grammyjs/transformer-throttler'
 // import http from 'http'
 export const tgBot = new Bot(config.tg.token, {
-    client: {
-        apiRoot: 'http://192.168.191.37:8081'
-    }
+    // client: {
+    //     apiRoot: 'http://127.0.0.1:8081'
+    // }
 })
 
 const throttler = apiThrottler()

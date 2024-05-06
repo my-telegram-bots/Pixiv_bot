@@ -17,6 +17,7 @@ const escape_string_list = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+
 %p% currentpage / totalpage
 
 %NSFW% NSFW alert
+%AI% AI alert
 */
 export function format(td, flag, mode = 'message', p) {
     let template = ''
@@ -37,7 +38,7 @@ export function format(td, flag, mode = 'message', p) {
         switch (mode) {
             case 'message':
             case 'inline':
-                template = '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%'
+                template = '%NSFW|#NSFW %%AI|#AI %[%title%](%url%) / [%author_name%](%author_url%)% |p%'
                 template += '%\n|tags%'
                 break
             case 'mediagroup_message':
@@ -57,6 +58,7 @@ export function format(td, flag, mode = 'message', p) {
             ['id', flag.show_id ? td.id : false],
             ['url', `https://www.pixiv.net/artworks/${td.id}`],
             ['NSFW', td.nsfw],
+            ['AI', td.ai],
             ['author_id', td.author_id],
             ['author_url', `https://www.pixiv.net/users/${td.author_id}`],
             ['author_name', td.author_name.trim()]
