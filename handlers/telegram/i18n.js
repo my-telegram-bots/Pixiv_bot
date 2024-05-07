@@ -1,12 +1,14 @@
 import fs from 'fs'
 import { escape_strings } from './format.js'
 let l = {}
+
+// load i18n files
 fs.readdirSync('./lang/').map(async filename => {
-    if (filename.includes('.js')) {
+    if (filename.endsWith('.js')) {
         await import('../../lang/' + filename).then((ll, id) => {
             let ll_ = {}
-            for (const v in ll) {
-                ll_[v] = escape_strings(ll[v])
+            for (const v in ll.default) {
+                ll_[v] = escape_strings(ll.default[v])
             }
             l[filename.replace('.js', '')] = ll_
         })
