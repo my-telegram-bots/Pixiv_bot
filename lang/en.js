@@ -44,7 +44,7 @@ export default {
         "3. Reduce the number of artworks sent at once",
     error_tlegraph_title_too_long: "Generation failed, title is too long.",
     error_tlegraph_author: "Generation failed, author information is too long or incorrect.",
-    error_not_a_administrator: "Configuration operation failed, you are not an administrator of this group.",
+    error_not_a_gc_administrator: "Configuration operation failed, you are not an administrator of this group/channel.",
     error_format: "Sending failed, reply format error, please check if there are unescaped characters\n\n{}",
     error_anonymous: "You are currently in anonymous mode and cannot perform this operation.",
     error_not_enough_rights: "The bot does not have permission to Send Photos. Please enable it in the settings (Permissions/Send Media | Permissions/Exceptions/Pixiv_bot/Send Media)"

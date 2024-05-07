@@ -44,7 +44,7 @@ export default {
         "3. 減少一次發送的作品數量",
     error_tlegraph_title_too_long: "生成失敗，標題太長。",
     error_tlegraph_author: "生成失敗，作者相關信息太長或者有誤。",
-    error_not_a_administrator: "配置操作失敗，您不是該群組的管理員。",
+    error_not_a_gc_administrator: "配置操作失敗，您不是該群組/頻道的管理員。",
     error_format: "發送失敗，回覆格式錯誤，請查閱是否有字元未被轉義\n\n{}",
     error_anonymous: "您目前為匿名狀態，無法執行此操作。",
     error_not_enough_rights: "機器人未獲得 Send Media (發送媒體) 的權限，不能發送圖片，請在設置裡面打開 (權限/發送媒體 | 權限/例外/Pixiv_bot/發送媒體)"

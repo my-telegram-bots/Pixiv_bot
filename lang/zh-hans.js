@@ -44,7 +44,7 @@ export default {
         "3. 减少一次发送的作品数量",
     error_tlegraph_title_too_long: "生成失败，标题太长。",
     error_tlegraph_author: "生成失败，作者相关信息太长或者有误。",
-    error_not_a_administrator: "配置操作失败，您不是该群组的管理员。",
+    error_not_a_gc_administrator: "配置操作失败，您不是该群组/频道的管理员。",
     error_format: "发送失败，回复格式错误，请查阅是否有字符未被转义\n\n{}",
     error_anonymous: "您目前为匿名状态，无法执行此操作。",
     error_not_enough_rights: "机器人未获得 Send Media (发送媒体) 的权限，不能发送图片，请在设置里面打开 (权限/发送媒体 | 权限/例外/Pixiv_bot/发送媒体)"
