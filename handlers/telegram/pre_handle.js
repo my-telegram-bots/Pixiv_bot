@@ -233,8 +233,7 @@ export async function read_user_setting(bot, ctx) {
             if ((author_name && author_name.length >= 128) || (author_url && new URL(author_url) && author_url.length >= 512)) {
                 throw 'e'
             }
-        }
-        catch (error) {
+        } catch (error) {
             bot.api.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_author'), {
                 ...default_extra,
                 reply_to_message_id: ctx.message.message_id
@@ -309,6 +308,11 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
             await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_reset'), default_extra)
             return
         }
+        // can't use +god in permanent settings on group / channel
+        else if (ctx.chat_id < 0 && ctx.text.startsWith('/s') && ctx.text.includes('+god')) {
+            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error'), default_extra)
+            return
+        }
         let new_setting = {}
         if (ctx.text.substring(0, 3) == 'eyJ') {
             try {
@@ -324,7 +328,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
             }
         }
         if (JSON.stringify(new_setting).length > 2) {
-            honsole.log(new_setting)
+            honsole.dev(new_setting)
             if (await db.update_setting(new_setting, ctx.chat.id, ctx.us)) {
                 await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_saved'), default_extra)
             } else {
