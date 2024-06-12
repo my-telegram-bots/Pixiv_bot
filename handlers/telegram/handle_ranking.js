@@ -7,18 +7,18 @@ export async function handle_ranking([...rank], flag) {
     if (!data)
         return false
     let inline = []
-    data.data.forEach(p => {
+    data.data.forEach(td => {
         inline.push({
             type: 'photo',
-            id: 'p_' + p.id,
+            id: 'p_' + td.id,
             // only show regualar url
-            photo_url: p.murl,
-            thumb_url: p.turl,
-            caption: format(p, flag, 'inline', 1, flag.setting.format.inline),
+            photo_url: td.murl,
+            thumb_url: td.turl,
+            caption: format(td, flag, 'inline', 1, flag.setting.format.inline),
             parse_mode: 'MarkdownV2',
-            photo_width: p.width,
-            photo_height: p.height,
-            ...k_os(p.id, flag)
+            photo_width: td.width,
+            photo_height: td.height,
+            ...k_os(td.id, flag)
         })
     })
     return {

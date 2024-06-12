@@ -82,7 +82,7 @@ bot.command('id', async (ctx) => {
 // step1 initial config
 bot.use(async (ctx, next) => {
     if ((ctx.command === 's' || ctx.text.substring(0, 3) === 'eyJ') ||
-        (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.from.id === bot.botInfo.id &&
+        (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.from && ctx.message.reply_to_message.from.id === bot.botInfo.id &&
             ctx.message.reply_to_message.text && ctx.message.reply_to_message.text.substring(0, 5) === '#link')) {
     } else {
         ctx.ids = get_pixiv_ids(ctx.text)
@@ -145,14 +145,14 @@ bot.on('callback_query', async (ctx) => {
         } else {
             await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error_not_a_gc_administrator')), {
                 show_alert: true
-            })
+            }).catch()
             return
         }
     }
     if (apply_flag) {
-        ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'saved')))
+        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'saved'))).catch()
     } else {
-        ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error')))
+        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error'))).catch()
     }
 })
 
@@ -234,7 +234,12 @@ bot.on([':text', ':caption'], async (ctx) => {
         }
         return
     }
-
+    if (chat_id > 0) {
+        ctx.react('👀').catch()
+        setTimeout(() => {
+            ctx.api.setMessageReaction(chat_id, ctx.message.message_id, []).catch()
+        }, 5000)
+    }
     let direct_flag = (ctx.message.caption && !ctx.us.caption_extraction) ? false : true
     for (const linked_chat_id in ctx.us.setting.link_chat_list) {
         let link_setting = ctx.us.setting.link_chat_list[linked_chat_id]
@@ -346,7 +351,11 @@ async function tg_sender(ctx) {
                             if (o.fsize > 5000000) {
                                 photo_urls = [o.media_r, `dl-${o.media_r}`]
                             }
-                            const result = await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, { ...extra, reply_to_message_id })
+                            const result = await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, {
+                                ...extra,
+                                reply_to_message_id,
+                                caption: o.caption
+                            })
                             reply_to_message_id = result.message_id
                         })
                     } else if (illust.type === 2) {
@@ -600,9 +609,9 @@ async function catchily(e, chat_id, language_code = 'en') {
     }
     honsole.warn(e)
     try {
-        bot.api.sendMessage(config.tg.master_id, e, {
+        bot.api.sendMessage(config.tg.master_id, JSON.stringify(e).substring(0, 1000), {
             disable_web_page_preview: true
-        })
+        }).catch()
         if (!e.ok) {
             const description = e.description.toLowerCase()
             if (description.includes('media_caption_too_long')) {

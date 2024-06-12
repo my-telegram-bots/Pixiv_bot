@@ -275,7 +275,7 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         } catch (e) {
         }
         if (!admin_flag) {
-            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_administrator'), default_extra)
+            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), default_extra)
             return
         }
     }
