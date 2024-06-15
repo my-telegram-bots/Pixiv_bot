@@ -173,6 +173,8 @@ export async function read_user_setting(bot, ctx) {
         tags: (d_f.tags && !ctx.text.includes('-tag')) || ctx.text.includes('+tag'),
         open: (d_f.open && !ctx.text.includes('-open')) || ctx.text.includes('+open'),
         caption_extraction: (d_f.caption_extraction && !ctx.text.includes('-caption')) || ctx.text.includes('+caption'),
+        caption_above: (d_f.caption_above && !ctx.text.includes('-above')) || ctx.text.includes('+above'),
+
         // can't use switch_inline_query in a channel chat, because a user will not be able to use the button without knowing bot's username
         share: (ctx.type !== 'channel' && (d_f.share && !ctx.text.includes('-share')) || ctx.text.includes('+share')),
         remove_keyboard: (d_f.remove_keyboard && !ctx.text.includes('+kb')) || ctx.text.includes('-kb'),
@@ -217,6 +219,9 @@ export async function read_user_setting(bot, ctx) {
     }
     if (ctx.us.remove_keyboard) {
         ctx.us.open = ctx.us.share = false
+    }
+    if(ctx.type === 'inline'){
+        ctx.us.single_caption = false
     }
     if (ctx.message) {
         let { title, author_name, author_url } = get_values(ctx.text.substring(0, 3) == '/s ' ? ctx.text.replace('/s ', '') : ctx.text)

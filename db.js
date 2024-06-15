@@ -2,18 +2,20 @@ import config from './config.js'
 import * as mongodb from 'mongodb'
 const { MongoClient } = mongodb
 export let db = {
-    collection: fake_collection
+    collection: dummy_collection
 }
 export let collection = {
-    illust: fake_collection(),
-    chat_setting: fake_collection(),
-    novel: fake_collection(),
-    ranking: fake_collection(),
-    author: fake_collection(),
-    telegraph: fake_collection()
+    illust: dummy_collection(),
+    chat_setting: dummy_collection(),
+    novel: dummy_collection(),
+    ranking: dummy_collection(),
+    author: dummy_collection(),
+    telegraph: dummy_collection()
 }
 export async function db_initial() {
-    if (!process.env.DBLESS) {
+    if (process.env.DBLESS) {
+        console.warn('WARNING','No Database Mode(DBLESS) is not recommend for production environment.')
+    } else {
         try {
             db = (await MongoClient.connect(config.mongodb.uri)).db(config.mongodb.dbname)
             for (const key in collection) {
@@ -55,7 +57,7 @@ export async function update_setting(value, chat_id, flag) {
                         // throw 'e'
                     }
                 }
-                if (['tags', 'open', 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album', 'album_one', 'album_equal', 'desc', 'overwrite', 'asfile', 'append_file', 'caption_extraction'].includes(i)) {
+                if (['tags', 'open', 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album', 'album_one', 'album_equal', 'desc', 'overwrite', 'asfile', 'append_file', 'caption_extraction', 'caption_above'].includes(i)) {
                     if (typeof value.default[i] === 'boolean') {
                         s.default[i] = value.default[i]
                     }
@@ -140,7 +142,7 @@ export async function delete_setting(chat_id) {
  * give null & modified data for dbless mode
  * @returns {}
  */
-function fake_collection() {
+function dummy_collection() {
     return {
         find: () => { return null; },
         findOne: () => { return null; },

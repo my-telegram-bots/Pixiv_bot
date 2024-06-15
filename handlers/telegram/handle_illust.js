@@ -47,6 +47,7 @@ export async function handle_illust(id, flag) {
                 photo_width: size.width,
                 photo_height: size.height,
                 parse_mode: 'MarkdownV2',
+                show_caption_above_media: flag.caption_above,
                 ...k_os(illust.id, flag)
             }
             // but telegram doesn't support spoiler in inline mode
@@ -70,6 +71,7 @@ export async function handle_illust(id, flag) {
                 id: 'p' + illust.id,
                 caption: format(illust, flag, 'inline', 1),
                 parse_mode: 'MarkdownV2',
+                show_caption_above_media: flag.caption_above,
                 ...options,
                 ...k_os(illust.id, flag)
             }

@@ -292,6 +292,7 @@ async function tg_sender(ctx) {
     if (!ctx.us) {
         ctx.us = await read_user_setting(bot, ctx)
     }
+    default_extra.show_caption_above_media = ctx.us.caption_above
     let ids = ctx.ids
     let illusts = []
     // fetch authors' all illusts
@@ -341,6 +342,9 @@ async function tg_sender(ctx) {
                     }
                     if (ctx.us.spoiler) {
                         extra.has_spoiler = ctx.us.spoiler
+                    }
+                    if (ctx.us.caption_above) {
+                        extra.show_caption_above_media = ctx.us.caption_above
                     }
                     if (illust.type <= 1) {
                         let { reply_to_message_id } = extra
@@ -404,7 +408,8 @@ async function tg_sender(ctx) {
         })
         let mg_extra = {
             ...default_extra,
-            has_spoiler: ctx.us.spoiler
+            has_spoiler: ctx.us.spoiler,
+            // show_caption_above_media: ctx.us.caption_above
         }
         if (mgs.length > 0) {
             if (ctx.us.telegraph) {
