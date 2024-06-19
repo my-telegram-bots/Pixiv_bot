@@ -7,7 +7,7 @@ sidebar: false
 
 ### 用户 id
 当您在使用本 bot 的时候，您的 Telegram id 可能会被 bot 记录以及关联。  
-会触发记录用户 id 的操作目前有以下几个：  
+会记录用户 id 的操作目前有：  
 
 - 自定义回复格式
 - 生成 telegraph 页面

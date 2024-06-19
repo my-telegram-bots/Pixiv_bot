@@ -16,18 +16,18 @@ title: 機器人配置
       <p>請給 bot 發送 <code>/s</code> 命令打開本配置頁面。</p>
     </div>
     <blockquote>在進行配置之前，請先同意 bot 的隱私策略。</blockquote>
-    <div id="replyformat">
-      <h2>回覆消息配置</h2>
+    <div id="format">
+      <h2>消息格式配置</h2>
       <blockquote>
         在這裡可以自訂機器人的返回消息格式
         <br>
-        在這裡請確保您的回覆格式不會很長，太多了的話 bot 是發不出來的。
+        請留意您自訂的文本格式字數，太長的消息將無法發送。
       </blockquote>
       <div id="template">
         <p style="text-align: center;">默認模板（點擊應用）</p>
         <div class="cards">
           <div class="card container" @click="current_template = '%NSFW|#NSFW %title% \\| %author_name% \\#pixiv [%url%](%url%) %p%%\n|tags%'">
-            <p>#NSFW <a>XX:Me</a> 1/4<br>
+            <p>#NSFW XX:Me <a>#pixiv</a> <a>https://pixiv.net/artworks/...</a> 1/4<br>
               #DARLINGintheFRANXX #ゼロツー #ココロ #ミク #イクノ #xx:me #トリカ
             </p>
           </div>
@@ -50,11 +50,12 @@ title: 機器人配置
             <div style="text-align: center;">
               <img src="../img/67953985_p0.jpg">
             </div>
+            <!-- selfxss 警告 不過無所謂了 攻擊者能偷到什麼東西呢？-->
             <!-- self xss warning -->
             <span class="container" v-html="format(current_template)"></span>
           </div>
           <div class="custom-block danger">
-            <p>請注意，如果要展示 = * _ * []() 請在前面轉義（\# , \( , \[），否則 Telegram 會報錯。</p>
+            <p>請注意，如果要顯示 = * _ * []() 請在前面轉義（\# , \( , \[），否則發送作品時 Telegram 會報錯。</p>
           </div>
           <div class="textareacard">
             <textarea v-model="current_template"></textarea>
@@ -77,7 +78,7 @@ title: 機器人配置
               <br>
               例子: <code>%連結:|url|?233%</code> -> 連結: https://www.pixiv.net/artworks/123?233
               <br>
-              喜歡 | 的話，請在前面添加 | 來轉義掉即可
+              喜歡 | 的話，請在前面添加 \ 來轉義掉即可
               <br>
               <code>%連結:\||url|\|?233%</code> -> 連結:| https://www.pixiv.net/artworks/123|?233
               <br>
@@ -90,6 +91,8 @@ title: 機器人配置
               <code>%url%</code> 作品連結 https://www.pixiv.net/artworks/:id
               <br>
               <code>%tags%</code> 作品標籤
+              <br>
+              <code>%AI%</code> 是否為 AI 作品
               <br>
               <code>%NSFW%</code> 是否為 NSFW 作品
               <br>
