@@ -6,7 +6,7 @@ pageClass: guide
 A Telegram bot that helps you send illustrations from Pixiv on Telegram.
 [Click here to start](tg://resolve?domain=pixiv_bot&start=67953985) | [Add bot to group](tg://resolve?domain=Pixiv_bot&startgroup=s)
 
-![r_1](../img/r_1.jpg)
+![r_1](./img/r_1.jpg)
 
 The bot will reply when it matches the following Pixiv link.
 - pixiv.net/artworks/:id
@@ -54,7 +54,7 @@ If you want to output a message in your own format in a group at one time, you c
 
 ### Display series on demand
 One picture summary:
-![r_2](../img/r_2.jpg)
+![r_2](./img/r_2.jpg)
 Description:
 - `open` controls whether to display the open button
 - `share` controls whether to display the share button
@@ -123,4 +123,4 @@ author_url=https://www.pixiv.net/users/579672
 ```
 Format, all the content after the = sign will be matched, and the line break is used as the separator
 
-![telegraph custom](../img/telegraph-1.jpg)
+![telegraph custom](./img/telegraph-1.jpg)
