@@ -21,7 +21,7 @@ title: Bot's configuration
       <blockquote>
         Here you can customize the bot's return message format
         <br>
-        Here please make sure that your custom format is not too long, messages that are too long will not be sent.
+        Please pay attention to the number of words in your customized text format, messages that are too long will not be sent.
       </blockquote>
       <div id="template">
         <p style="text-align: center;">Default template (click to apply)</p>
@@ -54,7 +54,7 @@ title: Bot's configuration
             <span class="container" v-html="format(current_template)"></span>
           </div>
           <div class="custom-block danger">
-            <p>to show = * _ * []() character, please escape it (\# , \( , \[)), otherwise Telegram will report an error.</p>
+            <p>Note that to display = * _ * []() please escape before it (\# , \( , \[), otherwise Telegram will report an error when sending the work!</p>
           </div>
           <div class="textareacard">
             <textarea v-model="current_template"></textarea>
@@ -77,7 +77,7 @@ title: Bot's configuration
               <br>
               example: <code>%link:|url|?233%</code> -> link: https://www.pixiv.net/artworks/123?233
               <br>
-              if you like |, just add | in front of it to escape it
+              if you like |, just add \ in front of it to escape it
               <br>
               <code>%link:\||url|\|?233%</code> -> link:| https://www.pixiv.net/artworks/123|?233
               <br>
@@ -91,7 +91,9 @@ title: Bot's configuration
               <br>
               <code>%tags%</code> illust's tags
               <br>
-              <code>%NSFW%</code> No safe fork work!
+              <code>%NSFW%</code> No safe for work!
+              <br>
+              <code>%AI%</code> AI work or not
               <br>
               <code>%author_id%</code> author's id
               <br>

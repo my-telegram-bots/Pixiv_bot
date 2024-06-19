@@ -22,7 +22,7 @@ title: 机器人配置
       <blockquote>
         在这里可以自定义机器人的返回消息格式
         <br>
-        在这里请确保您自定义的文本格式不会太长，太长的消息将无法发送。
+        请留意您自定义的文本格式字数，太长的消息将无法发送。
       </blockquote>
       <div id="template">
         <p style="text-align: center;">默认模板（点击应用）</p>
@@ -56,7 +56,7 @@ title: 机器人配置
             <span class="container" v-html="format(current_template)"></span>
           </div>
           <div class="custom-block danger">
-            <p>请注意，如果要展示 = * _ * []() 请在前面转义（\# , \( , \[），否则 Telegram 会报错。</p>
+            <p>请注意，如果要显示 = * _ * []() 请在前面转义（\# , \( , \[），否则发送作品时 Telegram 会报错。</p>
           </div>
           <div class="textareacard">
             <textarea v-model="current_template"></textarea>
@@ -79,7 +79,7 @@ title: 机器人配置
               <br>
               例子: <code>%链接:|url|?233%</code> -> 链接: https://www.pixiv.net/artworks/123?233
               <br>
-              喜欢 | 的话，请在前面添加 | 来转义掉即可
+              喜欢 | 的话，请在前面添加 \ 来转义掉即可
               <br>
               <code>%链接:\||url|\|?233%</code> -> 链接:| https://www.pixiv.net/artworks/123|?233
               <br>
@@ -92,6 +92,8 @@ title: 机器人配置
               <code>%url%</code> 作品链接 https://www.pixiv.net/artworks/:id
               <br>
               <code>%tags%</code> 作品标签
+              <br>
+              <code>%AI%</code> 是否为 AI 作品
               <br>
               <code>%NSFW%</code> 是否为 NSFW 作品
               <br>
