@@ -3,12 +3,10 @@ title: Guide
 pageClass: guide
 ---
 # Pixiv bot
-A Telegram bot that helps you send entries from Pixiv in Telegram.  
-[Click me to start experience](tg://resolve?domain=pixiv_bot&start=67953985) | [Add bot to group](tg://resolve?domain=Pixiv_bot&startgroup=s)  
+A Telegram bot that helps you send illustrations from Pixiv on Telegram.
+[Click here to start](tg://resolve?domain=pixiv_bot&start=67953985) | [Add bot to group](tg://resolve?domain=Pixiv_bot&startgroup=s)
 
- 
-! [r_1](. /img/r_1.jpg)  
-
+![r_1](../img/r_1.jpg)
 
 The bot will reply when it matches the following Pixiv link.
 - pixiv.net/artworks/:id
@@ -16,111 +14,113 @@ The bot will reply when it matches the following Pixiv link.
 - pixiv.net/i/:id
 - pixiv.net/member_illust.php?illust_id=:id
 - pixiv.net/member_illust.php?illust_id=:id#manga
-- :id (that's just plain numbers)
+- :id (just numbers)
 
 ## Simple usage
 ### Normal message mode
-Simply send a pixiv link to bot.  
-Support multiple links in one message, just send them all to bot!
+Just send the pixiv link to bot
+Supports multiple links in one message, just send them all to bot!
 
-### inline mode
-bot supports Telegram inline, click the share button or [@Pixiv_bot](https://t.me/Pixiv_bot) in the chat window to experience it.  
+### Inline mode
+Bot supports Telegram inline , click the share button or [@Pixiv_bot](https://t.me/Pixiv_bot) in the chat window to experience it.
 Currently, inline only has a daily chart and id search function, but not a direct search function.
 
 > This needs to be filled in! (Only member accounts can have popularity sorting, but it's on hold for now.)
 
 ## Advanced Usage
-The bot supports some custom configurations.
-Simply put, customizing the configuration is to type a few more words to pass the parameters when sending the work, for example, if I want to show the tag of the work in the reply, then type `+tag` and it will be shown.
+The bot supports some customisation, here are the instructions.
+Simply put, a custom configuration is to type a few more words to pass parameters when sending a work, for example, if I want to show the tag of the work in the reply, then type `+tag` and it will be shown.
 If you don't want the open button, type `-open` and the open button disappears.
 
-### Persistent save configuration
-(This was supposed to be a web version, but the web version hasn't been patched yet)
-Use `/s` followed by the configuration
-For example:  
-``
+### Persistently save configuration
+(Originally it should be made into a web version, but the web version has not been patched yet)
+Use `/s` followed by configuration
+For example:
+```
 /s +tags -share
 ```
-Then the bot will default to `+tags` `-share`.
-Set it to a custom configuration (e.g. /s -open -kb ...) After that, you can still manually add `+open` `+kb` etc. to the link / id to display the corresponding content.
+Then the bot will output works in the format of `+tags` `-share` by default
+After setting it to custom configuration (such as /s -open -kb ...), you can still manually add `+open` `+kb` after the link / id to display the corresponding content
 
-#### Preferred group customization results in groups +overwrite
+#### Give priority to group custom results in groups +overwrite
 ```
 /s +overwrite
 ```
-This overrides the individual customized results (for groups).
+You can overwrite your own customized results (for groups)
 
-If you want to output your own formatted message in a group, send it with `+god` every time.
-> For persistent configurations, use `/s -overwrite`
+If you want to output a message in your own format in a group at one time, you can bring `+god` every time you send it
+> For persistent configuration, please use `/s -overwrite`
 > instead of `/s +god`!
 
-### Show series on demand
-In a nutshell.  
-! [r_2](... /img/r_2.jpg)  
-Description:  
-- `open` Controls whether the open button is displayed.
-- `share` Controls whether the share button is displayed.
-- `kb` Controls both the open and share buttons.
+### Display series on demand
+One picture summary:
+![r_2](../img/r_2.jpg)
+Description:
+- `open` controls whether to display the open button
+- `share` controls whether to display the share button
+- `kb` controls both the open and share buttons
 > kb = keyboard
-- `cp` `rm` Controls whether to add a description to an image.
-> `+sc` Add descriptions to multiple images, only the first one.
+- `cp` `rm` controls whether to add a description of the image
+> `+sc` adds a description to the first image only for multiple images
 - `+above` show_caption_above_media
-For example:  
-- `+open -share` Show the open button but not the share button.
+For example:
+- `+open -share` displays the open button but not the share button
 
-### Support for reading links in captions +caption
-The `+caption` bot can read the link to the Pixiv work in the caption of a message.
+### Support reading links in caption +caption
+`+caption` bot can read Pixiv work links in the message caption
 
-### Include caption tags +tags
-Just type `+tag` / `+tags` in the message to show the tags of the work.
-> Due to Telegram's limitation, the tags will not be recognized as clickable links when encountering some special characters (e.g. "() - ・), I have no solution for this.
+### Include work tags +tags
+Just enter `+tag` / `+tags` in the message to display the tags of the work
+> Due to the limitations of Telegram, the work tags will not be displayed when encountering some special characters (such as 《》() - ・) will not be recognized as a clickable link, and I have no way to solve this.
 
-### Add a mask to an image +sp
-Typing `+sp` bot adds a spoiler effect to the sent image.
-> Inline still doesn't work due to Telegram issues.
+### Add a mask to the image +sp
+Type `+sp` and the bot will add a spoiler effect to the sent image
+> Due to Telegram issues, it still cannot be used inline
 
-### Send work as a file +file
-Type `+file` and bot will send you the original file directly.
-> and `/s +file` then bot will send you the original file every time.
-> For those of you who have the original image in your collection (right-click on a web page to download it faster?).
+### Send the work in the form of a file +file
+Type `+file` and the bot will directly send the original image file to you.
+> and `/s +file`, then the bot will directly send the original image file to you every time
+> Suitable for friends who collect original images (right-click on the web page to download is faster?)
 
-Type `+af` `+appendf` and bot will send you the original file after sending the image.
-> Also supports persistent configuration
+Enter `+af` `+appendf`, the bot will send the original image file to you after sending the image
+> It also supports persistent configuration
 
 ### Output works in reverse order +desc
-Output works will be in reverse order of the input links (multi-p does not affect)
-For example:  
-Input: illust 1 link  
+The output works will be in the opposite order of the input links (multiple p will not be affected)
+For example:
+Input:
 - illust 1 link
 - illust 2 link
 
-Returns: illust 2's image 1  
+Return:
 - illust 2's image 1
 - illust 1's image 1
 - illust 1's image 2
 
-### Integrate multiple creations into one media group (album) +album / +one (enabled by default)
-Type `+album` / `+one` in the message and the bot will integrate multiple works into one mediagroup.  
-If you want to disable this feature and send it once for each id, then type `-album`.
-After > `-album` the order of posting may change a bit, and multiples will still be in the mediagroup.
+### Integrate multiple works into one media group (album) +album / +one (enabled by default)
+Enter `+album` / `+one` in the message, and the robot will integrate multiple works into one mediagroup
+If you need to turn off this function and send one id once, then enter `-album`
+> After `-album`, the order of sending pictures may change a bit, and multi-page works will still be in the media group
 
-Also Telegram has a limit of 10 images in a mediagroup, so it will still be sent in p's.
-> `+equal` When bot sends more than 10 images at a time, it tries to equalize the number of images in the mediagroup, e.g. if there are 16 images, it will send 8 images in 2 batches.
+In addition, Telegram has a limit that a mediagroup can only have a maximum of 10 pictures, so they will still be sent in pieces
 
-### Use telegraph to display multiple entries +graph +telegraph
-Type `+graph` / `+telegraph` in the message and the bot will integrate multiple works into a single telegraph and return a link to the telegraph, which can be quickly previewed by your phone.
+> `+equal` When the bot sends more than 10 pictures at a time, it will try to balance the number in the mediagroup. For example, if there are 16 pictures, it will be sent in 2 times, 8 pictures each time
 
-> If you have too many telegraphs, Telegram may not show instant preview in messages, so it's recommended to have less than 200 telegraphs at a time.
-It's recommended to have less than 200 telegraphs at a time. ~~If there are too many, my potato server might go down qaq~~!
+### Display multiple works using telegraph +graph +telegraph
+Enter `+graph` / `+telegraph` in the message, and the bot will integrate multiple works into a telegraph and return a telegraph link, which can be quickly previewed on the phone.
+
+> If there are too many pictures, Telegram may not show the instant preview of the message. It is recommended to be less than 200 pictures at a time.
+~~Too many, my Tudou server might crash qaq~~
+
 #### Customize the title, author name and author link in the telegraph link
-For example:  
+For example:
 
 ```
 https://www.pixiv.net/artworks/91105889 +telegraph
-title=Shirakanoyatsu
+title=白スクのやつ
 author_name=syokuyou-mogura
 author_url=https://www.pixiv.net/users/579672
 ```
-format, everything after the = sign will be matched, separated by a new line
+Format, all the content after the = sign will be matched, and the line break is used as the separator
 
-! [telegraph custom](... /img/telegraph-1.jpg)
+![telegraph custom](../img/telegraph-1.jpg)
