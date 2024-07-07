@@ -66,6 +66,12 @@ bot.command('help', async (ctx) => {
         parse_mode: ''
     })
 })
+bot.command('privacy', async (ctx) => {
+    await bot.api.sendMessage(ctx.chat.id, 'https://pixiv-bot.pages.dev/privacy', {
+        ...ctx.default_extra,
+        parse_mode: ''
+    })
+})
 
 
 // gift: get id even if channel
