@@ -421,8 +421,16 @@ async function tg_sender(ctx) {
         }
         if (mgs.length > 0) {
             if (ctx.us.telegraph) {
+                // when not have title provided and 1 illust only
+                if(!ctx.us.telegraph_title && illusts.length === 1) {
+                    ctx.us.telegraph_title = illusts[0].title
+                    if(!ctx.us.telegraph_author_name){
+                        ctx.us.telegraph_author_name = illusts[0].author_name
+                        ctx.us.telegraph_author_url = `https://www.pixiv.net/artworks/${illusts[0].id}`
+                    }
+                }
                 try {
-                    bot.api.sendChatAction(chat_id, 'typing')
+                    await bot.api.sendChatAction(chat_id, 'typing').catch()
                     let res_data = await mg2telegraph(mgs[0], ctx.us.telegraph_title, user_id, ctx.us.telegraph_author_name, ctx.us.telegraph_author_url)
                     if (res_data) {
                         await asyncForEach(res_data, async (d) => {
