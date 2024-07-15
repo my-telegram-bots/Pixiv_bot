@@ -241,10 +241,12 @@ bot.on([':text', ':caption'], async (ctx) => {
         return
     }
     if (chat_id > 0) {
-        ctx.react('👀').catch()
-        setTimeout(() => {
-            ctx.api.setMessageReaction(chat_id, ctx.message.message_id, []).catch()
-        }, 5000)
+        (async ()=>{
+            await ctx.react('👀').catch()
+            setTimeout(async () => {
+                await ctx.api.setMessageReaction(chat_id, ctx.message.message_id, []).catch()
+            }, 5000)
+        })()
     }
     let direct_flag = (ctx.message.caption && !ctx.us.caption_extraction) ? false : true
     for (const linked_chat_id in ctx.us.setting.link_chat_list) {
