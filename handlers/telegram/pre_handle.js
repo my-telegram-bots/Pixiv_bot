@@ -170,35 +170,34 @@ export async function read_user_setting(bot, ctx) {
     ctx.us = {
         ...ctx.us,
         // caption start
-        tags: (d_f.tags && !ctx.text.includes('-tag')) || ctx.text.includes('+tag'),
-        open: (d_f.open && !ctx.text.includes('-open')) || ctx.text.includes('+open'),
-        caption_extraction: (d_f.caption_extraction && !ctx.text.includes('-caption')) || ctx.text.includes('+caption'),
-        caption_above: (d_f.caption_above && !ctx.text.includes('-above')) || ctx.text.includes('+above'),
-
+        tags: us(d_f, ctx.text,'tags',['tag']),
+        open: us(d_f, ctx.text,'open'),
+        caption_extraction: us(d_f, ctx.text,'caption_extraction',['caption']),
+        caption_above: us(d_f, ctx.text,'caption_above',['above']),
         // can't use switch_inline_query in a channel chat, because a user will not be able to use the button without knowing bot's username
-        share: (ctx.type !== 'channel' && (d_f.share && !ctx.text.includes('-share')) || ctx.text.includes('+share')),
-        remove_keyboard: (d_f.remove_keyboard && !ctx.text.includes('+kb')) || ctx.text.includes('-kb'),
-        remove_caption: (d_f.remove_caption && !ctx.text.includes('+cp')) || ctx.text.includes('-cp'),
+        share: ctx.type === 'channel' ? false : us(d_f, ctx.text,'share'),
+        remove_keyboard: us(d_f, ctx.text,'remove_keyboard',['kb']),
+        remove_caption: us(d_f, ctx.text,'remove_caption',['cp']),
         // inline mode doesn't support mediagroup single_caption mode is useless
-        single_caption: (!ctx.inlineQuery && ((d_f.single_caption && !ctx.text.includes('-sc'))) || ctx.text.includes('+sc')),
-        show_id: !ctx.text.includes('-id'),
+        single_caption: ctx.inlineQuery ? false : us(d_f, ctx.text,'single_caption',['sc']),
+        show_id: us(d_f, ctx.text,'show_id',['id']),
         // caption end
         // send as mediagroup when a illust with multiple images
-        album: (d_f.album && !ctx.text.includes('-album')) || ctx.text.includes('+album'),
+        album: us(d_f, ctx.text,'album'),
         // all works in one mediagroup
-        album_one: (d_f.album_one && (!ctx.text.includes('-one'))) || ctx.text.includes('+one'),
+        album_one: us(d_f, ctx.text,'album_one',['one']),
         // album will keep same numbers per mediagroup
-        album_equal: (d_f.album_equal && !ctx.text.includes('-equal')) || ctx.text.includes('+equal'),
+        album_equal: us(d_f, ctx.text,'album_equal',['equal']),
         // descending order 
-        desc: (d_f.desc && !ctx.text.includes('-desc')) || ctx.text.includes('+desc'),
+        desc: us(d_f, ctx.text,'desc',['desc']),
         // send as telegraph
-        telegraph: ctx.text.includes('+graph') || ctx.text.includes('+telegraph'),
+        telegraph: us(d_f, ctx.text,'telegraph',['graph']),
         // send as file
-        asfile: (d_f.asfile && !ctx.text.includes('-file')) || ctx.text.includes('+file'),
-        append_file: (d_f.append_file && (!ctx.text.includes('-af') || !ctx.text.includes('-appendfile'))) || (ctx.text.includes('+af') || ctx.text.includes('+appendfile')),
+        asfile: us(d_f, ctx.text,'asfile',['file']),
+        append_file: us(d_f, ctx.text,'append_file',['af']),
         // spoiler
         // But I have no idea to deisgn the logic.
-        spoiler: !ctx.text.includes('-sp') && ctx.text.includes('+sp'),
+        spoiler: us(d_f, ctx.text,'spoiler',['sp']),
     }
     // group only value
     if (ctx.chat && ctx.chat.id < 0) {
@@ -262,6 +261,17 @@ export async function read_user_setting(bot, ctx) {
         }
     }
     return ctx.us
+}
+function us(d_f, text, name = 'tags', slugs = []){
+    slugs.push(name)
+    if (slugs.some(slug=>{
+        return text.includes(`-${slug}`)
+    })){
+        return false
+    }
+    return d_f[name] || slugs.some(slug=>{
+        return text.includes(`+${slug}`)
+    })
 }
 export async function handle_new_configuration(bot, ctx, default_extra) {
     if (ctx.chat && ctx.chat.type === 'channel') {

@@ -336,85 +336,88 @@ async function tg_sender(ctx) {
             // telegraph
             ctx.us.q_id += 1
             let mg = illust.mediagroup
-            // send as file
-            if (!ctx.us.asfile) {
-                if (!ctx.us.telegraph && (!ctx.us.album || (illusts.length == 1 && mg.length === 1))) {
-                    // see https://core.telegram.org/bots/api#inlinekeyboardbutton
-                    // Especially useful when combined with switch_pm… actions – in this case the user will be automatically returned to the chat they switched from, skipping the chat selection screen.
-                    // So we need inline share button to switch chat window even if user don't want share button
-                    if (illust.type === 2 && ctx.match) {
-                        ctx.us.share = true
+            // send as file 
+            if ((!ctx.us.asfile && !ctx.us.telegraph) &&
+            (
+                !ctx.us.album || 
+                (illusts.length == 1 && mg.length === 1) ||
+                (!ctx.us.album_one && mg.length === 1)
+            )) {
+                // see https://core.telegram.org/bots/api#inlinekeyboardbutton
+                // Especially useful when combined with switch_pm… actions – in this case the user will be automatically returned to the chat they switched from, skipping the chat selection screen.
+                // So we need inline share button to switch chat window even if user don't want share button
+                if (illust.type === 2 && ctx.match) {
+                    ctx.us.share = true
+                }
+                let extra = {
+                    ...default_extra,
+                    caption: mg[0].caption.replaceAll('%mid%', ''),
+                    ...k_os(illust.id, ctx.us)
+                }
+                if (ctx.us.spoiler) {
+                    extra.has_spoiler = ctx.us.spoiler
+                }
+                if (ctx.us.caption_above) {
+                    extra.show_caption_above_media = ctx.us.caption_above
+                }
+                if (illust.type <= 1) {
+                    let { reply_to_message_id } = extra
+                    await asyncForEach(illust.mediagroup, async (o, i) => {
+                        let photo_urls = [o.media_o, `dl-${o.media_o}`, o.media_r, `dl-${o.media_r}`]
+                        // Telegram will download and send the file. 5 MB max size for photos
+                        // It's useless to provide original (Telegram will compress image about 200kb)
+                        if (o.fsize > 5000000) {
+                            photo_urls = [o.media_r, `dl-${o.media_r}`]
+                        }
+                        const result = await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, {
+                            ...extra,
+                            reply_to_message_id,
+                            caption: o.caption
+                        })
+                        reply_to_message_id = result.message_id
+                    })
+                } else if (illust.type === 2) {
+                    (async ()=>{
+                        await bot.api.sendChatAction(chat_id, 'upload_video').catch()
+                    });
+                    let media = mg[0].media_t
+                    if (!media) {
+                        if (mg[0].media_o) {
+                            media = mg[0].media_o
+                        } else {
+                            media = await ugoira_to_mp4(illust)
+                        }
                     }
-                    let extra = {
-                        ...default_extra,
-                        caption: mg[0].caption.replaceAll('%mid%', ''),
-                        ...k_os(illust.id, ctx.us)
+                    if (media.includes('tmp/')) {
+                        media = new InputFile(media)
                     }
-                    if (ctx.us.spoiler) {
-                        extra.has_spoiler = ctx.us.spoiler
-                    }
-                    if (ctx.us.caption_above) {
-                        extra.show_caption_above_media = ctx.us.caption_above
-                    }
-                    if (illust.type <= 1) {
-                        let { reply_to_message_id } = extra
-                        await asyncForEach(illust.mediagroup, async (o, i) => {
-                            let photo_urls = [o.media_o, `dl-${o.media_o}`, o.media_r, `dl-${o.media_r}`]
-                            // Telegram will download and send the file. 5 MB max size for photos
-                            // It's useless to provide original (Telegram will compress image about 200kb)
-                            if (o.fsize > 5000000) {
-                                photo_urls = [o.media_r, `dl-${o.media_r}`]
-                            }
-                            const result = await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, {
-                                ...extra,
-                                reply_to_message_id,
-                                caption: o.caption
+                    await bot.api.sendAnimation(chat_id, media, extra).then(async (data) => {
+                        // save ugoira file_id and next time bot can reply without send file
+                        if (!illust.tg_file_id && data.document) {
+                            let col = db.collection.illust
+                            await col.updateOne({
+                                id: illust.id
+                            }, {
+                                $set: {
+                                    tg_file_id: data.document.file_id
+                                }
                             })
-                            reply_to_message_id = result.message_id
-                        })
-                    } else if (illust.type === 2) {
-                        (async ()=>{
-                            await bot.api.sendChatAction(chat_id, 'upload_video').catch()
-                        });
-                        let media = mg[0].media_t
-                        if (!media) {
-                            if (mg[0].media_o) {
-                                media = mg[0].media_o
-                            } else {
-                                media = await ugoira_to_mp4(illust)
-                            }
                         }
-                        if (media.includes('tmp/')) {
-                            media = new InputFile(media)
+                    }).catch(async (e) => {
+                        if (await catchily(e, chat_id, ctx.l)) {
+                            bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
                         }
-                        await bot.api.sendAnimation(chat_id, media, extra).then(async (data) => {
-                            // save ugoira file_id and next time bot can reply without send file
-                            if (!illust.tg_file_id && data.document) {
-                                let col = db.collection.illust
-                                await col.updateOne({
-                                    id: illust.id
-                                }, {
-                                    $set: {
-                                        tg_file_id: data.document.file_id
-                                    }
-                                })
-                            }
-                        }).catch(async (e) => {
-                            if (await catchily(e, chat_id, ctx.l)) {
-                                bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
-                            }
-                        })
+                    })
+                }
+            } else {
+                // handle mediagroup
+                if (ctx.us.telegraph || ctx.us.album_one) {
+                    if (mgs.length === 0) {
+                        mgs.push([])
                     }
+                    mgs[0] = [...mgs[0], ...mg]
                 } else {
-                    // handle mediagroup
-                    if (ctx.us.telegraph || ctx.us.album_one) {
-                        if (mgs.length == 0) {
-                            mgs.push([])
-                        }
-                        mgs[0] = [...mgs[0], ...mg]
-                    } else {
-                        mgs = [...mgs, ...mg]
-                    }
+                    mgs = [...mgs, ...mg]
                 }
             }
         })
@@ -448,6 +451,9 @@ async function tg_sender(ctx) {
                     console.warn(error)
                 }
             } else {
+                if(ctx.us.album_one){
+                    mgs = mgs[0]
+                }
                 await asyncForEach(mg_albumize(mgs, ctx.us), async (mg, i) => {
                     let data = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, mg_extra, ['o', 'r', 'dlo', 'dlr'])
                     if (data) {
