@@ -116,6 +116,7 @@ export async function read_user_setting(bot, ctx) {
             default: {
                 open: true,
                 share: true,
+                show_id: true,
                 album: true
             },
             dbless: true, // the user isn't in chat_setting
@@ -189,7 +190,7 @@ export async function read_user_setting(bot, ctx) {
         // album will keep same numbers per mediagroup
         album_equal: us(d_f, ctx.text,'album_equal',['equal']),
         // descending order 
-        desc: us(d_f, ctx.text,'desc',['desc']),
+        desc: us(d_f, ctx.text,'desc'),
         // send as telegraph
         telegraph: us(d_f, ctx.text,'telegraph',['graph']),
         // send as file
