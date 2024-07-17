@@ -177,8 +177,9 @@ export async function read_user_setting(bot, ctx) {
         caption_above: us(d_f, ctx.text,'caption_above',['above']),
         // can't use switch_inline_query in a channel chat, because a user will not be able to use the button without knowing bot's username
         share: ctx.type === 'channel' ? false : us(d_f, ctx.text,'share'),
-        remove_keyboard: us(d_f, ctx.text,'remove_keyboard',['kb']),
-        remove_caption: us(d_f, ctx.text,'remove_caption',['cp']),
+        //                                              dirty but work
+        remove_keyboard: us(d_f, ctx.text.replaceAll('+','\uff69').replaceAll('-','+').replaceAll('\uff69','-'),'remove_keyboard',['kb']),
+        remove_caption: us(d_f, ctx.text.replaceAll('+','\uff69').replaceAll('-','+').replaceAll('\uff69','-'),'remove_caption',['cp']),
         // inline mode doesn't support mediagroup single_caption mode is useless
         single_caption: ctx.inlineQuery ? false : us(d_f, ctx.text,'single_caption',['sc']),
         show_id: us(d_f, ctx.text,'show_id',['id']),
