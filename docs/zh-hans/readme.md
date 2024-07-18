@@ -120,7 +120,7 @@ bot 支持将多 p 作品合并到一个媒体组中。媒体组（MediaGroup）
 此外 Telegram 限制 1 个媒体组中最多有 10 张图，因此在图片很多的情况下依旧会分开发送，只不过都是以媒体组的情况。  
 在超过 20 张图片以上的情况，建议使用下文的 `+graph` 参数将作品转换为 Telegram 以供即时预览。  
 ::: details 百闻不如一见，点我查看演示来了解媒体组系列参数的具体作用
-![](../img/album-summary.png.webp)  
+![](../img/album-summary.png)  
 :::
 
 #### `+one`

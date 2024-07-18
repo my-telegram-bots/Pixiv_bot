@@ -122,7 +122,7 @@ Additionally, Telegram limits a mediagroup to 10 images, so in cases with many i
 For cases with more than 20 images, it is recommended to use the `+graph` parameter below to convert the artworks into a Telegram page for instant preview.  
 
 ::: details Curious? Click here to see the magic of the mediagroup series in action!
-![](./img/album-summary.png.webp)  
+![](./img/album-summary.png)  
 :::
 
 #### `+one`

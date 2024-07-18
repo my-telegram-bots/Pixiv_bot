@@ -120,7 +120,7 @@ bot 支持將多 p 作品合併到一個媒體組中。媒體組（MediaGroup）
 此外 Telegram 限制 1 個媒體組中最多有 10 張圖，因此在圖片很多的情況下依舊會分開發送，只不過都是以媒體組的情況。  
 在超過 20 張圖片以上的情況，建議使用下文的 `+graph` 參數將作品轉換為 Telegram 以供即時預覽。  
 ::: details 百聞不如一見，點我查看示範來了解媒體組系列參數的具體作用
-![](../img/album-summary.png.webp)  
+![](../img/album-summary.png)  
 :::
 
 #### `+one`
