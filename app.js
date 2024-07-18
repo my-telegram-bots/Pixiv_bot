@@ -426,7 +426,7 @@ async function tg_sender(ctx) {
             has_spoiler: ctx.us.spoiler,
             // show_caption_above_media: ctx.us.caption_above
         }
-        if (mgs.length > 0) {
+        if (mgs.length > 0 && !ctx.us.asfile) {
             if (ctx.us.telegraph) {
                 // when not have title provided and 1 illust only
                 if(!ctx.us.telegraph_title && illusts.length === 1) {
