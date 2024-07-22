@@ -309,7 +309,7 @@ async function tg_sender(ctx) {
         if (user_id === config.tg.master_id) {
             (async ()=>{
                 await bot.api.sendChatAction(chat_id, 'typing').catch()
-            });
+            })();
             await asyncForEach(ids.author, async (id) => {
                 illusts = [...illusts, ...await get_user_illusts(id)]
             });
@@ -379,7 +379,7 @@ async function tg_sender(ctx) {
                 } else if (illust.type === 2) {
                     (async ()=>{
                         await bot.api.sendChatAction(chat_id, 'upload_video').catch()
-                    });
+                    })();
                     let media = mg[0].media_t
                     if (!media) {
                         if (mg[0].media_o) {
@@ -439,7 +439,7 @@ async function tg_sender(ctx) {
                 try {
                     (async ()=>{
                         await bot.api.sendChatAction(chat_id, 'typing').catch()
-                    });
+                    })();
                     let res_data = await mg2telegraph(mgs[0], ctx.us.telegraph_title, user_id, ctx.us.telegraph_author_name, ctx.us.telegraph_author_url)
                     if (res_data) {
                         await asyncForEach(res_data, async (d) => {
@@ -482,7 +482,7 @@ async function tg_sender(ctx) {
                 await asyncForEach(illust.mediagroup, async (o) => {
                     (async ()=>{
                         await bot.api.sendChatAction(chat_id, 'upload_document').catch()
-                    });
+                    })();
                     let extra = {
                         ...default_extra,
                         caption: o.caption.replaceAll('%mid%', ''),
@@ -527,7 +527,7 @@ async function tg_sender(ctx) {
         await asyncForEach(ids.novel, async (id) => {
             (async ()=>{
                 await bot.api.sendChatAction(chat_id, 'typing').catch()
-            });
+            })();
             let d = await handle_novel(id)
             if (d) {
                 await bot.api.sendMessage(chat_id, `${d.telegraph_url}`)
@@ -682,14 +682,16 @@ async function catchily(e, chat_id, language_code = 'en') {
                 }
                 honsole.dev(photo_urls)
                 if (config.tg.refetch_api && photo_urls) {
-                    try {
-                        await axios.post(config.tg.refetch_api, {
-                            url: photo_urls.join('\n')
-                        })
-                        honsole.log('[ok] fetch new url(s)', photo_urls)
-                    } catch (error) {
-                        honsole.warn('[err] fetch new url(s)', error)
-                    }
+                    (async ()=>{
+                        try {
+                            await axios.post(config.tg.refetch_api, {
+                                url: photo_urls.join('\n')
+                            })
+                            honsole.log('[ok] fetch new url(s)', photo_urls)
+                        } catch (error) {
+                            honsole.warn('[err] fetch new url(s)', error)
+                        }
+                    })()
                 }
             }
         }
@@ -722,7 +724,7 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
     let current_mg_type = mg_type.shift();
     (async ()=>{
         await bot.api.sendChatAction(chat_id, 'upload_photo').catch()
-    });
+    })();
     try {
         return await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type, has_spoiler), extra)
     } catch (e) {
@@ -754,7 +756,7 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
     }
     (async ()=>{
         await bot.api.sendChatAction(chat_id, 'upload_photo').catch()
-    });
+    })();
     let raw_photo_url = photo_urls.shift()
     let photo_url = raw_photo_url
     try {
@@ -763,7 +765,7 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
         }
         return await bot.api.sendPhoto(chat_id, photo_url, extra)
     } catch (e) {
-        let status = await catchily(e, chat_id, language_code)
+        const status = await catchily(e, chat_id, language_code)
         if (status) {
             if (status === 'redo') {
                 photo_urls.unshift(raw_photo_url)
