@@ -363,7 +363,7 @@ async function tg_sender(ctx) {
                 if (illust.type <= 1) {
                     let { reply_to_message_id } = extra
                     await asyncForEach(illust.mediagroup, async (o, i) => {
-                        let photo_urls = [o.media_o, `dl-${o.media_o}`, o.media_r, `dl-${o.media_r}`]
+                        let photo_urls = [o.media_o, o.media_r, `dl-${o.media_o}`, `dl-${o.media_r}`]
                         // Telegram will download and send the file. 5 MB max size for photos
                         // It's useless to provide original (Telegram will compress image about 200kb)
                         if (o.fsize > 5000000) {
