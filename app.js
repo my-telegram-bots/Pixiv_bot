@@ -151,14 +151,14 @@ bot.on('callback_query', async (ctx) => {
         } else {
             await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error_not_a_gc_administrator')), {
                 show_alert: true
-            }).catch()
+            }).catch(e=>{})
             return
         }
     }
     if (apply_flag) {
-        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'saved'))).catch()
+        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'saved'))).catch(e=>{})
     } else {
-        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error'))).catch()
+        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error'))).catch(e=>{})
     }
 })
 
@@ -242,9 +242,9 @@ bot.on([':text', ':caption'], async (ctx) => {
     }
     if (chat_id > 0) {
         (async ()=>{
-            await ctx.react('👀').catch()
+            await ctx.react('👀').catch(e=>{})
             setTimeout(async () => {
-                await ctx.api.setMessageReaction(chat_id, ctx.message.message_id, []).catch()
+                await ctx.api.setMessageReaction(chat_id, ctx.message.message_id, []).catch(e=>{})
             }, 5000)
         })()
     }
@@ -308,7 +308,7 @@ async function tg_sender(ctx) {
     if (ids.author.length > 0) {
         if (user_id === config.tg.master_id) {
             (async ()=>{
-                await bot.api.sendChatAction(chat_id, 'typing').catch()
+                await bot.api.sendChatAction(chat_id, 'typing').catch(e=>{})
             })();
             await asyncForEach(ids.author, async (id) => {
                 illusts = [...illusts, ...await get_user_illusts(id)]
@@ -378,7 +378,7 @@ async function tg_sender(ctx) {
                     })
                 } else if (illust.type === 2) {
                     (async ()=>{
-                        await bot.api.sendChatAction(chat_id, 'upload_video').catch()
+                        await bot.api.sendChatAction(chat_id, 'upload_video').catch(e=>{})
                     })();
                     let media = mg[0].media_t
                     if (!media) {
@@ -424,7 +424,7 @@ async function tg_sender(ctx) {
         let mg_extra = {
             ...default_extra,
             has_spoiler: ctx.us.spoiler,
-            // show_caption_above_media: ctx.us.caption_above
+            show_caption_above_media: ctx.us.caption_above
         }
         if (mgs.length > 0 && !ctx.us.asfile) {
             if (ctx.us.telegraph) {
@@ -438,7 +438,7 @@ async function tg_sender(ctx) {
                 }
                 try {
                     (async ()=>{
-                        await bot.api.sendChatAction(chat_id, 'typing').catch()
+                        await bot.api.sendChatAction(chat_id, 'typing').catch(e=>{})
                     })();
                     let res_data = await mg2telegraph(mgs[0], ctx.us.telegraph_title, user_id, ctx.us.telegraph_author_name, ctx.us.telegraph_author_url)
                     if (res_data) {
@@ -455,12 +455,12 @@ async function tg_sender(ctx) {
                     mgs = mgs[0]
                 }
                 await asyncForEach(mg_albumize(mgs, ctx.us), async (mg, i) => {
+                    console.log(mg)
                     let data = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, mg_extra, ['o', 'r', 'dlo', 'dlr'])
                     if (data) {
                         if (data[0] && data[0].message_id) {
                             mg_extra.reply_to_message_id = data[0].message_id
-                        }
-                        else {
+                        } else {
                             delete mg_extra.reply_to_message_id
                         }
                     } else {
@@ -481,7 +481,7 @@ async function tg_sender(ctx) {
                 let { reply_to_message_id } = default_extra
                 await asyncForEach(illust.mediagroup, async (o) => {
                     (async ()=>{
-                        await bot.api.sendChatAction(chat_id, 'upload_document').catch()
+                        await bot.api.sendChatAction(chat_id, 'upload_document').catch(e=>{})
                     })();
                     let extra = {
                         ...default_extra,
@@ -526,7 +526,7 @@ async function tg_sender(ctx) {
     if (ids.novel.length > 0) {
         await asyncForEach(ids.novel, async (id) => {
             (async ()=>{
-                await bot.api.sendChatAction(chat_id, 'typing').catch()
+                await bot.api.sendChatAction(chat_id, 'typing').catch(e=>{})
             })();
             let d = await handle_novel(id)
             if (d) {
@@ -648,21 +648,21 @@ async function catchily(e, chat_id, language_code = 'en') {
     try {
         bot.api.sendMessage(config.tg.master_id, JSON.stringify(e).substring(0, 1000), {
             disable_web_page_preview: true
-        }).catch()
+        }).catch(e=>{})
         if (!e.ok) {
             const description = e.description.toLowerCase()
             if (description.includes('media_caption_too_long')) {
-                bot.api.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra)
+                await bot.api.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra).catch(e=>{})
                 return false
             } else if (description.includes('can\'t parse entities: character')) {
-                bot.api.sendMessage(chat_id, _l(language_code, 'error_format', e.description))
+                await bot.api.sendMessage(chat_id, _l(language_code, 'error_format', e.description)).catch(e=>{})
                 return false
                 // banned by user
             } else if (description.includes('forbidden:')) {
                 return false
                 // not have permission
             } else if (description.includes('not enough rights to send')) {
-                bot.api.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra)
+                await bot.api.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra).catch(e=>{})
                 return false
                 // just a moment
             } else if (description.includes('too many requests')) {
@@ -721,12 +721,16 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
     if (has_spoiler) {
         delete extra.has_spoiler
     }
+    const show_caption_above_media = extra.show_caption_above_media
+    if (show_caption_above_media) {
+        delete extra.show_caption_above_media
+    }
     let current_mg_type = mg_type.shift();
     (async ()=>{
-        await bot.api.sendChatAction(chat_id, 'upload_photo').catch()
+        await bot.api.sendChatAction(chat_id, 'upload_photo').catch(e=>{})
     })();
     try {
-        return await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type, has_spoiler), extra)
+        return await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type, has_spoiler, show_caption_above_media), extra)
     } catch (e) {
         let status = await catchily(e, chat_id, language_code)
         if (status) {
@@ -755,7 +759,7 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
         return false
     }
     (async ()=>{
-        await bot.api.sendChatAction(chat_id, 'upload_photo').catch()
+        await bot.api.sendChatAction(chat_id, 'upload_photo').catch(e=>{})
     })();
     let raw_photo_url = photo_urls.shift()
     let photo_url = raw_photo_url
