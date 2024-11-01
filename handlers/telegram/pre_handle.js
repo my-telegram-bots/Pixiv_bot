@@ -200,6 +200,8 @@ export async function read_user_setting(bot, ctx) {
         // spoiler
         // But I have no idea to deisgn the logic.
         spoiler: us(d_f, ctx.text,'spoiler',['sp']),
+        auto_spoiler: us(d_f,ctx.text,'auto_spoiler',['as']),
+        
     }
     // group only value
     if (ctx.chat && ctx.chat.id < 0) {

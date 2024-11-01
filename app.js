@@ -455,7 +455,6 @@ async function tg_sender(ctx) {
                     mgs = mgs[0]
                 }
                 await asyncForEach(mg_albumize(mgs, ctx.us), async (mg, i) => {
-                    console.log(mg)
                     let data = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, mg_extra, ['o', 'r', 'dlo', 'dlr'])
                     if (data) {
                         if (data[0] && data[0].message_id) {
@@ -679,6 +678,8 @@ async function catchily(e, chat_id, language_code = 'en') {
                     }).map(m => {
                         return m.media
                     })
+                } else if(e.method === 'sendDocument') {
+                    photo_urls[0] = e.payload.document
                 }
                 honsole.dev(photo_urls)
                 if (config.tg.refetch_api && photo_urls) {

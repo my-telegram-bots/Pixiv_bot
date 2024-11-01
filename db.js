@@ -57,7 +57,7 @@ export async function update_setting(value, chat_id, flag) {
                         // throw 'e'
                     }
                 }
-                if (['tags', 'open', 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album', 'album_one', 'album_equal', 'desc', 'overwrite', 'asfile', 'append_file', 'caption_extraction', 'caption_above', 'show_id'].includes(i)) {
+                if (['tags', 'open', 'share', 'remove_keyboard', 'remove_caption', 'single_caption', 'album', 'album_one', 'album_equal', 'desc', 'overwrite', 'asfile', 'append_file', 'caption_extraction', 'caption_above', 'show_id', 'auto_spoiler'].includes(i)) {
                     if (typeof value.default[i] === 'boolean') {
                         s.default[i] = value.default[i]
                     }

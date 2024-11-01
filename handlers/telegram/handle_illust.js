@@ -36,6 +36,9 @@ export async function handle_illust(id, flag) {
         ai: !illust.ai_type === undefined || illust.ai_type === 2,
         inline: []
     }
+    if(illust.nsfw && flag.auto_spoiler) {
+        flag.spoiler = true
+    }
     if (illust.type <= 1) {
         illust.imgs_.size.forEach((size, pid) => {
             illust.inline[pid] = {

@@ -6,13 +6,13 @@ import { _l } from './i18n.js'
  * @param {*} share 是否分享 默认为真，留其它的可以增加share的东西
  * 简写 k -> keyboard os -> open and share
  */
-export function k_os(id, flag = false) {
+export function k_os(id, flag = {}) {
     let inline_keyboard = [[]]
     if (flag.open) {
         inline_keyboard[0].push(Markup.button.url('open', 'https://www.pixiv.net/artworks/' + id))
     }
     if (flag.share) {
-        inline_keyboard[0].push(Markup.button.switchToChat('share', `https://pixiv.net/artworks/${id}${flag.tags ? ' +tags' : ''}${!flag.show_id ? ' -id' : ''}`))
+        inline_keyboard[0].push(Markup.button.switchToChat('share', `https://pixiv.net/artworks/${id}${flag.tags ? ' +tags' : ''}${!flag.show_id ? ' -id' : ''}${flag.spoiler ? ' +sp' : ''}`))
     }
     return Markup.inlineKeyboard(inline_keyboard)
 }
