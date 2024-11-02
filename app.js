@@ -556,6 +556,7 @@ bot.on('inline_query', async (ctx) => {
     }
     let ids = ctx.ids
     if (ids.illust.length > 0) {
+        ids.illust = [...new Set(ids.illust)]
         await asyncForEach([...ids.illust.reverse()], async (id) => {
             let d = await handle_illust(id, ctx.us)
             if (!d || d === 404) {
