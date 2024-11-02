@@ -10,10 +10,12 @@ Document: https://pixiv-bot.pages.dev
 - ffmpeg
 - mp4fpsmod
 ## install (ArchLinux)
-    sudo pacman -S yarn pm2 ffmpeg unzip
+    sudo pacman -S pnpm pm2 ffmpeg unzip
     yay -S mongodb-bin mp4fpsmod
     git clone https://github.com/my-telegram-bots/Pixiv_bot.git
     sudo systemctl enable pm2 mongodb --now
+    cd Pixiv_bot
+    pnpm i
     cp config_sample.js config.js
     # edit
     # vim config.js

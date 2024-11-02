@@ -2,9 +2,11 @@ import { r_p_ajax } from './request.js'
 import db from '../../db.js'
 import { honsole, sleep } from '../common.js'
 import { thumb_to_all } from './tools.js'
-let illust_notfound_id_list = []
-let illust_notfound_time_list = []
-let illust_queue = []
+
+
+let illust_notfound_id_set = new Set();
+let illust_notfound_time_map = new Map();
+let illust_queue = new Set();
 
 /**
  * get illust data
@@ -20,75 +22,71 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
     if (typeof id == 'object') {
         return id
     }
-    id = typeof id == 'string' ? id : id.toString()
-    if (id.length > 9 || id === 'NaN') {
+    id = parseInt(id.toString())
+    if (isNaN(id) || id.length > 9) {
         return false
     }
-    id = parseInt(id)
-    if (illust_queue.includes(id)) {
+
+    if (illust_queue.has(id)) {
         await sleep(300)
-        return await get_illust(id, fresh, raw, try_time)
+        return await get_illust(id, fresh, raw, try_time + 1)
     }
-    if (try_time > 5) {
-        console.warn('pixiv maybe banned your server\'s ip\nor network error (DNS / firewall)')
-        return false
-    }
-    let illust = null
-    if (!fresh && !raw) {
-        illust = await db.collection.illust.findOne({
-            id: id
-        })
-        if (illust) {
-            delete illust._id
-            if (illust.type == 2 && !illust.imgs_.cover_img_url) {
-                // missing `illust.imgs_.cover_img_url`
-                fresh = true
-            }
-        } else {
-            fresh = true
-        }
-    }
-    if (fresh) {
-        try {
-            // 404 cache in memory (10 min)
-            // to prevent cache attack the 404 result will be not in database.
-            if (illust_notfound_id_list.includes(id)) {
-                let i = illust_notfound_id_list.indexOf(id)
-                if (+new Date() - illust_notfound_time_list[i] > 600000) { // 10 min
-                    illust_notfound_id_list.splice(i, 1)
-                    illust_notfound_time_list.splice(i, 1)
-                } else {
-                    return 404
-                }
-            }
-            // data example https://paste.huggy.moe/mufupocomo.json
-            let illust_data = (await r_p_ajax.get('illust/' + id)).data
-            honsole.dev('fetch-fresh-illust', illust_data)
-            illust = await update_illust(illust_data.body)
-            return illust
-        }
-        catch (error) {
-            // network, session or Work has been deleted or the ID does not exist.
-            if (error.response && error.response.status == 404) {
-                if (illust) {
-                    console.warn('origin 404, fallback old data', id)
-                    return illust
-                } else {
-                    honsole.warn(new Date(), '404 illust', id)
-                    illust_notfound_id_list.push(id)
-                    illust_notfound_time_list.push(+new Date())
-                    return 404
+
+    illust_queue.add(id)
+    try {
+        let illust = null
+        if (!fresh && !raw) {
+            illust = await db.collection.illust.findOne({ id })
+            if (illust) {
+                delete illust._id
+                if (illust.type === 2 && !illust.imgs_.cover_img_url) {
+                    fresh = true
                 }
             } else {
-                honsole.warn(error)
-                await sleep(500)
-                return await get_illust(id, fresh, raw, try_time + 1)
+                fresh = true
             }
         }
+
+        if (fresh) {
+            // 404 cache in memory (10 min)
+            // to prevent cache attack the 404 result will be not in database.
+            if (illust_notfound_id_set.has(id)) {
+                let notFoundTime = illust_notfound_time_map.get(id)
+                if (Date.now() - notFoundTime < 600000) { // 10 min
+                    return 404
+                } else {
+                    illust_notfound_id_set.delete(id)
+                    illust_notfound_time_map.delete(id)
+                }
+            }
+
+            try {
+                let illust_data = (await r_p_ajax.get('illust/' + id)).data
+                honsole.dev('fetch-fresh-illust', illust_data)
+                illust = await update_illust(illust_data.body)
+                return illust
+            } catch (error) {
+                            // network, session or Work has been deleted or the ID does not exist.
+                            if (error.response && error.response.status === 404) {
+                    honsole.warn('404 illust', id)
+                    illust_notfound_id_set.add(id)
+                    illust_notfound_time_map.set(id, Date.now())
+                    return 404
+                } else {
+                    honsole.warn(error)
+                    await sleep(500)
+                    return await get_illust(id, fresh, raw, try_time + 1)
+                }
+            }
+        }
+
+        honsole.dev('illust', illust)
+        return illust
+    } finally {
+        illust_queue.delete(id)
     }
-    honsole.dev('illust', illust)
-    return illust
 }
+
 /**
  * fetch image url and size and update in database
  * @param {*} illust

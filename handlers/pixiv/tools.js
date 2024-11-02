@@ -271,7 +271,6 @@ export function detect_ugpira_file(path, type = 0, prefix = 'tmp/') {
     path = get_ugoira_path(path, type)
     return fs.existsSync(`${path}`) ? (`${prefix}${path.replace('tmp/', '')}`) : null
 }
-
 export async function clean_ugoira_cache(id = '1') {
     fs.rmSync(`tmp/file/${id}.zip`, {
         force: true
