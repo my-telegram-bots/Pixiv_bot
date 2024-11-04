@@ -735,6 +735,22 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
         return await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type, has_spoiler, show_caption_above_media), extra)
     } catch (e) {
         let status = await catchily(e, chat_id, language_code)
+        // Bad Request: failed to send message #1 with the error message "WEBPAGE_MEDIA_EMPTY"
+        // Bad Request: failed to send message #2 with the error message "WEBPAGE_CURL_FAILED"
+        if (e.description && e.description.includes('failed to send message') && e.description.includes('#')) {
+            status = 'redo'
+            let mg_index = e.description.split(' ').find(x=>{
+                return x.startsWith('#')
+            })
+            if (mg_index) {
+                mg_index = parseInt(mg_index.substring(1)) - 1
+                if (mg[mg_index].invaild) {
+                    mg[mg_index].invaild = [current_mg_type]
+                }else {
+                    mg[mg_index].invaild.push(current_mg_type)
+                }
+            }
+        }
         if (status) {
             if (status === 'redo') {
                 mg_type.unshift(current_mg_type)

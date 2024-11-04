@@ -171,6 +171,17 @@ export async function mg_filter(mg, type = 't', has_spoiler = false) {
                     type = 'dlr'
                 }
             }
+            if (x.invaild.includes('o') && x.invaild.includes('r')) {
+                // ?
+                if(x.invaild.includes('dlo')) {
+                    type = 'dlr'
+                } else {
+                    type = 'dlo'
+                }
+            } else if (type === 'o' && x.invaild.includes(type)) {
+                type = 'r'
+            }
+
             if (type.includes('dl') && !x.media_t) {
                 // dlo => download media_o file
                 // dlr => download media_r file
