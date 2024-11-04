@@ -744,7 +744,7 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
             })
             if (mg_index) {
                 mg_index = parseInt(mg_index.substring(1)) - 1
-                if (mg[mg_index].invaild) {
+                if (!mg[mg_index].invaild) {
                     mg[mg_index].invaild = [current_mg_type]
                 }else {
                     mg[mg_index].invaild.push(current_mg_type)
