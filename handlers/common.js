@@ -132,7 +132,7 @@ export async function fetch_tmp_file(url, retry_time = 0) {
                         let new_url = [...illust_raw.imgs_.original_urls, ...illust_raw.imgs_.regular_urls, ...illust_raw.imgs_.thumb_urls].find(url=>{
                             return url.endsWith(filename)
                         })
-                        honsole.dev('fetch new url',new_url)
+                        honsole.dev('[fetch new url]', new_url)
                         if (new_url) {
                             return await fetch_tmp_file(new_url)
                         }else {

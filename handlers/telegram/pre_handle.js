@@ -226,6 +226,11 @@ export async function read_user_setting(bot, ctx) {
     if (ctx.us.append_file){
         ctx.us.asfile = false
     }
+    if (ctx.us.asfile) {
+        ctx.us.album = false
+        ctx.us.album_one = false
+        ctx.us.single_caption = false
+    }
     if (ctx.type === 'channel'){
         ctx.us.share = false
     }

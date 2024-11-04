@@ -9,6 +9,7 @@ import axios from 'axios'
 import { InputFile } from 'grammy'
 import fs from 'fs'
 import { fetch_tmp_file } from './handlers/common.js'
+import { format } from './handlers/telegram/format.js'
 
 // step 0 initial some necessary variables
 bot.use(async (ctx, next) => {
@@ -351,7 +352,7 @@ async function tg_sender(ctx) {
                 }
                 let extra = {
                     ...default_extra,
-                    caption: mg[0].caption.replaceAll('%mid%', ''),
+                    // caption: mg[0].caption.replaceAll('%mid%', ''),
                     ...k_os(illust.id, ctx.us)
                 }
                 if (ctx.us.spoiler) {
@@ -372,7 +373,10 @@ async function tg_sender(ctx) {
                         const result = await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, {
                             ...extra,
                             reply_to_message_id,
-                            caption: o.caption
+                            caption: ctx.us.single_caption ? format(illust, {
+                                ...ctx.us,
+                                single_caption: false
+                            }, 'message', i) : o.caption
                         })
                         reply_to_message_id = result.message_id
                     })
@@ -484,7 +488,7 @@ async function tg_sender(ctx) {
                     })();
                     let extra = {
                         ...default_extra,
-                        caption: o.caption.replaceAll('%mid%', ''),
+                        caption: o.caption,
                         disable_content_type_detection: true,
                         reply_to_message_id
                     }
