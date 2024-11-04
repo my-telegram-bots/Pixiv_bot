@@ -108,7 +108,7 @@ export async function download_file(url, id, force = false, try_time = 0) {
  */
 export async function fetch_tmp_file(url, retry_time = 0) {
     if (retry_time > 3) {
-        return null
+        throw 404
     }
     try {
         return (await axios.get(url, {
@@ -120,14 +120,37 @@ export async function fetch_tmp_file(url, retry_time = 0) {
             }
         })).data
     } catch (error) {
-        await sleep(1000)
         if (error.response && error.response.status === 404) {
-            return null
+            if (url.startsWith('https://i.pximg.net/')){
+                const filename = url.substring(url.lastIndexOf('/') + 1)
+                const id = filename.split('_')[0]
+                const illust_raw = await get_illust(id, true)
+                if (illust_raw) {
+                    if (illust_raw.imgs_.cover_img_url) {
+                        return await fetch_tmp_file(illust_raw.imgs_.cover_img_url)
+                    } else if (illust_raw.imgs_.original_urls) {
+                        let new_url = [...illust_raw.imgs_.original_urls, ...illust_raw.imgs_.regular_urls, ...illust_raw.imgs_.thumb_urls].find(url=>{
+                            return url.endsWith(filename)
+                        })
+                        honsole.dev('fetch new url',new_url)
+                        if (new_url) {
+                            return await fetch_tmp_file(new_url)
+                        }else {
+                            throw 404
+                        }
+                    }
+                } else {
+                    throw 404
+                }
+            }
+            throw 404
         }
-        return await fetch_tmp_file(url, retry_time + 1)
+        await sleep(1000)
+        return await fetch_tmp_file(url, id, retry_time + 1)
     }
 }
 export function sleep(ms) {
+    // console.log('hit sleep', ms)
     return new Promise(resolve => setTimeout(resolve, ms))
 }
 export function generate_token(user_id, time = +new Date()) {
