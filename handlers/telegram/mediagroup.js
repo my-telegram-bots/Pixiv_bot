@@ -24,6 +24,12 @@ export async function mg_create(illust, us) {
             if (us.single_caption) {
                 mediagroup_data.scaption = format(illust, us, 'message', -1)
             }
+            if (us.spoiler || (illust.nsfw && us.auto_spoiler)) {
+                mediagroup_data.has_spoiler = true
+            }
+            if (us.caption_above) {
+                show_caption_above_media = true
+            }
             // if illust data have file_id
             if (illust.tg_file_id) {
                 if (typeof illust.tg_file_id == 'string') {
@@ -138,14 +144,14 @@ export function mg_albumize(mg = [], us) {
     honsole.dev('mg_albumize', t)
     return t
 }
-export async function mg_filter(mg, type = 't', has_spoiler = false) {
+export async function mg_filter(mg, type = 't') {
     honsole.dev('filter_type', type)
     let t = []
     await asyncForEach(mg, async (x) => {
         let xx = {
             type: x.type
         }
-        if (has_spoiler) {
+        if (x.has_spoiler) {
             xx.has_spoiler = true
         }
         if (x.caption) {

@@ -324,8 +324,12 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         delete ctx.us.setting.dbless
         await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_open_link'), {
             ...default_extra,
-            ...Markup.inlineKeyboard([
-                Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.us.setting), 'utf8').toString('base64')}`.replace('/en', '').replace('/undefined', ''))
+            ...Markup.inlineKeyboard(
+            //     [
+            //     Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.us.setting), 'utf8').toString('base64')}`.replace('/en', '').replace('/undefined', ''))
+            // ],
+            [
+                Markup.button.webApp('webapp', `https://accept-pixels-state-allowing.trycloudflare.com/`)
             ]),
             reply_to_message_id: ctx.message.message_id
         }).catch((e) => {

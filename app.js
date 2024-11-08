@@ -425,11 +425,7 @@ async function tg_sender(ctx) {
                 }
             }
         })
-        let mg_extra = {
-            ...default_extra,
-            has_spoiler: ctx.us.spoiler,
-            show_caption_above_media: ctx.us.caption_above
-        }
+        let mg_extra = { }
         if (mgs.length > 0 && !ctx.us.asfile) {
             if (ctx.us.telegraph) {
                 // when not have title provided and 1 illust only
@@ -721,40 +717,31 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
         honsole.warn('empty mg', chat_id, mg)
         return false
     }
-    // dirty but work
-    // this function not have .us variable
-    const has_spoiler = extra.has_spoiler
-    if (has_spoiler) {
-        delete extra.has_spoiler
-    }
-    const show_caption_above_media = extra.show_caption_above_media
-    if (show_caption_above_media) {
-        delete extra.show_caption_above_media
-    }
     let current_mg_type = mg_type.shift();
     (async ()=>{
         await bot.api.sendChatAction(chat_id, 'upload_photo').catch(e=>{})
     })();
     try {
-        return await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type, has_spoiler, show_caption_above_media), extra)
+        return await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type), extra)
     } catch (e) {
         let status = await catchily(e, chat_id, language_code)
         // Bad Request: failed to send message #1 with the error message "WEBPAGE_MEDIA_EMPTY"
         // Bad Request: failed to send message #2 with the error message "WEBPAGE_CURL_FAILED"
-        if (e.description && e.description.includes('failed to send message') && e.description.includes('#')) {
-            status = 'redo'
-            let mg_index = e.description.split(' ').find(x=>{
-                return x.startsWith('#')
-            })
-            if (mg_index) {
-                mg_index = parseInt(mg_index.substring(1)) - 1
-                if (!mg[mg_index].invaild) {
-                    mg[mg_index].invaild = [current_mg_type]
-                }else {
-                    mg[mg_index].invaild.push(current_mg_type)
-                }
-            }
-        }
+        // have a few bugs
+        // if (e.description && e.description.includes('failed to send message') && e.description.includes('#')) {
+        //     status = 'redo'
+        //     let mg_index = e.description.split(' ').find(x=>{
+        //         return x.startsWith('#')
+        //     })
+        //     if (mg_index) {
+        //         mg_index = parseInt(mg_index.substring(1)) - 1
+        //         if (!mg[mg_index].invaild) {
+        //             mg[mg_index].invaild = [current_mg_type]
+        //         }else {
+        //             mg[mg_index].invaild.push(current_mg_type)
+        //         }
+        //     }
+        // }
         if (status) {
             if (status === 'redo') {
                 mg_type.unshift(current_mg_type)
