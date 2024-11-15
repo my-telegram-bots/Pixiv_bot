@@ -32,7 +32,8 @@ export async function handle_illust(id, flag) {
     }
     illust = {
         ...illust,
-        nsfw: illust.xRestrict > 0 || illust.sl > 5,
+        //                                               || illust.tags.includes('R18-G')
+        nsfw: illust.xRestrict > 0 || (illust.tags && illust.tags.includes('R-18')),
         ai: !illust.ai_type === undefined || illust.ai_type === 2,
         inline: []
     }
