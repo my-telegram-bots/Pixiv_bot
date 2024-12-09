@@ -528,7 +528,7 @@ async function tg_sender(ctx) {
                         }
                     }
                 })
-                if(ctx.us.asfile) {
+                if(ctx.us.asfile || (ctx.us.append_file && !ctx.us.append_file_immediate)) {
                     await asyncForEach(mg_albumize(mgs, ctx.us), async (mg, i) => {
                         let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg=>{
                             return {
