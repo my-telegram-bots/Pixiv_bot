@@ -163,7 +163,14 @@ export async function mg_filter(mg, type = 't') {
         } else {
             xx.media = x.media_t ? x.media_t : x.media_o
         }
-        if (x.type == 'video') {
+        if(x.type == 'document') {
+            xx.media = x.media_o
+            if (type.includes('dl')) {
+                // dlo => download media_o file
+                // dlr => download media_r file
+                xx.media = new InputFile(await fetch_tmp_file(x['media_' + type.replace('dl', '')]))
+            }
+        }else if (x.type == 'video') {
             // nothing download in ugoira
             xx.media = x.media
             if (type.includes('dl') || type.includes('r')) {

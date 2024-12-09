@@ -197,6 +197,7 @@ export async function read_user_setting(bot, ctx) {
         // send as file
         asfile: us(d_f, ctx.text,'asfile',['file']),
         append_file: us(d_f, ctx.text,'append_file',['af']),
+        append_file_immediate: us(d_f, ctx.text,'append_file_immediate',['af_i']),
         // spoiler
         // But I have no idea to deisgn the logic.
         spoiler: us(d_f, ctx.text,'spoiler',['sp']),
@@ -222,6 +223,9 @@ export async function read_user_setting(bot, ctx) {
     }
     if (ctx.us.remove_keyboard) {
         ctx.us.open = ctx.us.share = false
+    }
+    if (ctx.us.append_file_immediate) {
+        ctx.us.append_file = true
     }
     if (ctx.us.append_file){
         ctx.us.asfile = false

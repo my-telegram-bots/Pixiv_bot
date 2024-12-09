@@ -333,6 +333,7 @@ async function tg_sender(ctx) {
     }
     if (illusts.length > 0) {
         let mgs = []
+        let files = []
         await asyncForEach(ctx.us.desc ? illusts.reverse() : illusts, async (illust) => {
             // telegraph
             ctx.us.q_id += 1
@@ -352,7 +353,6 @@ async function tg_sender(ctx) {
                 }
                 let extra = {
                     ...default_extra,
-                    // caption: mg[0].caption.replaceAll('%mid%', ''),
                     ...k_os(illust.id, ctx.us)
                 }
                 if (ctx.us.spoiler) {
@@ -364,21 +364,29 @@ async function tg_sender(ctx) {
                 if (illust.type <= 1) {
                     let { reply_to_message_id } = extra
                     await asyncForEach(illust.mediagroup, async (o, i) => {
-                        let photo_urls = [o.media_o, o.media_r, `dl-${o.media_o}`, `dl-${o.media_r}`]
-                        // Telegram will download and send the file. 5 MB max size for photos
-                        // It's useless to provide original (Telegram will compress image about 200kb)
-                        if (o.fsize > 5000000) {
-                            photo_urls = [o.media_r, `dl-${o.media_r}`]
-                        }
-                        const result = await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, {
+                        let photo_urls = [o.media_r, `dl-${o.media_r}`]
+                        let extra_one = {
                             ...extra,
                             reply_to_message_id,
                             caption: ctx.us.single_caption ? format(illust, {
                                 ...ctx.us,
                                 single_caption: false
                             }, 'message', i) : o.caption
-                        })
-                        reply_to_message_id = result.message_id
+                        }
+                        let result = null
+                        if (!ctx.us.asfile){
+                            result = await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, extra_one)
+                            reply_to_message_id = result.message_id
+                            extra_one.reply_to_message_id = result.message_id
+                        }
+                        if (ctx.us.asfile || ctx.us.append_file_immediate) {
+                            delete extra_one.reply_markup
+                            await sendDocumentWithRetry(chat_id, o.media_o, extra_one, ctx.l)
+                        }
+                        if (ctx.us.append_file && !ctx.us.append_file_immediate) {
+                            delete extra_one.reply_markup
+                            files.push([chat_id, o.media_o, extra_one, ctx.l])
+                        }
                     })
                 } else if (illust.type === 2) {
                     (async ()=>{
@@ -395,23 +403,36 @@ async function tg_sender(ctx) {
                     if (media.includes('tmp/')) {
                         media = new InputFile(media)
                     }
-                    await bot.api.sendAnimation(chat_id, media, extra).then(async (data) => {
+                    let result = null
+                    if (!ctx.us.asfile){
+                        result = await bot.api.sendAnimation(chat_id, media, extra).catch(async (e) => {
+                            if (await catchily(e, chat_id, ctx.l)) {
+                                bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                            }
+                        })
                         // save ugoira file_id and next time bot can reply without send file
-                        if (!illust.tg_file_id && data.document) {
+                        if (!illust.tg_file_id && result.document) {
                             let col = db.collection.illust
                             await col.updateOne({
                                 id: illust.id
                             }, {
                                 $set: {
-                                    tg_file_id: data.document.file_id
+                                    tg_file_id: result.document.file_id
                                 }
                             })
                         }
-                    }).catch(async (e) => {
-                        if (await catchily(e, chat_id, ctx.l)) {
-                            bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                        if (result) {
+                            extra.reply_to_message_id = result.message_id
                         }
-                    })
+                    }
+                    if (ctx.us.asfile || ctx.us.append_file_immediate) {
+                        delete extra.reply_markup
+                        await sendDocumentWithRetry(chat_id, media, extra, ctx.l)
+                    }
+                    if (ctx.us.append_file && !ctx.us.append_file_immediate) {
+                        delete extra.reply_markup
+                        files.push([chat_id, media, extra, ctx.l])
+                    }
                 }
             } else {
                 // handle mediagroup
@@ -426,7 +447,7 @@ async function tg_sender(ctx) {
             }
         })
         let mg_extra = { }
-        if (mgs.length > 0 && !ctx.us.asfile) {
+        if (mgs.length > 0) {
             if (ctx.us.telegraph) {
                 // when not have title provided and 1 illust only
                 if(!ctx.us.telegraph_title && illusts.length === 1) {
@@ -454,16 +475,26 @@ async function tg_sender(ctx) {
                 if(ctx.us.album_one){
                     mgs = mgs[0]
                 }
+                // Bad Request: document can't be mixed with other media types
+                // if (ctx.us.append_file_immediate) {
+                //     const mgs_f = mgs.map(mg => {
+                //         return {
+                //             ...mg,
+                //             type: 'document'
+                //         }
+                //     })
+                //     mgs = mgs.flatMap((value, index) => [value, mgs_f[index]])
+                // }
                 await asyncForEach(mg_albumize(mgs, ctx.us), async (mg, i) => {
-                    let data = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, mg_extra, ['o', 'r', 'dlo', 'dlr'])
-                    if (data) {
-                        if (data[0] && data[0].message_id) {
-                            mg_extra.reply_to_message_id = data[0].message_id
+                    let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, mg_extra, ['r', 'o', 'dlr', 'dlo'])
+                    if (result) {
+                        if (result[0] && result[0].message_id) {
+                            mg_extra.reply_to_message_id = result[0].message_id
                         } else {
                             delete mg_extra.reply_to_message_id
                         }
                     } else {
-                        honsole.warn('error send mg', data)
+                        honsole.warn('error send mg', result)
                         // await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
                     }
                     // Too Many Requests: retry after 10
@@ -472,54 +503,63 @@ async function tg_sender(ctx) {
                     } else {
                         await sleep(1500)
                     }
-                })
-            }
-        }
-        if (ctx.us.asfile || ctx.us.append_file) {
-            await asyncForEach(ctx.us.desc ? illusts.reverse() : illusts, async (illust) => {
-                let { reply_to_message_id } = default_extra
-                await asyncForEach(illust.mediagroup, async (o) => {
-                    (async ()=>{
-                        await bot.api.sendChatAction(chat_id, 'upload_document').catch(e=>{})
-                    })();
-                    let extra = {
-                        ...default_extra,
-                        caption: o.caption,
-                        disable_content_type_detection: true,
-                        reply_to_message_id
-                    }
-                    if (o.type === 'video') {
-                        // ¿
-                        o.media_o = await ugoira_to_mp4(o.id)
-                        const ugoira_path = get_ugoira_path(o.id)
-                        if (fs.existsSync(ugoira_path)) {
-                            o.media_o = new InputFile(get_ugoira_path(o.id))
-                        } else if (o.media_o.startsWith('https://')) {
-                            o.media_o = new InputFile(new URL(o.media_o))
+                    if (ctx.us.append_file_immediate) {
+                        let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg=>{
+                            return {
+                                ...mg,
+                                type: 'document'
+                            }
+                        }), mg_extra, ['o', 'dlo'])
+                        if (result) {
+                            if (result[0] && result[0].message_id) {
+                                mg_extra.reply_to_message_id = result[0].message_id
+                            } else {
+                                delete mg_extra.reply_to_message_id
+                            }
+                        } else {
+                            honsole.warn('error send mg', result)
+                            // await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                        }
+                        // Too Many Requests: retry after 10
+                        if (i > 4) {
+                            await sleep(3500)
+                        } else {
+                            await sleep(1500)
                         }
                     }
-                    await bot.api.sendDocument(chat_id, o.media_o, extra).then(x => {
-                        reply_to_message_id = x.message_id
-                    }).catch(async (e) => {
-                        if (await catchily(e, chat_id, ctx.l)) {
-                            if (illust.type <= 2) {
-                                await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(o.media_o)), {
-                                    ...extra,
-                                }).then(x => {
-                                    reply_to_message_id = x.message_id
-                                }).catch(async (e) => {
-                                    if (await catchily(e, chat_id, ctx.l)) {
-                                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'file_too_large', o.media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), default_extra)
-                                    }
-                                })
-                            } else {
-                                await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                })
+                if(ctx.us.asfile) {
+                    await asyncForEach(mg_albumize(mgs, ctx.us), async (mg, i) => {
+                        let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg=>{
+                            return {
+                                ...mg,
+                                type: 'document'
                             }
+                        }), mg_extra, ['o', 'dlo'])
+                        if (result) {
+                            if (result[0] && result[0].message_id) {
+                                mg_extra.reply_to_message_id = result[0].message_id
+                            } else {
+                                delete mg_extra.reply_to_message_id
+                            }
+                        } else {
+                            honsole.warn('error send mg', result)
+                            // await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                        }
+                        // Too Many Requests: retry after 10
+                        if (i > 4) {
+                            await sleep(3500)
+                        } else {
+                            await sleep(1500)
                         }
                     })
-                })
-            })
+                }
+            }
         }
+
+        await asyncForEach(files, async (f, i)=>{
+            await sendDocumentWithRetry(...f)
+        })
     }
 
     if (ids.novel.length > 0) {
@@ -719,7 +759,7 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
     }
     let current_mg_type = mg_type.shift();
     (async ()=>{
-        await bot.api.sendChatAction(chat_id, 'upload_photo').catch(e=>{})
+        await bot.api.sendChatAction(chat_id, mg[0].type === 'document' ? 'upload_document' : 'upload_photo').catch(e=>{})
     })();
     try {
         return await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type), extra)
@@ -790,6 +830,39 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
         }
     }
 }
+
+/**
+ * sendDocumentWithRetry
+ * @param {*} chat_id 
+ * @param {*} media_o 
+ * @param {*} extra 
+ * @param {*} l 
+ */
+async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
+    (async ()=>{
+        await bot.api.sendChatAction(chat_id, 'upload_document').catch(e=>{})
+    })();
+    let reply_to_message_id = null
+    extra = {
+        ...extra,
+        disable_content_type_detection: true
+    }
+    await bot.api.sendDocument(chat_id, media_o, extra).then(x => {
+        reply_to_message_id = x.message_id
+    }).catch(async (e) => {
+        if (await catchily(e, chat_id, ctx.l)) {
+            await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(media_o)), extra).then(x => {
+                reply_to_message_id = x.message_id
+            }).catch(async (e) => {
+                await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), extra).then(x => {
+                    reply_to_message_id = x.message_id
+                })
+            })
+        }
+    })
+    return reply_to_message_id
+}
+
 
 /**
  * when user is chat's administrator / creator, return true
