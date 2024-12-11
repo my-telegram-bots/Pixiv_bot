@@ -293,7 +293,7 @@ bot.on([':text', ':caption'], async (ctx) => {
  * build ctx object can send illust / novel manually (subscribe / auto push)
  * @param {*} ctx
  */
-async function tg_sender(ctx) {
+export async function tg_sender(ctx) {
     let chat_id = ctx.chat_id || ctx.message.chat.id
     let user_id = ctx.user_id || ctx.from.id
     let text = ctx.text || ''
@@ -661,6 +661,9 @@ db.db_initial().then(async () => {
             process.exit()
         }
     }
+    if(process.argv[1].includes('cron')) {
+        return
+    }
     bot.init().then(async () => {
         grammyjsRun(bot)
 
@@ -850,7 +853,7 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
     await bot.api.sendDocument(chat_id, media_o, extra).then(x => {
         reply_to_message_id = x.message_id
     }).catch(async (e) => {
-        if (await catchily(e, chat_id, ctx.l)) {
+        if (await catchily(e, chat_id, l)) {
             await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(media_o)), extra).then(x => {
                 reply_to_message_id = x.message_id
             }).catch(async (e) => {
