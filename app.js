@@ -23,7 +23,11 @@ bot.use(async (ctx, next) => {
         if (ctx.text = ctx.message.text || ctx.message.caption || '') {
             // remove command[@username] : /start@Pixiv_bot -> /start
             if (ctx.message.entities && ctx.text.startsWith('/')) {
-                ctx.command = ctx.message.text.substring(1, ctx.message.entities[0].length).replace(`@${bot.botInfo.username}`, '')
+                ctx.command = ctx.message.text.substring(1, ctx.message.entities[0].length)
+                if(ctx.command.includes(`@${bot.botInfo.username}`)){
+                    ctx.command = ctx.command.replace(`@${bot.botInfo.username}`, '')
+                    ctx.text = ctx.text.replace(`@${bot.botInfo.username}`, '')
+                }
             }
         }
         ctx.default_extra.reply_to_message_id = ctx.message.message_id
