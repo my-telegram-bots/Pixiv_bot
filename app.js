@@ -403,7 +403,7 @@ export async function tg_sender(ctx) {
                         await bot.api.sendChatAction(chat_id, 'upload_video').catch(e=>{})
                     })();
                     let media = mg[0].media_t
-                    if (!media || ctx.us.asfile || append_file || ctx.us.append_file_immediate) {
+                    if (!media) {
                         if (mg[0].media_o) {
                             media = mg[0].media_o
                         } else {
@@ -439,7 +439,7 @@ export async function tg_sender(ctx) {
                     }
                     if (ctx.us.asfile || ctx.us.append_file_immediate) {
                         delete extra.reply_markup
-                        const result = await sendDocumentWithRetry(chat_id, media, {
+                        const result = await sendDocumentWithRetry(chat_id, mg[0].media_o, {
                             ...extra,
                             caption: mg[0].caption,
                             disable_content_type_detection: true
@@ -871,6 +871,7 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
         ...extra,
         disable_content_type_detection: true
     }
+    console.log(media_o)
     await bot.api.sendDocument(chat_id, media_o.includes(config.pixiv.ugoiraurl) ?  new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/')+1)) : media_o, extra).then(x => {
         reply_to_message_id = x.message_id
     }).catch(async (e) => {
