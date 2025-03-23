@@ -344,7 +344,6 @@ export async function tg_sender(ctx) {
             let mg = illust.mediagroup
             if (!ctx.us.telegraph &&
             (
-                ctx.us.append_file_immediate ||
                 !ctx.us.album || 
                 (illusts.length == 1 && mg.length === 1) ||
                 (!ctx.us.album_one && mg.length === 1)
@@ -454,7 +453,7 @@ export async function tg_sender(ctx) {
                     }
                     mgs[0] = [...mgs[0], ...mg]
                 } else {
-                    mgs = [...mgs, ...mg]
+                    mgs = [...mgs, mg]
                 }
             }
         })
@@ -484,9 +483,6 @@ export async function tg_sender(ctx) {
                     console.warn(error)
                 }
             } else {
-                if(ctx.us.album_one){
-                    mgs = mgs[0]
-                }
                 // Bad Request: document can't be mixed with other media types
                 // if (ctx.us.append_file_immediate) {
                 //     const mgs_f = mgs.map(mg => {
@@ -497,31 +493,9 @@ export async function tg_sender(ctx) {
                 //     })
                 //     mgs = mgs.flatMap((value, index) => [value, mgs_f[index]])
                 // }
-                await asyncForEach(mg_albumize(mgs, ctx.us), async (mg, i) => {
-                    let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, mg_extra, ['r', 'o', 'dlr', 'dlo'])
-                    if (result) {
-                        if (result[0] && result[0].message_id) {
-                            mg_extra.reply_to_message_id = result[0].message_id
-                        } else {
-                            delete mg_extra.reply_to_message_id
-                        }
-                    } else {
-                        honsole.warn('error send mg', result)
-                        // await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
-                    }
-                    // Too Many Requests: retry after 10
-                    if (i > 4) {
-                        await sleep(3500)
-                    } else {
-                        await sleep(1500)
-                    }
-                    if (ctx.us.append_file_immediate) {
-                        let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg=>{
-                            return {
-                                ...mg,
-                                type: 'document'
-                            }
-                        }), mg_extra, ['o', 'dlo'])
+                await asyncForEach(mgs, async mgsi => {
+                    await asyncForEach(mg_albumize(mgsi, ctx.us), async (mg, i) => {
+                        let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, mg_extra, ['r', 'o', 'dlr', 'dlo'])
                         if (result) {
                             if (result[0] && result[0].message_id) {
                                 mg_extra.reply_to_message_id = result[0].message_id
@@ -538,32 +512,58 @@ export async function tg_sender(ctx) {
                         } else {
                             await sleep(1500)
                         }
-                    }
+                        if (ctx.us.append_file_immediate) {
+                            let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg=>{
+                                return {
+                                    ...mg,
+                                    type: 'document'
+                                }
+                            }), mg_extra, ['o', 'dlo'])
+                            if (result) {
+                                if (result[0] && result[0].message_id) {
+                                    mg_extra.reply_to_message_id = result[0].message_id
+                                } else {
+                                    delete mg_extra.reply_to_message_id
+                                }
+                            } else {
+                                honsole.warn('error send mg', result)
+                                // await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                            }
+                            // Too Many Requests: retry after 10
+                            if (i > 4) {
+                                await sleep(3500)
+                            } else {
+                                await sleep(1500)
+                            }
+                        }
+                    })
                 })
-                if(ctx.us.asfile || (ctx.us.append_file && !ctx.us.append_file_immediate)) {
-                    await asyncForEach(mg_albumize(mgs, ctx.us), async (mg, i) => {
-                        let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg=>{
-                            return {
-                                ...mg,
-                                type: 'document'
-                            }
-                        }), mg_extra, ['o', 'dlo'])
-                        if (result) {
-                            if (result[0] && result[0].message_id) {
-                                mg_extra.reply_to_message_id = result[0].message_id
+                if(ctx.us.append_file && !ctx.us.append_file_immediate) {
+                    await asyncForEach(mgs, async mgsi => {
+                        await asyncForEach(mg_albumize(mgsi, ctx.us), async (mg, i) => {
+                            let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg=>{
+                                return {
+                                    ...mg,
+                                    type: 'document'
+                                }
+                            }), mg_extra, ['o', 'dlo'])
+                            if (result) {
+                                if (result[0] && result[0].message_id) {
+                                    mg_extra.reply_to_message_id = result[0].message_id
+                                } else {
+                                    delete mg_extra.reply_to_message_id
+                                }
                             } else {
-                                delete mg_extra.reply_to_message_id
+                                honsole.warn('error send mg', result)
+                                // await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
                             }
-                        } else {
-                            honsole.warn('error send mg', result)
-                            // await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
-                        }
-                        // Too Many Requests: retry after 10
-                        if (i > 4) {
-                            await sleep(3500)
-                        } else {
-                            await sleep(1500)
-                        }
+                            // Too Many Requests: retry after 10
+                            if (i > 4) {
+                                await sleep(3500)
+                            } else {
+                                await sleep(1500)
+                            }
+                        })
                     })
                 }
             }
