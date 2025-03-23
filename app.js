@@ -403,7 +403,7 @@ export async function tg_sender(ctx) {
                         await bot.api.sendChatAction(chat_id, 'upload_video').catch(e=>{})
                     })();
                     let media = mg[0].media_t
-                    if (!media) {
+                    if (!media || ctx.us.asfile || append_file || ctx.us.append_file_immediate) {
                         if (mg[0].media_o) {
                             media = mg[0].media_o
                         } else {
