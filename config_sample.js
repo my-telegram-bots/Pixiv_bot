@@ -5,14 +5,14 @@ export default {
     },
     pixiv: {
         cookie: "",
-        ua: "",
-        pximgproxy: "",
+        ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0",
+        pximgproxy: "https://i.ugoira.com",
         csrf: "",
-        ugoiraurl: ""
+        ugoiraurl: "https://i.ugoira.com"
     },
     tg: {
-        master_id: 1,
-        token: "",
+        master_id: 142223838,
+        token: "354505555:AAHhZPiS2Q-x0h4ibGpQCVngePAtKhlGJKg",
         access_token: "",
         salt: "",
         refetch_api: ""

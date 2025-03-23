@@ -342,9 +342,9 @@ export async function tg_sender(ctx) {
             // telegraph
             ctx.us.q_id += 1
             let mg = illust.mediagroup
-            // send as file 
-            if ((!ctx.us.asfile && !ctx.us.telegraph) &&
+            if (!ctx.us.telegraph &&
             (
+                ctx.us.append_file_immediate ||
                 !ctx.us.album || 
                 (illusts.length == 1 && mg.length === 1) ||
                 (!ctx.us.album_one && mg.length === 1)
@@ -367,11 +367,11 @@ export async function tg_sender(ctx) {
                 }
                 if (illust.type <= 1) {
                     let { reply_to_message_id } = extra
+                    let file_reply_to_message_id = reply_to_message_id
                     await asyncForEach(illust.mediagroup, async (o, i) => {
                         let photo_urls = [o.media_r, `dl-${o.media_r}`]
                         let extra_one = {
                             ...extra,
-                            reply_to_message_id,
                             caption: ctx.us.single_caption ? format(illust, {
                                 ...ctx.us,
                                 single_caption: false
@@ -379,13 +379,21 @@ export async function tg_sender(ctx) {
                         }
                         let result = null
                         if (!ctx.us.asfile){
-                            result = await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, extra_one)
+                            let result = await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, {
+                                ...extra_one,
+                                reply_to_message_id
+                            })
                             reply_to_message_id = result.message_id
-                            extra_one.reply_to_message_id = result.message_id
                         }
                         if (ctx.us.asfile || ctx.us.append_file_immediate) {
                             delete extra_one.reply_markup
-                            await sendDocumentWithRetry(chat_id, o.media_o, extra_one, ctx.l)
+                            let result = await sendDocumentWithRetry(chat_id, o.media_o, {
+                                ...extra_one,
+                                reply_to_message_id: ctx.us.append_file_immediate ? reply_to_message_id : file_reply_to_message_id
+                            }, ctx.l)
+                            if (ctx.us.append_file_immediate) {
+                                file_reply_to_message_id = result.message_id
+                            }
                         }
                         if (ctx.us.append_file && !ctx.us.append_file_immediate) {
                             delete extra_one.reply_markup
@@ -858,7 +866,7 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
         reply_to_message_id = x.message_id
     }).catch(async (e) => {
         if (await catchily(e, chat_id, l)) {
-            await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(media_o)), extra).then(x => {
+            await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/')+1)), extra).then(x => {
                 reply_to_message_id = x.message_id
             }).catch(async (e) => {
                 await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), extra).then(x => {
