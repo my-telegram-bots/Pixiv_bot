@@ -376,7 +376,6 @@ export async function tg_sender(ctx) {
                                 single_caption: false
                             }, 'message', i) : o.caption
                         }
-                        let result = null
                         if (!ctx.us.asfile){
                             let result = await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, {
                                 ...extra_one,
@@ -414,15 +413,17 @@ export async function tg_sender(ctx) {
                     if (media.includes('tmp/')) {
                         media = new InputFile(media)
                     }
-                    let result = null
                     if (!ctx.us.asfile){
-                        result = await bot.api.sendAnimation(chat_id, media, extra).catch(async (e) => {
+                        const result = await bot.api.sendAnimation(chat_id, media, {
+                            ...extra,
+                            caption: mg[0].caption
+                        }).catch(async (e) => {
                             if (await catchily(e, chat_id, ctx.l)) {
                                 bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
                             }
                         })
                         // save ugoira file_id and next time bot can reply without send file
-                        if (!illust.tg_file_id && result.document) {
+                        if (!illust.tg_file_id && result?.document) {
                             let col = db.collection.illust
                             await col.updateOne({
                                 id: illust.id
@@ -438,7 +439,15 @@ export async function tg_sender(ctx) {
                     }
                     if (ctx.us.asfile || ctx.us.append_file_immediate) {
                         delete extra.reply_markup
-                        await sendDocumentWithRetry(chat_id, media, extra, ctx.l)
+                        const result = await sendDocumentWithRetry(chat_id, media, {
+                            ...extra,
+                            caption: mg[0].caption,
+                            disable_content_type_detection: true
+                        }).catch(async (e) => {
+                            if (await catchily(e, chat_id, ctx.l)) {
+                                bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                            }
+                        })
                     }
                     if (ctx.us.append_file && !ctx.us.append_file_immediate) {
                         delete extra.reply_markup
@@ -862,7 +871,7 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
         ...extra,
         disable_content_type_detection: true
     }
-    await bot.api.sendDocument(chat_id, media_o, extra).then(x => {
+    await bot.api.sendDocument(chat_id, media_o.includes(config.pixiv.ugoiraurl) ?  new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/')+1)) : media_o, extra).then(x => {
         reply_to_message_id = x.message_id
     }).catch(async (e) => {
         if (await catchily(e, chat_id, l)) {

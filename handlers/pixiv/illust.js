@@ -66,8 +66,8 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
                 illust = await update_illust(illust_data.body)
                 return illust
             } catch (error) {
-                            // network, session or Work has been deleted or the ID does not exist.
-                            if (error.response && error.response.status === 404) {
+                // network, session or Work has been deleted or the ID does not exist.
+                if (error.response && error.response.status === 404) {
                     honsole.warn('404 illust', id)
                     illust_notfound_id_set.add(id)
                     illust_notfound_time_map.set(id, Date.now())
@@ -189,6 +189,6 @@ export async function update_illust(illust, extra_data = false, id_update_flag =
     }, {
         upsert: true
     })
-    honsole.dev(real_illust)
+    honsole.dev('real_illust', real_illust)
     return real_illust
 }
