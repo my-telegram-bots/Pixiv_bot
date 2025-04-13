@@ -102,7 +102,7 @@ TODO (Refer to the configuration page)
 | +-share     |                              | Show or remove share button                           | Forced on in inline mode that switched to mesaage mode<br>Forced off in channel                              |
 | -+sc        | single_caption               | Show only one caption when sending multiple images    | Cannot be used in inline mode                                                                                |
 | -+above     | caption_above                | Show caption above the image                          |                                                                                                              |
-| -+desc      |                              | Send artworks in reverse order                        | Does not change the order of pages within a artwork                                                          |
+| -+reverse   |                              | Send artworks in reverse order                        | Does not change the order of pages within a artwork                                                          |
 | -+file      | asfile                       | Send as file                                          | Cannot be used in inline mode                                                                                |
 | -+af        | append_file                  | Send images in addition to the artwork                | Cannot be used in inline mode                                                                                |
 | -+graph     | telegraph                    | Convert to Telegraph                                  | Cannot be used in inline mode                                                                                |
