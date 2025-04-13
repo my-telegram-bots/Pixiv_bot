@@ -40,11 +40,12 @@ Version 2.0.4 user settings' `album` mirgate to `album_one`
 
     node update override_user_setting_album_2024_may
 
+and changed ugoira url in config.json (without /mp4/), you need modify the config.json.
+
 Version 2.0.5 user format's version update to v2, v1(legacy) will still working at this time
 
     node update update_user_format_format_2025_april
     
-and changed ugoira url in config.json (without /mp4/), you need modify the config.json.
 ## config
 ### cookie
 To subscribe author and popular search.  
