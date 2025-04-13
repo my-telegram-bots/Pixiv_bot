@@ -313,34 +313,30 @@ async function override_user_setting_format_2025_april() {
     await db.db_initial()
     console.log('Upadting all chat_settings(format) from local database to new format')
     await db.collection.chat_setting.updateMany(
-        {},
+        {
+            format: {
+                $exists: true
+            }
+        },
         {
             $set: {
-                format: {
-                    version: 'v1'
-                }
+                "format.version": "v1"
             }
         }
     );
     await asyncForEach(origin_list, async (origin, i) => {
         (await db.collection.chat_setting.updateMany(
             {
-                format: {
-                    message: origin,
-                    inline: origin
-                }
+                "format.message": origin,
+                "format.inline": origin
             },
             {
                 $set: {
-                    format: {
-                        message: replace_list[i],
-                        inline: replace_list[i],
-                    }
+                    "format.message": replace_list[i],
+                    "format.inline": replace_list[i]
                 },
                 $unset: {
-                    format: {
-                        version: true
-                    }
+                    "format.version": true
                 }
             }))
     })
