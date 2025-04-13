@@ -92,6 +92,7 @@ TODO （参考配置页面）
 | name        | alias                        | description                                        | remark                                                                                                       |
 | ----------- | ---------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | -+tag       | tags                         | 显示作品标签                                       | 作品标签在遇到一些特殊字符时（例如《》（） - ・），不会被识别为可点击的链接                                  |
+| -+desc      | description                  | 显示作品描述                                       |                                                                                                              |
 | +-id        | show_id                      | 显示作品 ID                                        | 默认显示格式中没有%id%字段，请通过自定义模板实现                                                             |
 | -+rm        |                              | 只显示图片                                         | 不显示按钮和说明文字（caption）                                                                              |
 | +-kb        | keyboard <br>remove_keyboard | 是否显示按钮                                       |                                                                                                              |
@@ -100,15 +101,15 @@ TODO （参考配置页面）
 | +-share     |                              | 是否显示分享按钮                                   | 在 inline 切换时会被强制启用<br>在 channel 中会被强制禁用                                                    |
 | -+sc        | single_caption               | 发送多张图片时只显示一个说明文字                   | 无法在 inline 模式使用                                                                                       |
 | -+above     | caption_above                | 将说明文字显示在图片上方                           |                                                                                                              |
-| -+desc      |                              | 倒序发送作品                                       | 不会改变作品内分p的顺序                                                                                   |
+| -+reverse   |                              | 倒序发送作品                                       | 不会改变作品内分p的顺序                                                                                      |
 | -+file      | asfile                       | 以文件形式发送                                     | 无法在 inline 模式使用                                                                                       |
 | -+af        | append_file                  | 在发送作品的基础上再发送图片                       | 无法在 inline 模式使用                                                                                       |
 | -+graph     | telegraph                    | 解析成 Telegraph                                   | 无法在 inline 模式使用                                                                                       |
 | +-album     |                              | 是否以 MediaGroup 形式发送作品                     | 无法在 inline 模式使用                                                                                       |
 | -+one       | album_one                    | 是否以 MediaGroup 形式发送所有作品                 | 例如您发送了 2 个作品，bot 会将它们作为一个 MediaGroup 一起发送，而不是分开发送                              |
 | -+equal     | album_equal                  | 尝试以均分方式发送 MediaGroup 作品                 | 例如需要发送 14 张图片时，系统会将其拆分成 7+7，而不是 10+4                                                  |
-| -+sp        | spoiler                      | 将图片标记为隐藏（敏感）内容                               | 无法在 inline 模式使用                                                                                       |
-| -+caption    | caption_extraction           | 解析图片说明文字并发送关联作品                     | 特殊需求，默认情况下不需要                                                                                   |
+| -+sp        | spoiler                      | 将图片标记为隐藏（敏感）内容                       | 无法在 inline 模式使用                                                                                       |
+| -+caption   | caption_extraction           | 解析图片说明文字并发送关联作品                     | 特殊需求，默认情况下不需要                                                                                   |
 | +-overwrite |                              | 在群组或频道中覆盖用户的自定义设置                 | 无法在 inline 模式使用<br>使用 inline 模式在群里发图也不会触发覆盖行为（机器人无法知道用户当前的群组是什么） |
 | +god        |                              | 在使用 `+overwrite` 的群组或者频道中使用自己的格式 | 无法在 inline 模式使用<br>不能使用 `/s +god` 持久化                                                          |
 

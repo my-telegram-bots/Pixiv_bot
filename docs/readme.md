@@ -90,28 +90,29 @@ TODO (Refer to the configuration page)
 
 ## cheatsheet
 
-| name        | alias                        | description                                        | remark                                                                                                       |
-| ----------- | ---------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| -+tag       | tags                         | Show artwork tags                                     | artwork tags may not be recognized as clickable links if they contain special characters (e.g., 《》() - ・)     |
-| +-id        | show_id                      | Show artwork ID                                       | Default display format does not include %id% field, please implement through custom message format                |
-| -+rm        |                              | Show only images                                   | Do not show buttons and caption                                                                              |
-| +-kb        | keyboard <br>remove_keyboard | Show or remove buttons                             |                                                                                                              |
-| +-cp        | remove_caption               | Show or remove captions                            |                                                                                                              |
-| +-open      |                              | Show or remove open button                         |                                                                                                              |
-| +-share     |                              | Show or remove share button                        | Forced on in inline mode that switched to mesaage mode<br>Forced off in channel|
-| -+sc        | single_caption               | Show only one caption when sending multiple images | Cannot be used in inline mode                                                                                |
-| -+above     | caption_above                | Show caption above the image                       |                                                                                                              |
-| -+desc      |                              | Send artworks in reverse order                        | Does not change the order of pages within a artwork                                                             |
-| -+file      | asfile                       | Send as file                                       | Cannot be used in inline mode                                                                                |
+| name        | alias                        | description                                           | remark                                                                                                       |
+| ----------- | ---------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| -+tag       | tags                         | Show artwork tags                                     | artwork tags may not be recognized as clickable links if they contain special characters (e.g., 《》() - ・) |
+| -+desc      | description                  | Show artwork description                              |                                                                                                              |
+| +-id        | show_id                      | Show artwork ID                                       | Default display format does not include %id% field, please implement through custom message format           |
+| -+rm        |                              | Show only images                                      | Do not show buttons and caption                                                                              |
+| +-kb        | keyboard <br>remove_keyboard | Show or remove buttons                                |                                                                                                              |
+| +-cp        | remove_caption               | Show or remove captions                               |                                                                                                              |
+| +-open      |                              | Show or remove open button                            |                                                                                                              |
+| +-share     |                              | Show or remove share button                           | Forced on in inline mode that switched to mesaage mode<br>Forced off in channel                              |
+| -+sc        | single_caption               | Show only one caption when sending multiple images    | Cannot be used in inline mode                                                                                |
+| -+above     | caption_above                | Show caption above the image                          |                                                                                                              |
+| -+desc      |                              | Send artworks in reverse order                        | Does not change the order of pages within a artwork                                                          |
+| -+file      | asfile                       | Send as file                                          | Cannot be used in inline mode                                                                                |
 | -+af        | append_file                  | Send images in addition to the artwork                | Cannot be used in inline mode                                                                                |
-| -+graph     | telegraph                    | Convert to Telegraph                               | Cannot be used in inline mode                                                                                |
+| -+graph     | telegraph                    | Convert to Telegraph                                  | Cannot be used in inline mode                                                                                |
 | +-album     |                              | Send artworks as MediaGroup                           | Cannot be used in inline mode                                                                                |
-| -+one       | album_one                    | Send all artworks as one MediaGroup                   | For example, if you send 2 artworks, the bot will send them as one MediaGroup instead of separately             |
+| -+one       | album_one                    | Send all artworks as one MediaGroup                   | For example, if you send 2 artworks, the bot will send them as one MediaGroup instead of separately          |
 | -+equal     | album_equal                  | Try to send MediaGroup artworks in balanced parts     | For example, if there are 14 images, it will be split into 7+7 instead of 10+4                               |
-| -+sp        | spoiler                      | Mark images as hidden (sensitive content)          | Cannot be used in inline mode                                                                                |
+| -+sp        | spoiler                      | Mark images as hidden (sensitive content)             | Cannot be used in inline mode                                                                                |
 | -+caption   | caption_extraction           | Extract and send related artworks from image captions | Special requirement, not needed by default                                                                   |
-| +-overwrite |                              | Override user settings in groups or channels       | Cannot be used in inline mode<br>Using inline mode in groups will not trigger overwrite behavior             |
-| +god        |                              | Use own format in groups/channels with `+overwrite`| Cannot be used in inline mode<br>Cannot persist with `/s +god`                                               |
+| +-overwrite |                              | Override user settings in groups or channels          | Cannot be used in inline mode<br>Using inline mode in groups will not trigger overwrite behavior             |
+| +god        |                              | Use own format in groups/channels with `+overwrite`   | Cannot be used in inline mode<br>Cannot persist with `/s +god`                                               |
 
 ### `+album` mediagroup Series
 

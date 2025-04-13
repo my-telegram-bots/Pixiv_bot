@@ -92,7 +92,8 @@ TODO （參考配置頁面）
 | name        | alias                        | description                                        | remark                                                                                                       |
 | ----------- | ---------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | -+tag       | tags                         | 顯示作品標籤                                       | 作品標籤在遇到一些特殊字元時（例如《》（） - ・），不會被識別為可點擊的連結                                  |
-| +-id        | show_id                      | 顯示作品 ID                                        | 默認顯示格式中沒有%id%欄位，請通過自訂模板實現                                                             |
+| -+desc      | description                  | 顯示作品描述                                       |                                                                                                              |
+| +-id        | show_id                      | 顯示作品 ID                                        | 默認顯示格式中沒有%id%欄位，請通過自訂模板實現                                                               |
 | -+rm        |                              | 只顯示圖片                                         | 不顯示按鈕和說明文字（caption）                                                                              |
 | +-kb        | keyboard <br>remove_keyboard | 是否顯示按鈕                                       |                                                                                                              |
 | +-cp        | remove_caption               | 是否顯示說明文字                                   |                                                                                                              |
@@ -100,16 +101,16 @@ TODO （參考配置頁面）
 | +-share     |                              | 是否顯示分享按鈕                                   | 在 inline 切換時會被強制啟用<br>在 channel 中會被強制禁用                                                    |
 | -+sc        | single_caption               | 發送多張圖片時只顯示一個說明文字                   | 無法在 inline 模式使用                                                                                       |
 | -+above     | caption_above                | 將說明文字顯示在圖片上方                           |                                                                                                              |
-| -+desc      |                              | 倒序發送作品                                       | 不會改變作品內分p的順序                                                                                   |
+| -+reverse   |                              | 倒序發送作品                                       | 不會改變作品內分p的順序                                                                                      |
 | -+file      | asfile                       | 以文件形式發送                                     | 無法在 inline 模式使用                                                                                       |
 | -+af        | append_file                  | 在發送作品的基礎上再發送圖片                       | 無法在 inline 模式使用                                                                                       |
 | -+graph     | telegraph                    | 解析成 Telegraph                                   | 無法在 inline 模式使用                                                                                       |
 | +-album     |                              | 是否以 MediaGroup 形式發送作品                     | 無法在 inline 模式使用                                                                                       |
 | -+one       | album_one                    | 是否以 MediaGroup 形式發送所有作品                 | 例如您發送了 2 個作品，bot 會將它們作為一個 MediaGroup 一起發送，而不是分開發送                              |
 | -+equal     | album_equal                  | 嘗試以均分方式發送 MediaGroup 作品                 | 例如需要發送 14 張圖片時，系統會將其拆分成 7+7，而不是 10+4                                                  |
-| -+sp        | spoiler                      | 將圖片標記為隱藏（敏感）內容                               | 無法在 inline 模式使用                                                                                       |
-| -+caption    | caption_extraction           | 解析圖片說明文字並發送關聯作品                     | 特殊需求，默認情況下不需要                                                                                   |
-| +-overwrite |                              | 在群組或頻道中覆蓋用戶的自訂設置                 | 無法在 inline 模式使用<br>使用 inline 模式在群裡發圖也不會觸發覆蓋行為（機器人無法知道用戶當前的群組是什麼） |
+| -+sp        | spoiler                      | 將圖片標記為隱藏（敏感）內容                       | 無法在 inline 模式使用                                                                                       |
+| -+caption   | caption_extraction           | 解析圖片說明文字並發送關聯作品                     | 特殊需求，默認情況下不需要                                                                                   |
+| +-overwrite |                              | 在群組或頻道中覆蓋用戶的自訂設置                   | 無法在 inline 模式使用<br>使用 inline 模式在群裡發圖也不會觸發覆蓋行為（機器人無法知道用戶當前的群組是什麼） |
 | +god        |                              | 在使用 `+overwrite` 的群組或者頻道中使用自己的格式 | 無法在 inline 模式使用<br>不能使用 `/s +god` 持久化                                                          |
 
 ### `+album` 媒體組系列
