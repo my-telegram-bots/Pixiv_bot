@@ -223,9 +223,7 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
             //     ['```\n', '```\n']
             // ]
             if (prefix.endsWith('\n>')) {
-                replacement = prefix + escape_markdownV2(dataValue).split('\n').map(line => {
-                    return '>' + line
-                }).join('\n') + suffix
+                replacement = prefix + escape_markdownV2(dataValue).split('\n').map((line, i) => (i === 0 ? '' : '>') + line).join('\n') + suffix
             } else {
                 replacement = prefix + escape_markdownV2(dataValue) + suffix
             }

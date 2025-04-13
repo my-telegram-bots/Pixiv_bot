@@ -302,13 +302,13 @@ async function override_user_setting_format_2025_april() {
         '%NSFW|#NSFW %title% \\| %author_name% \\#pixiv [%url%](%url%) %p%%\n|tags%',
         '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%',
         '%NSFW|#NSFW %[%title%](%url%)% / id=|id% / [%author_name%](%author_url%) %p%%\n|tags%',
-        '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%%\n|tags%',
+        '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%%\n|tags%'
     ]
     const replace_list = [
         '%\\#NSFW |NSFW%%\\#AI |AI%%title% \\| %author_name% \\#pixiv [%url%](%url%) %p%%\n|tags%%\n|description%',
         '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%%\n|description%',
-        '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / id=|id% / [%author_name%](%author_url%) %p%%\n|tags%%\n|description%',
-        '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%) %p%%\n|tags%%\n|description%',
+        '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / %id=|id% / [%author_name%](%author_url%) %p%%\n|tags%%\n|description%',
+        '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%%\n|description%'
     ]
     await db.db_initial()
     console.log('Upadting all chat_settings(format) from local database to new format')
