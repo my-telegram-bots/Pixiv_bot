@@ -1,7 +1,7 @@
 ---
 sidebar: false
 editLink: false
-title: bot配置
+title: Bot Configuration
 ---
 <template>
   <div id="setting">
@@ -129,10 +129,10 @@ title: bot配置
       template_list: [
         '%\\#NSFW |NSFW%%\\#AI |AI%%title% \\| %author_name% \\#pixiv [%url%](%url%) %p%%\n|tags%%\n|description%',
         '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%%\n|description%',
-        '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / %id=|id% / [%author_name%](%author_url%) %p%%\n|tags%%\n|description%',
+        '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / %id\=|id% / [%author_name%](%author_url%) %p%%\n|tags%%\n|description%',
         '%\\#NSFW |NSFW%%\\#AI |AI%%title% \\| %author_name% \\#pixiv [%url%](%url%) %p%%\n|tags%%\n>|description%',
         '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%%\n>|description%',
-        '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / %id=|id% / [%author_name%](%author_url%) %p%%\n|tags%%\n>|description%'
+        '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / %id\=|id% / [%author_name%](%author_url%) %p%%\n|tags%%\n>|description%'
       ],
       mode: 'message',
       current_templates: {...default_template_list},
