@@ -231,7 +231,7 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
         result += replacement
         i = endpercent_index + 1
     }
-    return result.replaceAll('\uff69', '\|')
+    return result.replaceAll('\uff69', '\\|')
 }
 
 /**
