@@ -506,7 +506,7 @@ export async function tg_sender(ctx) {
                     await asyncForEach(mg_albumize(mgsi, ctx.us), async (mg, i) => {
                         let single_caption = ''
                         if (ctx.us.single_caption) {
-                            if (mg.every(m=>m.id !== mg[0].id)) {
+                            if (mg.every(m=>m.id === mg[0].id)) {
                                 single_caption = format(illusts.find((illust)=>illust.id === mg[0].id), {
                                     ...ctx.us,
                                     single_caption: false
