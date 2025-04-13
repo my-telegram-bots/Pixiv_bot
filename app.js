@@ -585,9 +585,9 @@ export async function tg_sender(ctx) {
                             }
                             // Too Many Requests: retry after 10
                             if (i > 4) {
-                                await sleep(3500)
-                            } else {
                                 await sleep(1500)
+                            } else {
+                                await sleep(500)
                             }
                         })
                     })
