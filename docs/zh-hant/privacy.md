@@ -5,7 +5,7 @@ sidebar: false
 
 ## 我們收集以下內容
 
-### 用戶 id
+### 用戶 id
 當您在使用本 bot 的時候，您的 Telegram id 可能會被 bot 記錄以及關聯。  
 會記錄用戶 id 的操作目前有：  
 
