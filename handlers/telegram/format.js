@@ -1,7 +1,9 @@
+import df from './df.js'
+import { JSDOM } from 'jsdom'
+
 const escape_string_list = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
 /**
- * 格式化文字 好像并没有什么模板引擎 只好自己糊
- * 重构警告（变成💩山了）
+ * 格式化文字 重构的模版引擎
  * @param {*} td
  * @param {*} flag
  * @param {*} mode
@@ -18,32 +20,33 @@ const escape_string_list = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+
 
 %NSFW% NSFW alert
 %AI% AI alert
+%description% description
 */
-export function format(td, flag, mode = 'message', p) {
-    let template = ''
-    if (flag.single_caption) {
-        mode = 'mediagroup_message'
+export function format(td, flag, mode = 'message', p, mid) {
+    if (flag.setting?.format?.version === 'v1') {
+        return format_v1(td, flag, mode, p, mid)
+    } else {
+        return format_v2(td, flag, mode, p, mid)
     }
+}
+
+export function format_v1(td, flag, mode = 'message', p, mid) {
+    let template = ''
     if (flag.remove_caption) {
         return ''
     }
     if (flag.telegraph) {
         if (p == 0) {
-            template = '%title% / %author_name%\n'
-            template += '%url%'
-            template += '%\n|tags%'
-            mode = 'telegraph'
+            template = df.format.telegraph
         }
     } else if (!flag.setting.format[mode]) {
         switch (mode) {
             case 'message':
             case 'inline':
-                template = '%NSFW|#NSFW %%AI|#AI %[%title%](%url%) / [%author_name%](%author_url%)% |p%'
-                template += '%\n|tags%'
+                template = df.format.message
                 break
             case 'mediagroup_message':
-                template = '%[%mid% %title%% |p%%](%url%)%'
-                template += '%\n|tags%'
+                template = df.format.mediagroup_message
                 break
         }
     } else {
@@ -69,6 +72,9 @@ export function format(td, flag, mode = 'message', p) {
             } else {
                 replace_list.push(['p', ''])
             }
+            if (flag.description) {
+                replace_list.description = new JSDOM(`<body>${td.description.replaceAll('<br />', '\n')}</body>`).window.document.body.textContent
+            }
             if (flag.tags) {
                 let tags = '#' + td.tags.join(' #')
                 replace_list.push(['tags', tags])
@@ -76,14 +82,8 @@ export function format(td, flag, mode = 'message', p) {
                 replace_list.push(['tags', ''])
             }
         }
-        // hmmm, I dont want handle %mid% in different function
-        // So It's useless
         if (flag.single_caption) {
-            if (!td) {
-                replace_list.push(['mid', flag.mid])
-            } else {
-                replace_list.push(['mid', '%mid%'])
-            }
+            replace_list.push(['mid', mid])
         }
         splited_template.forEach((r, id) => {
             replace_list.forEach(x => {
@@ -116,6 +116,126 @@ export function format(td, flag, mode = 'message', p) {
     }
     return template.trim()
 }
+
+export function format_v2(td, flag, mode = 'message', p, mid) {
+    let template = ''
+    let result = ''
+    if (flag.remove_caption) {
+        return ''
+    }
+    if (flag.telegraph) {
+        if (p == 0) {
+            template = df.format.telegraph
+            mode = 'telegraph'
+        }
+    } else if (!flag.setting.format[mode]) {
+        template = df.format[mode]
+        if (!template) {
+            template = df.format.message
+        }
+    } else {
+        template = flag.setting.format[mode]
+    }
+    template = template.replaceAll('\\|', '\uff69')
+    let replace_list = {
+        title: td.title.trim(),
+        url: `https://www.pixiv.net/artworks/${td.id}`,
+        NSFW: td.nsfw,
+        AI: td.ai,
+        author_id: td.author_id,
+        author_url: `https://www.pixiv.net/users/${td.author_id}`,
+        author_name: td.author_name.trim()
+    }
+    if (td) {
+        if (flag.show_id) {
+            replace_list.id = td.id
+        }
+        if (flag.description) {
+            replace_list.description = new JSDOM(`<body>${td.description.replaceAll('<br />', '\n')}</body>`).window.document.body.textContent
+        }
+        if (td.imgs_ && td.imgs_.size && td.imgs_.size.length > 1 && p !== -1) {
+            replace_list.p = `${(p + 1)}/${td.imgs_.size.length}`
+        } else {
+            replace_list.p = false
+        }
+        if (flag.tags && td.tags.length > 0) {
+            replace_list.tags = '#' + td.tags.join(' #')
+        }
+        if (flag.single_caption) {
+            replace_list.mid = mid
+        }
+    }
+
+    let i = 0
+    const len = template.length
+    const key_list = Object.keys(replace_list)
+    while (i < len) {
+        const percent_index = template.indexOf('%', i)
+
+        if (percent_index === -1) {
+            result += template.substring(i)
+            break
+        }
+        result += template.substring(i, percent_index)
+
+        const endpercent_index = template.indexOf('%', percent_index + 1)
+
+        if (endpercent_index === -1) {
+            result += '%'
+            i = percent_index + 1
+            continue
+        }
+
+        const placeholderContent = template.substring(percent_index + 1, endpercent_index)
+        let replacement = ''
+        const s = placeholderContent.split('|')
+
+        let prefix = ''
+        let key = ''
+        let suffix = ''
+        if (key_list.includes(s[0])) {
+            key = s[0]
+            if (s[1]) {
+                suffix = s[1]
+            }
+        } else if (key_list.includes(s[1])) {
+            prefix = s[0]
+            key = s[1]
+            if (s[2]) {
+                suffix = s[2]
+            }
+        } else {
+            i = endpercent_index + 1
+            continue
+        }
+        let dataValue = replace_list[key]
+        if (typeof dataValue === 'boolean') {
+            if (dataValue) {
+                replacement = prefix + suffix
+            }
+        } else if (dataValue !== undefined) {
+            // const md_style = [
+            //     ['*', '*'],
+            //     ['__', '__'],
+            //     ['_', '_'],
+            //     ['~', '~'],
+            //     ['||', '||'],
+            //     ['```\n', '```\n']
+            // ]
+            if (prefix.endsWith('\n>')) {
+                replacement = prefix + escape_markdownV2(dataValue).split('\n').map(line => {
+                    return '>' + line
+                }).join('\n') + suffix
+            } else {
+                replacement = prefix + escape_markdownV2(dataValue) + suffix
+            }
+        }
+        result += replacement
+        i = endpercent_index + 1
+    }
+    return result.replaceAll('\uff69', '\|')
+}
+
 /**
  * MarkdownV2 转义
  * @param {String} t
@@ -157,9 +277,11 @@ export function Treplace(mode, r, name, value) {
         }
     }).join('').replaceAll('\uffb4', '|')
 }
-// function eAdd(str, keyword = '', prefix = '', suffix = '') {
-//     return str.replace(keyword, `${prefix}${keyword}${suffix}`)
-// }
-// export function format_group(td, flag, mode = 'message', p, custom_template = false) {
-// }
-
+function escape_markdownV2(str) {
+    if (typeof str !== 'string') {
+        if (!str) return ''
+        str = String(str)
+    }
+    const markdown_escape_regex = /([_*\[\]()~`>#+\-=|{}.!])/g
+    return str.replace(markdown_escape_regex, '\\$1')
+}

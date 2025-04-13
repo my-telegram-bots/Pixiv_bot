@@ -4,6 +4,7 @@ import { Markup } from 'telegraf'
 import db from '../../db.js'
 import { honsole } from '../common.js'
 import { _l } from './i18n.js'
+import df from './df.js'
 let default_extra = {
     parse_mode: 'MarkdownV2',
     allow_sending_without_reply: true
@@ -171,38 +172,40 @@ export async function read_user_setting(bot, ctx) {
     ctx.us = {
         ...ctx.us,
         // caption start
-        tags: us(d_f, ctx.text,'tags',['tag']),
-        open: us(d_f, ctx.text,'open'),
-        caption_extraction: us(d_f, ctx.text,'caption_extraction',['caption']),
-        caption_above: us(d_f, ctx.text,'caption_above',['above']),
+        tags: us(d_f, ctx.text, 'tags', ['tag']),
+        // show description
+        description: us(d_f, ctx.text, 'description', ['desc']),
+        open: us(d_f, ctx.text, 'open'),
+        caption_extraction: us(d_f, ctx.text, 'caption_extraction', ['caption']),
+        caption_above: us(d_f, ctx.text, 'caption_above', ['above']),
         // can't use switch_inline_query in a channel chat, because a user will not be able to use the button without knowing bot's username
-        share: us(d_f, ctx.text,'share'),
+        share: us(d_f, ctx.text, 'share'),
         //                                              dirty but work
-        remove_keyboard: us(d_f, ctx.text.replaceAll('+','\uff69').replaceAll('-','+').replaceAll('\uff69','-'),'remove_keyboard',['kb']),
-        remove_caption: us(d_f, ctx.text.replaceAll('+','\uff69').replaceAll('-','+').replaceAll('\uff69','-'),'remove_caption',['cp']),
+        remove_keyboard: us(d_f, ctx.text.replaceAll('+', '\uff69').replaceAll('-', '+').replaceAll('\uff69', '-'), 'remove_keyboard', ['kb']),
+        remove_caption: us(d_f, ctx.text.replaceAll('+', '\uff69').replaceAll('-', '+').replaceAll('\uff69', '-'), 'remove_caption', ['cp']),
         // inline mode doesn't support mediagroup single_caption mode is useless
-        single_caption: us(d_f, ctx.text,'single_caption',['sc']),
-        show_id: us(d_f, ctx.text,'show_id',['id']),
+        single_caption: us(d_f, ctx.text, 'single_caption', ['sc']),
+        show_id: us(d_f, ctx.text, 'show_id', ['id']),
         // caption end
         // send as mediagroup when a illust with multiple images
-        album: us(d_f, ctx.text,'album'),
+        album: us(d_f, ctx.text, 'album'),
         // all works in one mediagroup
-        album_one: us(d_f, ctx.text,'album_one',['one']),
+        album_one: us(d_f, ctx.text, 'album_one', ['one']),
         // album will keep same numbers per mediagroup
-        album_equal: us(d_f, ctx.text,'album_equal',['equal']),
-        // descending order 
-        desc: us(d_f, ctx.text,'desc'),
+        album_equal: us(d_f, ctx.text, 'album_equal', ['equal']),
+        // reverse order 
+        reverse: us(d_f, ctx.text, 'reverse'),
         // send as telegraph
-        telegraph: us(d_f, ctx.text,'telegraph',['graph']),
+        telegraph: us(d_f, ctx.text, 'telegraph', ['graph']),
         // send as file
-        asfile: us(d_f, ctx.text,'asfile',['file']),
-        append_file: us(d_f, ctx.text,'append_file',['af']),
-        append_file_immediate: us(d_f, ctx.text,'append_file_immediate',['af_i', 'afi']),
+        asfile: us(d_f, ctx.text, 'asfile', ['file']),
+        append_file: us(d_f, ctx.text, 'append_file', ['af']),
+        append_file_immediate: us(d_f, ctx.text, 'append_file_immediate', ['af_i', 'afi']),
         // spoiler
         // But I have no idea to deisgn the logic.
-        spoiler: us(d_f, ctx.text,'spoiler',['sp']),
-        auto_spoiler: us(d_f,ctx.text,'auto_spoiler',['as']),
-        
+        spoiler: us(d_f, ctx.text, 'spoiler', ['sp']),
+        auto_spoiler: us(d_f, ctx.text, 'auto_spoiler', ['as']),
+
     }
     // group only value
     if (ctx.chat && ctx.chat.id < 0) {
@@ -227,7 +230,7 @@ export async function read_user_setting(bot, ctx) {
     if (ctx.us.append_file_immediate) {
         ctx.us.append_file = true
     }
-    if (ctx.us.append_file){
+    if (ctx.us.append_file) {
         ctx.us.asfile = false
     }
     if (ctx.us.asfile) {
@@ -235,10 +238,10 @@ export async function read_user_setting(bot, ctx) {
         ctx.us.album_one = false
         ctx.us.single_caption = false
     }
-    if (ctx.type === 'channel'){
+    if (ctx.type === 'channel') {
         ctx.us.share = false
     }
-    if(ctx.type === 'inline'){
+    if (ctx.type === 'inline') {
         ctx.us.single_caption = false
     }
     if (ctx.message) {
@@ -281,14 +284,14 @@ export async function read_user_setting(bot, ctx) {
     }
     return ctx.us
 }
-function us(d_f, text, name = 'tags', slugs = []){
+function us(d_f, text, name = 'tags', slugs = []) {
     slugs.push(name)
-    if (slugs.some(slug=>{
+    if (slugs.some(slug => {
         return text.includes(`-${slug}`)
-    })){
+    })) {
         return false
     }
-    return d_f[name] || slugs.some(slug=>{
+    return d_f[name] || slugs.some(slug => {
         return text.includes(`+${slug}`)
     })
 }
@@ -317,9 +320,9 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         // lazy....
         ctx.us.setting = {
             format: {
-                message: ctx.us.setting.format.message ? ctx.us.setting.format.message : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%',
-                mediagroup_message: ctx.us.setting.format.mediagroup_message ? ctx.us.setting.format.mediagroup_message : '%[%mid% %title%% |p%%](%url%)%\n|tags%',
-                inline: ctx.us.setting.format.inline ? ctx.us.setting.format.inline : '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%'
+                message: ctx.us.setting.format.message ? ctx.us.setting.format.message : df.format.message,
+                mediagroup_message: ctx.us.setting.format.mediagroup_message ? ctx.us.setting.format.mediagroup_message : df.format.mediagroup_message,
+                inline: ctx.us.setting.format.inline ? ctx.us.setting.format.inline : df.format.inline
             },
             default: ctx.us.setting.default
         }
@@ -329,9 +332,9 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_open_link'), {
             ...default_extra,
             ...Markup.inlineKeyboard(
-            [
-                Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.us.setting), 'utf8').toString('base64')}`.replace('/en', '').replace('/undefined', ''))
-            ]),
+                [
+                    Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.us.setting), 'utf8').toString('base64')}`.replace('/en', '').replace('/undefined', ''))
+                ]),
             reply_to_message_id: ctx.message.message_id
         }).catch((e) => {
             honsole.warn(e)

@@ -37,7 +37,7 @@ export async function handle_illust(id, flag) {
         ai: !illust.ai_type === undefined || illust.ai_type === 2,
         inline: []
     }
-    if(illust.nsfw && flag.auto_spoiler) {
+    if (illust.nsfw && flag.auto_spoiler) {
         flag.spoiler = true
     }
     if (illust.type <= 1) {

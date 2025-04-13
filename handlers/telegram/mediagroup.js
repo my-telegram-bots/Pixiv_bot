@@ -3,6 +3,8 @@ import { asyncForEach, fetch_tmp_file, honsole } from '../common.js'
 import config from '../../config.js'
 import { detect_ugpira_url, ugoira_to_mp4 } from '../pixiv/tools.js'
 import { InputFile } from 'grammy'
+import df from './df.js'
+
 export async function mg_create(illust, us) {
     let mediagroups = []
     if (illust) {
@@ -20,9 +22,6 @@ export async function mg_create(illust, us) {
             // mg2telegraph 还需要作品的 id
             if (us.telegraph) {
                 mediagroup_data.q_id = us.q_id
-            }
-            if (us.single_caption) {
-                mediagroup_data.scaption = format(illust, us, 'message', -1)
             }
             if (us.spoiler || (illust.nsfw && us.auto_spoiler)) {
                 mediagroup_data.has_spoiler = true
@@ -105,42 +104,19 @@ export function mg_albumize(mg = [], us) {
         if (!t[gid]) {
             t[gid] = []
         }
-        m.caption = m.caption.replaceAll('%mid%', mid % split_i + 1)
-        // So It's doesn't support | prefix
         t[gid][id] = {
             ...m,
             caption: m.caption
         }
         if (us.single_caption && m.id) {
-            if (id == 0) {
-                t[gid][0].sc = []
+            if (id === 0) {
                 t[gid][id].caption = ''
             } else {
                 delete t[gid][id].caption
                 delete t[gid][id].parse_mode
             }
-            t[gid][0].sc.push({
-                id: m.id,
-                caption: m.caption,
-                scaption: m.scaption
-            })
         }
     })
-    if (us.single_caption) {
-        t.forEach((m, gid) => {
-            let caption = []
-            let temp = m[0].sc.filter(x => {
-                caption.push(x.caption)
-                return m[0].sc[0].id == x.id
-            })
-            if (temp.length === m[0].sc.length) {
-                t[gid][0].caption = t[gid][0].sc[0].scaption.replace('%mid% ', '')
-            } else {
-                t[gid][0].caption = caption.join('\n')
-            }
-            delete t[gid][0].sc
-        })
-    }
     honsole.dev('mg_albumize', t)
     return t
 }
@@ -163,14 +139,14 @@ export async function mg_filter(mg, type = 't') {
         } else {
             xx.media = x.media_t ? x.media_t : x.media_o
         }
-        if(x.type == 'document') {
+        if (x.type == 'document') {
             xx.media = x.media_o
             if (type.includes('dl')) {
                 // dlo => download media_o file
                 // dlr => download media_r file
                 xx.media = new InputFile(await fetch_tmp_file(x['media_' + type.replace('dl', '')]))
             }
-        }else if (x.type == 'video') {
+        } else if (x.type == 'video') {
             // nothing download in ugoira
             xx.media = x.media
             if (type.includes('dl') || type.includes('r')) {
@@ -184,10 +160,10 @@ export async function mg_filter(mg, type = 't') {
                     type = 'dlr'
                 }
             }
-            if(x.invaild){
+            if (x.invaild) {
                 if (x.invaild.includes('o') && x.invaild.includes('r')) {
                     // ?
-                    if(x.invaild.includes('dlo')) {
+                    if (x.invaild.includes('dlo')) {
                         type = 'dlr'
                     } else {
                         type = 'dlo'

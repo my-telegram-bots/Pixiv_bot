@@ -3,6 +3,7 @@ import { sleep, asyncForEach } from './handlers/common.js'
 import { update_illust, get_illust } from './handlers/pixiv/illust.js'
 import { head_url, thumb_to_all } from './handlers/pixiv/tools.js'
 import fs from 'fs'
+import df from './handlers/telegram/df.js'
 process.env.dev = 1
 async function update_original_file_extension() {
     await db.db_initial()
@@ -291,6 +292,57 @@ async function override_user_setting_album_2024_may() {
                 }
             })
         }
+    })
+    process.exit()
+}
+
+
+async function override_user_setting_format_2025_april() {
+    const origin_list = [
+        '%NSFW|#NSFW %title% \\| %author_name% \\#pixiv [%url%](%url%) %p%%\n|tags%',
+        '%NSFW|#NSFW %[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%',
+        '%NSFW|#NSFW %[%title%](%url%)% / id=|id% / [%author_name%](%author_url%) %p%%\n|tags%',
+        '%NSFW|#NSFW %[%title%](%url%)% / [%author_name%](%author_url%) %p%%\n|tags%',
+    ]
+    const replace_list = [
+        '%\\#NSFW |NSFW%%\\#AI |AI%%title% \\| %author_name% \\#pixiv [%url%](%url%) %p%%\n|tags%%\n|description%',
+        '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%%\n|description%',
+        '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / id=|id% / [%author_name%](%author_url%) %p%%\n|tags%%\n|description%',
+        '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%) %p%%\n|tags%%\n|description%',
+    ]
+    await db.db_initial()
+    console.log('Upadting all chat_settings(format) from local database to new format')
+    await db.collection.chat_setting.updateMany(
+        {},
+        {
+            $set: {
+                format: {
+                    version: 'v1'
+                }
+            }
+        }
+    );
+    await asyncForEach(origin_list, async (origin, i) => {
+        (await db.collection.chat_setting.updateMany(
+            {
+                format: {
+                    message: origin,
+                    inline: origin
+                }
+            },
+            {
+                $set: {
+                    format: {
+                        message: replace_list[i],
+                        inline: replace_list[i],
+                    }
+                },
+                $unset: {
+                    format: {
+                        version: true
+                    }
+                }
+            }))
     })
     process.exit()
 }

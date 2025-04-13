@@ -504,6 +504,23 @@ export async function tg_sender(ctx) {
                 // }
                 await asyncForEach(mgs, async mgsi => {
                     await asyncForEach(mg_albumize(mgsi, ctx.us), async (mg, i) => {
+                        let single_caption = ''
+                        if (ctx.us.single_caption) {
+                            if (mg.every(m=>m.id !== mg[0].id)) {
+                                single_caption = format(illusts.find((illust)=>illust.id === mg[0].id), {
+                                    ...ctx.us,
+                                    single_caption: false
+                                }, 'message', -1, false)
+                            } else {
+                                mg.forEach((m, mid) => {
+                                    single_caption += format(illusts.find((illust)=>illust.id === m.id), ctx.us, 'mediagroup_message', m.p, mid + 1)
+                                    if (mg.length-1 !== i) {
+                                        single_caption += '\n'
+                                    }
+                                })
+                            }
+                            mg[0].caption = single_caption
+                        }
                         let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, mg_extra, ['r', 'o', 'dlr', 'dlo'])
                         if (result) {
                             if (result[0] && result[0].message_id) {
@@ -517,9 +534,9 @@ export async function tg_sender(ctx) {
                         }
                         // Too Many Requests: retry after 10
                         if (i > 4) {
-                            await sleep(3500)
-                        } else {
                             await sleep(1500)
+                        } else {
+                            await sleep(500)
                         }
                         if (ctx.us.append_file_immediate) {
                             let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg=>{
@@ -540,9 +557,9 @@ export async function tg_sender(ctx) {
                             }
                             // Too Many Requests: retry after 10
                             if (i > 4) {
-                                await sleep(3500)
-                            } else {
                                 await sleep(1500)
+                            } else {
+                                await sleep(500)
                             }
                         }
                     })
@@ -606,7 +623,7 @@ bot.on('inline_query', async (ctx) => {
     let res = []
     let offset = ctx.inlineQuery.offset
     if (!offset) {
-        offset = 0; // offset == empty -> offset = 0
+        offset = 0 // offset == empty -> offset = 0
     }
     let query = ctx.text
     // offset = page
@@ -648,7 +665,7 @@ bot.on('inline_query', async (ctx) => {
             res_options.switch_pm_text = _l(ctx.l, 'pm_to_get_all_illusts')
             res_options.switch_pm_parameter = ids.illust.join('-')
         }
-    } else if (query.replaceAll(' ', '') === '') { // why not use .trim() ? LOL
+    } else if (query.trim() === '') {
         let data = await handle_ranking([offset], ctx.us)
         res = data.data
         if (data.next_offset) {

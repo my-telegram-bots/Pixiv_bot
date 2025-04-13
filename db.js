@@ -14,7 +14,7 @@ export let collection = {
 }
 export async function db_initial() {
     if (process.env.DBLESS) {
-        console.warn('WARNING','No Database Mode(DBLESS) is not recommend for production environment.')
+        console.warn('WARNING', 'No Database Mode(DBLESS) is not recommend for production environment.')
     } else {
         try {
             db = (await MongoClient.connect(config.mongodb.uri)).db(config.mongodb.dbname)
@@ -35,14 +35,22 @@ export async function update_setting(value, chat_id, flag) {
         if (value.format) {
             s.format = {}
             for (const i in value.format) {
-                if (['message', 'mediagroup_message', 'inline'].includes(i)) {
+                if (['message', 'mediagroup_message', 'inline', 'version'].includes(i)) {
                     if (typeof value.format[i] == 'string') {
-                        s.format[i] = value.format[i]
-                    }
-                    else {
+                        if (i === 'version') {
+                            if (value.format[i] === 'v1') {
+                                s.format[i] = 'v1'
+                            }
+                        } else {
+                            s.format[i] = value.format[i]
+                        }
+                    } else {
                         // throw 'e'
                     }
                 }
+            }
+            if (!s.format.version) {
+                s.format.version = 'v2'
             }
             delete value.format
         }
@@ -57,9 +65,9 @@ export async function update_setting(value, chat_id, flag) {
                         // throw 'e'
                     }
                 }
-                if (['tags', 'open', 'share', 'remove_keyboard', 'remove_caption', 'single_caption',
-                     'album', 'album_one', 'album_equal', 'desc', 'overwrite', 'asfile', 'append_file', 'append_file_immediate',
-                     'caption_extraction', 'caption_above', 'show_id', 'auto_spoiler'].includes(i)) {
+                if (['tags', 'description', 'open', 'share', 'remove_keyboard', 'remove_caption', 'single_caption',
+                    'album', 'album_one', 'album_equal', 'reverse', 'overwrite', 'asfile', 'append_file', 'append_file_immediate',
+                    'caption_extraction', 'caption_above', 'show_id', 'auto_spoiler'].includes(i)) {
                     if (typeof value.default[i] === 'boolean') {
                         s.default[i] = value.default[i]
                     }
