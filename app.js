@@ -1,15 +1,11 @@
 import { run as grammyjsRun } from '@grammyjs/runner'
 import config from './config.js'
-import handlers from './handlers/index.js'
 import db from './db.js'
 import { update_setting } from './db.js'
-const { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, download_file, _l, k_os, k_link_setting, mg_create, mg_albumize, mg_filter, mg2telegraph, read_user_setting, honsole, handle_new_configuration, exec, sleep, reescape_strings, get_ugoira_path } = handlers
+import { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, _l, k_os, k_link_setting, mg_albumize, mg_filter, mg2telegraph, read_user_setting, honsole, handle_new_configuration, exec, sleep, reescape_strings, fetch_tmp_file, format } from './handlers/index.js'
 import { tgBot as bot } from './bot.js'
 import axios from 'axios'
 import { InputFile } from 'grammy'
-import fs from 'fs'
-import { fetch_tmp_file } from './handlers/common.js'
-import { format } from './handlers/telegram/format.js'
 
 // step 0 initial some necessary variables
 bot.use(async (ctx, next) => {
@@ -24,7 +20,7 @@ bot.use(async (ctx, next) => {
             // remove command[@username] : /start@Pixiv_bot -> /start
             if (ctx.message.entities && ctx.text.startsWith('/')) {
                 ctx.command = ctx.message.text.substring(1, ctx.message.entities[0].length)
-                if(ctx.command.includes(`@${bot.botInfo.username}`)){
+                if (ctx.command.includes(`@${bot.botInfo.username}`)) {
                     ctx.command = ctx.command.replace(`@${bot.botInfo.username}`, '')
                     ctx.text = ctx.text.replace(`@${bot.botInfo.username}`, '')
                 }
@@ -156,14 +152,14 @@ bot.on('callback_query', async (ctx) => {
         } else {
             await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error_not_a_gc_administrator')), {
                 show_alert: true
-            }).catch(e=>{})
+            }).catch(e => { })
             return
         }
     }
     if (apply_flag) {
-        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'saved'))).catch(e=>{})
+        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'saved'))).catch(e => { })
     } else {
-        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error'))).catch(e=>{})
+        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error'))).catch(e => { })
     }
 })
 
@@ -246,10 +242,10 @@ bot.on([':text', ':caption'], async (ctx) => {
         return
     }
     if (chat_id > 0) {
-        (async ()=>{
-            await ctx.react('👀').catch(e=>{})
+        (async () => {
+            await ctx.react('👀').catch(e => { })
             setTimeout(async () => {
-                await ctx.api.setMessageReaction(chat_id, ctx.message.message_id, []).catch(e=>{})
+                await ctx.api.setMessageReaction(chat_id, ctx.message.message_id, []).catch(e => { })
             }, 5000)
         })()
     }
@@ -312,8 +308,8 @@ export async function tg_sender(ctx) {
     // alpha version (owner only)
     if (ids.author.length > 0) {
         if (user_id === config.tg.master_id) {
-            (async ()=>{
-                await bot.api.sendChatAction(chat_id, 'typing').catch(e=>{})
+            (async () => {
+                await bot.api.sendChatAction(chat_id, 'typing').catch(e => { })
             })();
             await asyncForEach(ids.author, async (id) => {
                 illusts = [...illusts, ...await get_user_illusts(id)]
@@ -343,11 +339,11 @@ export async function tg_sender(ctx) {
             ctx.us.q_id += 1
             let mg = illust.mediagroup
             if (!ctx.us.telegraph &&
-            (
-                !ctx.us.album || 
-                (illusts.length == 1 && mg.length === 1) ||
-                (!ctx.us.album_one && mg.length === 1)
-            )) {
+                (
+                    !ctx.us.album ||
+                    (illusts.length == 1 && mg.length === 1) ||
+                    (!ctx.us.album_one && mg.length === 1)
+                )) {
                 // see https://core.telegram.org/bots/api#inlinekeyboardbutton
                 // Especially useful when combined with switch_pm… actions – in this case the user will be automatically returned to the chat they switched from, skipping the chat selection screen.
                 // So we need inline share button to switch chat window even if user don't want share button
@@ -376,7 +372,7 @@ export async function tg_sender(ctx) {
                                 single_caption: false
                             }, 'message', i) : o.caption
                         }
-                        if (!ctx.us.asfile){
+                        if (!ctx.us.asfile) {
                             let result = await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, {
                                 ...extra_one,
                                 reply_to_message_id
@@ -399,8 +395,8 @@ export async function tg_sender(ctx) {
                         }
                     })
                 } else if (illust.type === 2) {
-                    (async ()=>{
-                        await bot.api.sendChatAction(chat_id, 'upload_video').catch(e=>{})
+                    (async () => {
+                        await bot.api.sendChatAction(chat_id, 'upload_video').catch(e => { })
                     })();
                     let media = mg[0].media_t
                     if (!media) {
@@ -413,7 +409,7 @@ export async function tg_sender(ctx) {
                     if (media.includes('tmp/')) {
                         media = new InputFile(media)
                     }
-                    if (!ctx.us.asfile){
+                    if (!ctx.us.asfile) {
                         const result = await bot.api.sendAnimation(chat_id, media, {
                             ...extra,
                             caption: mg[0].caption
@@ -466,20 +462,20 @@ export async function tg_sender(ctx) {
                 }
             }
         })
-        let mg_extra = { }
+        let mg_extra = {}
         if (mgs.length > 0) {
             if (ctx.us.telegraph) {
                 // when not have title provided and 1 illust only
-                if(!ctx.us.telegraph_title && illusts.length === 1) {
+                if (!ctx.us.telegraph_title && illusts.length === 1) {
                     ctx.us.telegraph_title = illusts[0].title
-                    if(!ctx.us.telegraph_author_name){
+                    if (!ctx.us.telegraph_author_name) {
                         ctx.us.telegraph_author_name = illusts[0].author_name
                         ctx.us.telegraph_author_url = `https://www.pixiv.net/artworks/${illusts[0].id}`
                     }
                 }
                 try {
-                    (async ()=>{
-                        await bot.api.sendChatAction(chat_id, 'typing').catch(e=>{})
+                    (async () => {
+                        await bot.api.sendChatAction(chat_id, 'typing').catch(e => { })
                     })();
                     let res_data = await mg2telegraph(mgs[0], ctx.us.telegraph_title, user_id, ctx.us.telegraph_author_name, ctx.us.telegraph_author_url)
                     if (res_data) {
@@ -506,15 +502,15 @@ export async function tg_sender(ctx) {
                     await asyncForEach(mg_albumize(mgsi, ctx.us), async (mg, i) => {
                         let single_caption = ''
                         if (ctx.us.single_caption) {
-                            if (mg.every(m=>m.id === mg[0].id)) {
-                                single_caption = format(illusts.find((illust)=>illust.id === mg[0].id), {
+                            if (mg.every(m => m.id === mg[0].id)) {
+                                single_caption = format(illusts.find((illust) => illust.id === mg[0].id), {
                                     ...ctx.us,
                                     single_caption: false
                                 }, 'message', -1, false)
                             } else {
                                 mg.forEach((m, mid) => {
-                                    single_caption += format(illusts.find((illust)=>illust.id === m.id), ctx.us, 'mediagroup_message', m.p, mid + 1)
-                                    if (mg.length-1 !== i) {
+                                    single_caption += format(illusts.find((illust) => illust.id === m.id), ctx.us, 'mediagroup_message', m.p, mid + 1)
+                                    if (mg.length - 1 !== i) {
                                         single_caption += '\n'
                                     }
                                 })
@@ -539,7 +535,7 @@ export async function tg_sender(ctx) {
                             await sleep(500)
                         }
                         if (ctx.us.append_file_immediate) {
-                            let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg=>{
+                            let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg => {
                                 return {
                                     ...mg,
                                     type: 'document'
@@ -564,10 +560,10 @@ export async function tg_sender(ctx) {
                         }
                     })
                 })
-                if(ctx.us.append_file && !ctx.us.append_file_immediate) {
+                if (ctx.us.append_file && !ctx.us.append_file_immediate) {
                     await asyncForEach(mgs, async mgsi => {
                         await asyncForEach(mg_albumize(mgsi, ctx.us), async (mg, i) => {
-                            let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg=>{
+                            let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg => {
                                 return {
                                     ...mg,
                                     type: 'document'
@@ -595,15 +591,15 @@ export async function tg_sender(ctx) {
             }
         }
 
-        await asyncForEach(files, async (f, i)=>{
+        await asyncForEach(files, async (f, i) => {
             await sendDocumentWithRetry(...f)
         })
     }
 
     if (ids.novel.length > 0) {
         await asyncForEach(ids.novel, async (id) => {
-            (async ()=>{
-                await bot.api.sendChatAction(chat_id, 'typing').catch(e=>{})
+            (async () => {
+                await bot.api.sendChatAction(chat_id, 'typing').catch(e => { })
             })();
             let d = await handle_novel(id)
             if (d) {
@@ -699,7 +695,7 @@ db.db_initial().then(async () => {
             process.exit()
         }
     }
-    if(process.argv[1].includes('cron')) {
+    if (process.argv[1].includes('cron')) {
         return
     }
     bot.init().then(async () => {
@@ -729,21 +725,21 @@ async function catchily(e, chat_id, language_code = 'en') {
     try {
         bot.api.sendMessage(config.tg.master_id, JSON.stringify(e).substring(0, 1000), {
             disable_web_page_preview: true
-        }).catch(e=>{})
+        }).catch(e => { })
         if (!e.ok) {
             const description = e.description.toLowerCase()
             if (description.includes('media_caption_too_long')) {
-                await bot.api.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra).catch(e=>{})
+                await bot.api.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra).catch(e => { })
                 return false
             } else if (description.includes('can\'t parse entities: character')) {
-                await bot.api.sendMessage(chat_id, _l(language_code, 'error_format', e.description)).catch(e=>{})
+                await bot.api.sendMessage(chat_id, _l(language_code, 'error_format', e.description)).catch(e => { })
                 return false
                 // banned by user
             } else if (description.includes('forbidden:')) {
                 return false
                 // not have permission
             } else if (description.includes('not enough rights to send')) {
-                await bot.api.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra).catch(e=>{})
+                await bot.api.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra).catch(e => { })
                 return false
                 // just a moment
             } else if (description.includes('too many requests')) {
@@ -760,12 +756,12 @@ async function catchily(e, chat_id, language_code = 'en') {
                     }).map(m => {
                         return m.media
                     })
-                } else if(e.method === 'sendDocument') {
+                } else if (e.method === 'sendDocument') {
                     photo_urls[0] = e.payload.document
                 }
                 honsole.dev(photo_urls)
                 if (config.tg.refetch_api && photo_urls) {
-                    (async ()=>{
+                    (async () => {
                         try {
                             await axios.post(config.tg.refetch_api, {
                                 url: photo_urls.join('\n')
@@ -799,8 +795,8 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
         return false
     }
     let current_mg_type = mg_type.shift();
-    (async ()=>{
-        await bot.api.sendChatAction(chat_id, mg[0].type === 'document' ? 'upload_document' : 'upload_photo').catch(e=>{})
+    (async () => {
+        await bot.api.sendChatAction(chat_id, mg[0].type === 'document' ? 'upload_document' : 'upload_photo').catch(e => { })
     })();
     try {
         return await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type), extra)
@@ -848,8 +844,8 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
         honsole.warn('error send photo', chat_id, photo_urls)
         return false
     }
-    (async ()=>{
-        await bot.api.sendChatAction(chat_id, 'upload_photo').catch(e=>{})
+    (async () => {
+        await bot.api.sendChatAction(chat_id, 'upload_photo').catch(e => { })
     })();
     let raw_photo_url = photo_urls.shift()
     let photo_url = raw_photo_url
@@ -880,8 +876,8 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
  * @param {*} l 
  */
 async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
-    (async ()=>{
-        await bot.api.sendChatAction(chat_id, 'upload_document').catch(e=>{})
+    (async () => {
+        await bot.api.sendChatAction(chat_id, 'upload_document').catch(e => { })
     })();
     let reply_to_message_id = null
     extra = {
@@ -889,11 +885,11 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
         disable_content_type_detection: true
     }
     console.log(media_o)
-    await bot.api.sendDocument(chat_id, media_o.includes(config.pixiv.ugoiraurl) ?  new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/')+1)) : media_o, extra).then(x => {
+    await bot.api.sendDocument(chat_id, media_o.includes(config.pixiv.ugoiraurl) ? new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1)) : media_o, extra).then(x => {
         reply_to_message_id = x.message_id
     }).catch(async (e) => {
         if (await catchily(e, chat_id, l)) {
-            await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/')+1)), extra).then(x => {
+            await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1)), extra).then(x => {
                 reply_to_message_id = x.message_id
             }).catch(async (e) => {
                 await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), extra).then(x => {

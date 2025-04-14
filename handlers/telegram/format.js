@@ -23,6 +23,9 @@ const escape_string_list = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+
 %description% description
 */
 export function format(td, flag, mode = 'message', p, mid) {
+    if (!['message', 'inline', 'mediagroup_message', 'telegraph'].includes(mode)) {
+        throw 'invalid format mode'
+    }
     if (flag.setting?.format?.version === 'v1') {
         return format_v1(td, flag, mode, p, mid)
     } else {
@@ -38,24 +41,21 @@ export function format_v1(td, flag, mode = 'message', p, mid) {
     if (flag.telegraph) {
         if (p == 0) {
             template = df.format.telegraph
+            mode = 'telegraph'
         }
     } else if (!flag.setting.format[mode]) {
-        switch (mode) {
-            case 'message':
-            case 'inline':
-                template = df.format.message
-                break
-            case 'mediagroup_message':
-                template = df.format.mediagroup_message
-                break
+        template = df.format[mode]
+        if (!template) {
+            template = df.format.message
         }
     } else {
         template = flag.setting.format[mode]
     }
+
     if (template == '') {
         return ''
     } else {
-        let splited_template = template.replaceAll('\\%', '\uff69').split('%'); // 迫真转义 这个符号不会有人打出来把！！！
+        let splited_template = template.replaceAll('\\%', '\uff69').split('%') // 迫真转义 这个符号不会有人打出来把！！！
         let replace_list = [
             ['title', td.title.trim()],
             ['id', flag.show_id ? td.id : false],
@@ -123,6 +123,7 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
     if (flag.remove_caption) {
         return ''
     }
+    // match template
     if (flag.telegraph) {
         if (p == 0) {
             template = df.format.telegraph
@@ -136,31 +137,35 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
     } else {
         template = flag.setting.format[mode]
     }
-    template = template.replaceAll('\\|', '\uff69')
-    let replace_list = {
-        title: td.title.trim(),
-        url: `https://www.pixiv.net/artworks/${td.id}`,
-        NSFW: td.nsfw,
-        AI: td.ai,
-        author_id: td.author_id,
-        author_url: `https://www.pixiv.net/users/${td.author_id}`,
-        author_name: td.author_name.trim()
-    }
-    if (td) {
+    if (!template || !td) {
+        return ''
+    } else {
+        template = template.replaceAll('\\|', '\uff69')
+        let replace_list = {
+            title: td.title.trim(),
+            url: `https://www.pixiv.net/artworks/${td.id}`,
+            NSFW: td.nsfw,
+            AI: td.ai,
+            author_id: td.author_id,
+            author_url: `https://www.pixiv.net/users/${td.author_id}`,
+            author_name: td.author_name.trim()
+        }
+
         if (flag.show_id) {
             replace_list.id = td.id
         }
+
         if (flag.description && td.description.trim()) {
             replace_list.description = new JSDOM(`<body>${td.description.replaceAll('<br />', '\n')}</body>`).window.document.body.textContent
         }
+
         if (td.imgs_ && td.imgs_.size && td.imgs_.size.length > 1 && p !== -1) {
             replace_list.p = `${(p + 1)}/${td.imgs_.size.length}`
-        } else {
-            replace_list.p = false
         }
         if (flag.tags && td.tags.length > 0) {
             replace_list.tags = '#' + td.tags.join(' #')
         }
+
         if (flag.single_caption) {
             replace_list.mid = mid
         }
@@ -186,9 +191,8 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
             continue
         }
 
-        const placeholderContent = template.substring(percent_index + 1, endpercent_index)
         let replacement = ''
-        const s = placeholderContent.split('|')
+        const s = template.substring(percent_index + 1, endpercent_index).split('|')
 
         let prefix = ''
         let key = ''
@@ -240,8 +244,9 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
  */
 export function escape_strings(t) {
     // need typescript
-    if (typeof t === "number") {
-        t = t.toString()
+    if (typeof t !== 'string') {
+        if (!t) return ''
+        t = String(t)
     }
     escape_string_list.forEach(x => {
         t = t.replaceAll(x, `\\${x}`)
@@ -249,8 +254,9 @@ export function escape_strings(t) {
     return t
 }
 export function reescape_strings(t) {
-    if (typeof t === "number") {
-        t = t.toString()
+    if (typeof t !== 'string') {
+        if (!t) return ''
+        t = String(t)
     }
     escape_string_list.forEach(x => {
         t = t.replaceAll(`\\${x}`, x)

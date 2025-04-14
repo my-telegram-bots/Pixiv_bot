@@ -121,7 +121,7 @@ export async function fetch_tmp_file(url, retry_time = 0) {
         })).data
     } catch (error) {
         if (error.response && error.response.status === 404) {
-            if (url.startsWith('https://i.pximg.net/')){
+            if (url.startsWith('https://i.pximg.net/')) {
                 const filename = url.substring(url.lastIndexOf('/') + 1)
                 const id = filename.split('_')[0]
                 const illust_raw = await get_illust(id, true)
@@ -129,13 +129,13 @@ export async function fetch_tmp_file(url, retry_time = 0) {
                     if (illust_raw.imgs_.cover_img_url) {
                         return await fetch_tmp_file(illust_raw.imgs_.cover_img_url)
                     } else if (illust_raw.imgs_.original_urls) {
-                        let new_url = [...illust_raw.imgs_.original_urls, ...illust_raw.imgs_.regular_urls, ...illust_raw.imgs_.thumb_urls].find(url=>{
+                        let new_url = [...illust_raw.imgs_.original_urls, ...illust_raw.imgs_.regular_urls, ...illust_raw.imgs_.thumb_urls].find(url => {
                             return url.endsWith(filename)
                         })
                         honsole.dev('[fetch new url]', new_url)
                         if (new_url) {
                             return await fetch_tmp_file(new_url)
-                        }else {
+                        } else {
                             throw 404
                         }
                     }
