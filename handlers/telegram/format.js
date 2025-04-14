@@ -72,7 +72,7 @@ export function format_v1(td, flag, mode = 'message', p, mid) {
             } else {
                 replace_list.push(['p', ''])
             }
-            if (flag.description) {
+            if (flag.description && td.description.trim()) {
                 replace_list.description = new JSDOM(`<body>${td.description.replaceAll('<br />', '\n')}</body>`).window.document.body.textContent
             }
             if (flag.tags) {
@@ -150,7 +150,7 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
         if (flag.show_id) {
             replace_list.id = td.id
         }
-        if (flag.description) {
+        if (flag.description && td.description.trim()) {
             replace_list.description = new JSDOM(`<body>${td.description.replaceAll('<br />', '\n')}</body>`).window.document.body.textContent
         }
         if (td.imgs_ && td.imgs_.size && td.imgs_.size.length > 1 && p !== -1) {
