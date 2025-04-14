@@ -120,6 +120,7 @@ export function format_v1(td, flag, mode = 'message', p, mid) {
 export function format_v2(td, flag, mode = 'message', p, mid) {
     let template = ''
     let result = ''
+    let replace_list = {}
     if (flag.remove_caption) {
         return ''
     }
@@ -141,7 +142,7 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
         return ''
     } else {
         template = template.replaceAll('\\|', '\uff69')
-        let replace_list = {
+        replace_list = {
             title: td.title.trim(),
             url: `https://www.pixiv.net/artworks/${td.id}`,
             NSFW: td.nsfw,
