@@ -144,7 +144,8 @@ export async function mg_filter(mg, type = 't') {
             if (type.includes('dl')) {
                 // dlo => download media_o file
                 // dlr => download media_r file
-                xx.media = new InputFile(await fetch_tmp_file(x['media_' + type.replace('dl', '')]))
+                const url = x['media_' + type.replace('dl', '')]
+                xx.media = new InputFile(await fetch_tmp_file(url), url.slice(url.lastIndexOf('/') + 1))
             }
         } else if (x.type == 'video') {
             // nothing download in ugoira
@@ -176,7 +177,8 @@ export async function mg_filter(mg, type = 't') {
             if (type.includes('dl') && !x.media_t) {
                 // dlo => download media_o file
                 // dlr => download media_r file
-                xx.media = new InputFile(await fetch_tmp_file(x['media_' + type.replace('dl', '')]))
+                const url = x['media_' + type.replace('dl', '')]
+                xx.media = new InputFile(await fetch_tmp_file(url), url.slice(url.lastIndexOf('/') + 1))
             } else if (type == 'r') {
                 xx.media = x.media_r ? x.media_r : x.media_o
             }
