@@ -723,7 +723,7 @@ async function catchily(e, chat_id, language_code = 'en') {
     }
     honsole.warn(e)
     try {
-        bot.api.sendMessage(config.tg.master_id, JSON.stringify(e).substring(0, 1000), {
+        bot.api.sendMessage(config.tg.master_id, JSON.stringify(e).substring(0, 1000).replace(config.tg.token, '<REALLOCATED>'), {
             disable_web_page_preview: true
         }).catch(e => { })
         if (!e.ok) {
