@@ -160,12 +160,15 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
         if (flag.description && td.description && td.description?.trim()) {
             const description = new JSDOM(`<body>${td.description.replaceAll('<br />', '\n')}</body>`).window.document.body.textContent
             if (flag.text_length) {
-                const description_overflow_length = flag.text_length - 4096 + 7
-                //                             emoji
-                const description_max_length = description.length - description_overflow_length
-                let description_new = description.substring(0, description_max_length)
-                let description_lastIndex = description_new.lastIndexOf('\n')
-                replace_list.description = description_new.substring(0, description_lastIndex === -1 ? description_max_length : description_lastIndex) + '\n......'
+                // mediagroup_message = give up
+                if (mode !== 'mediagroup_message') {
+                    const description_overflow_length = flag.text_length - 1024 + 7
+                    //                             emoji
+                    const description_max_length = description.length - description_overflow_length
+                    let description_new = description.substring(0, description_max_length)
+                    let description_lastIndex = description_new.lastIndexOf('\n')
+                    replace_list.description = description_new.substring(0, description_lastIndex === -1 ? description_max_length : description_lastIndex) + '\n......'
+                }
             } else {
                 replace_list.description = description
             }
@@ -238,8 +241,8 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
             //     ['||', '||'],
             //     ['```\n', '```\n']
             // ]
-            if (prefix.endsWith('\n>')) {
-                replacement = prefix + escape_markdownV2(dataValue).split('\n').map((line, i) => (i === 0 ? '' : '>') + line).join('\n') + suffix
+            if (prefix.endsWith('\n>') || prefix.endsWith('\n**>')) {
+                replacement = prefix + escape_markdownV2(dataValue).split('\n').map((line, i) => (i === 0 ? '' : '>') + line).join('\n') + (prefix.endsWith('\n**>') ? '||' : '') + suffix
             } else {
                 replacement = prefix + escape_markdownV2(dataValue) + suffix
             }
@@ -249,7 +252,7 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
     }
     result = result.replaceAll('\uff69', '\\|')
     const result_len = removeMd(result).length
-    if (result_len > 4096) {
+    if (result_len > 1024) {
         return format_v2(td, {
             ...flag,
             text_length: result_len

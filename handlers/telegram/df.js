@@ -5,13 +5,13 @@ export default {
             + '%\n|tags%',
         message: '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%)% |p%'
             + '%\n|tags%'
-            + '%\n>|description%',
+            + '%\n**>|description%',
         inline: '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%)% |p%'
             + '%\n|tags%'
-            + '%\n>|description%',
+            + '%\n**>|description%',
         // single caption
         mediagroup_message: '[%mid| %%title%% |p%](%url%)'
             + '%\n|tags%'
-            + '%\n>|description%',
+            + '%\n**>|description%',
     }
 }
