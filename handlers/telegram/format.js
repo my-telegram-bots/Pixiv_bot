@@ -156,14 +156,14 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
             replace_list.id = td.id
         }
 
-        if (flag.description && td.description.trim()) {
+        if (flag.description && td.description && td.description?.trim()) {
             replace_list.description = new JSDOM(`<body>${td.description.replaceAll('<br />', '\n')}</body>`).window.document.body.textContent
         }
 
         if (td.imgs_ && td.imgs_.size && td.imgs_.size.length > 1 && p !== -1) {
             replace_list.p = `${(p + 1)}/${td.imgs_.size.length}`
         }
-        if (flag.tags && td.tags.length > 0) {
+        if (flag.tags && td.tags && td.tags.length > 0) {
             replace_list.tags = '#' + td.tags.join(' #')
         }
 
