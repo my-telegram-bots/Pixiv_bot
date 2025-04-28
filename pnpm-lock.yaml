@@ -41,6 +41,9 @@ importers:
       node-fetch:
         specifier: ^3.3.2
         version: 3.3.2
+      remove-markdown:
+        specifier: ^0.6.0
+        version: 0.6.0
       telegraf:
         specifier: ^4.16.3
         version: 4.16.3
@@ -538,6 +541,9 @@ packages:
   raw-body@2.5.2:
     resolution: {integrity: sha512-8zGqypfENjCIqGhgXToC8aB2r7YrBX+AQAfIPs/Mlk+BtPTztOvTS01NRW/3Eh60J+a48lt8qsCzirQ6loCVfA==}
     engines: {node: '>= 0.8'}
+
+  remove-markdown@0.6.0:
+    resolution: {integrity: sha512-B9g8yo5Zp1wXfZ77M1RLpqI7xrBBERkp7+3/Btm9N/uZV5xhXZjzIxDbCKz7CSj141lWDuCnQuH12DKLUv4Ghw==}
 
   rrweb-cssom@0.8.0:
     resolution: {integrity: sha512-guoltQEx+9aMf2gDZ0s62EcV8lsXR+0w8915TC3ITdn2YueuNjdAYh/levpU9nFaoChh9RUS5ZdQMrKfVEN9tw==}
@@ -1184,6 +1190,8 @@ snapshots:
       http-errors: 2.0.0
       iconv-lite: 0.4.24
       unpipe: 1.0.0
+
+  remove-markdown@0.6.0: {}
 
   rrweb-cssom@0.8.0: {}
 
