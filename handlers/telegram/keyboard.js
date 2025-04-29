@@ -12,7 +12,7 @@ export function k_os(id, flag = {}) {
         inline_keyboard[0].push(Markup.button.url('open', 'https://www.pixiv.net/artworks/' + id))
     }
     if (flag.share) {
-        inline_keyboard[0].push(Markup.button.switchToChat('share', `https://pixiv.net/artworks/${id}${flag.tags ? ' +tags' : ''}${!flag.show_id ? ' -id' : ''}${flag.spoiler ? ' +sp' : ''}`))
+        inline_keyboard[0].push(Markup.button.switchToChat('share', `https://pixiv.net/artworks/${id}${flag.tags ? ' +tags' : ''}${!flag.show_id ? ' -id' : ''}${flag.spoiler ? ' +spoiler' : ''}${flag.description ? ' +description' : ''}`))
     }
     return Markup.inlineKeyboard(inline_keyboard)
 }
