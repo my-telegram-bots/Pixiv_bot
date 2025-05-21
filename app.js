@@ -27,6 +27,9 @@ bot.use(async (ctx, next) => {
             }
         }
         ctx.default_extra.reply_to_message_id = ctx.message.message_id
+        if (ctx.message.message_thread_id) {
+            ctx.default_extra.message_thread_id = ctx.message.message_thread_id
+        }
         ctx.default_extra.allow_sending_without_reply = true
         if (!!ctx.update.channel_post) {
             ctx.chat_id = ctx.channelPost.chat.id
@@ -309,7 +312,9 @@ export async function tg_sender(ctx) {
     if (ids.author.length > 0) {
         if (user_id === config.tg.master_id) {
             (async () => {
-                await bot.api.sendChatAction(chat_id, 'typing').catch(e => { })
+                await bot.api.sendChatAction(chat_id, 'typing', ctx.default_extra.message_thread_id ? {
+                    message_thread_id: ctx.default_extra.message_thread_id
+                } : {}).catch(e => { })
             })();
             await asyncForEach(ids.author, async (id) => {
                 illusts = [...illusts, ...await get_user_illusts(id)]
@@ -396,7 +401,9 @@ export async function tg_sender(ctx) {
                     })
                 } else if (illust.type === 2) {
                     (async () => {
-                        await bot.api.sendChatAction(chat_id, 'upload_video').catch(e => { })
+                        await bot.api.sendChatAction(chat_id, 'upload_video', ctx.default_extra.message_thread_id ? {
+                            message_thread_id: ctx.default_extra.message_thread_id
+                        } : {}).catch(e => { })
                     })();
                     let media = mg[0].media_t
                     if (!media) {
@@ -463,6 +470,9 @@ export async function tg_sender(ctx) {
             }
         })
         let mg_extra = {}
+        if (ctx.message.message_thread_id) {
+            mg_extra.message_thread_id = ctx.message.message_thread_id
+        }
         if (mgs.length > 0) {
             if (ctx.us.telegraph) {
                 // when not have title provided and 1 illust only
@@ -475,7 +485,9 @@ export async function tg_sender(ctx) {
                 }
                 try {
                     (async () => {
-                        await bot.api.sendChatAction(chat_id, 'typing').catch(e => { })
+                        await bot.api.sendChatAction(chat_id, 'typing', ctx.default_extra.message_thread_id ? {
+                            message_thread_id: ctx.default_extra.message_thread_id
+                        } : {}).catch(e => { })
                     })();
                     let res_data = await mg2telegraph(mgs[0], ctx.us.telegraph_title, user_id, ctx.us.telegraph_author_name, ctx.us.telegraph_author_url)
                     if (res_data) {
@@ -599,7 +611,9 @@ export async function tg_sender(ctx) {
     if (ids.novel.length > 0) {
         await asyncForEach(ids.novel, async (id) => {
             (async () => {
-                await bot.api.sendChatAction(chat_id, 'typing').catch(e => { })
+                await bot.api.sendChatAction(chat_id, 'typing', ctx.default_extra.message_thread_id ? {
+                    message_thread_id: ctx.default_extra.message_thread_id
+                } : {}).catch(e => { })
             })();
             let d = await handle_novel(id)
             if (d) {
@@ -796,7 +810,9 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
     }
     let current_mg_type = mg_type.shift();
     (async () => {
-        await bot.api.sendChatAction(chat_id, mg[0].type === 'document' ? 'upload_document' : 'upload_photo').catch(e => { })
+        await bot.api.sendChatAction(chat_id, mg[0].type === 'document' ? 'upload_document' : 'upload_photo', extra.message_thread_id ? {
+            message_thread_id: extra.message_thread_id
+        } : {}).catch(e => { })
     })();
     try {
         return await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type), extra)
@@ -845,7 +861,9 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
         return false
     }
     (async () => {
-        await bot.api.sendChatAction(chat_id, 'upload_photo').catch(e => { })
+        await bot.api.sendChatAction(chat_id, 'upload_photo', extra.message_thread_id ? {
+            message_thread_id: extra.message_thread_id
+        } : {}).catch(e => { })
     })();
     let raw_photo_url = photo_urls.shift()
     let photo_url = raw_photo_url
@@ -877,7 +895,9 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
  */
 async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
     (async () => {
-        await bot.api.sendChatAction(chat_id, 'upload_document').catch(e => { })
+        await bot.api.sendChatAction(chat_id, 'upload_document', extra.message_thread_id ? {
+            message_thread_id: extra.message_thread_id
+        } : {}).catch(e => { })
     })();
     let reply_to_message_id = null
     extra = {
