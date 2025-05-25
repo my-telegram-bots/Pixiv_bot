@@ -906,8 +906,8 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
     }
     await bot.api.sendDocument(
         chat_id,
-        media_o.includes(config.pixiv.ugoiraurl) ? new InputFile(await fetch_tmp_file(media_o)) : media_o,
-        media_o.slice(media_o.lastIndexOf('/') + 1), extra).then(x => {
+        media_o.includes(config.pixiv.ugoiraurl) ? new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1)) : media_o,
+        extra).then(x => {
             reply_to_message_id = x.message_id
         }).catch(async (e) => {
             if (await catchily(e, chat_id, l)) {
@@ -931,6 +931,7 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
  * @returns Boolean
  */
 async function is_chat_admin(chat_id, user_id) {
+    z
     try {
         let { status } = await bot.api.getChatMember(chat_id, user_id)
         if (status === 'administrator' || status === 'creator') {
