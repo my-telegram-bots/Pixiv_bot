@@ -904,20 +904,22 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
         ...extra,
         disable_content_type_detection: true
     }
-    console.log(media_o)
-    await bot.api.sendDocument(chat_id, media_o.includes(config.pixiv.ugoiraurl) ? new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1)) : media_o, extra).then(x => {
-        reply_to_message_id = x.message_id
-    }).catch(async (e) => {
-        if (await catchily(e, chat_id, l)) {
-            await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1)), extra).then(x => {
-                reply_to_message_id = x.message_id
-            }).catch(async (e) => {
-                await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), extra).then(x => {
+    await bot.api.sendDocument(
+        chat_id,
+        media_o.includes(config.pixiv.ugoiraurl) ? new InputFile(await fetch_tmp_file(media_o)) : media_o,
+        media_o.slice(media_o.lastIndexOf('/') + 1), extra).then(x => {
+            reply_to_message_id = x.message_id
+        }).catch(async (e) => {
+            if (await catchily(e, chat_id, l)) {
+                await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1)), extra).then(x => {
                     reply_to_message_id = x.message_id
+                }).catch(async (e) => {
+                    await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), extra).then(x => {
+                        reply_to_message_id = x.message_id
+                    })
                 })
-            })
-        }
-    })
+            }
+        })
     return reply_to_message_id
 }
 

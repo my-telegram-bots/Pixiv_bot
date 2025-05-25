@@ -125,7 +125,7 @@ export async function fetch_tmp_file(url, retry_time = 0) {
                 const filename = url.substring(url.lastIndexOf('/') + 1)
                 const id = filename.split('_')[0]
                 const illust_raw = await get_illust(id, true)
-                if (illust_raw) {
+                if (illust_raw && illust_raw.imgs_) {
                     if (illust_raw.imgs_.cover_img_url) {
                         return await fetch_tmp_file(illust_raw.imgs_.cover_img_url)
                     } else if (illust_raw.imgs_.original_urls) {
