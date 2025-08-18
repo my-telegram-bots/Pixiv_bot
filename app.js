@@ -1,11 +1,36 @@
 import { run as grammyjsRun } from '@grammyjs/runner'
-import config from './config.js'
-import db from './db.js'
-import { update_setting } from './db.js'
-import { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, _l, k_os, k_link_setting, mg_albumize, mg_filter, mg2telegraph, read_user_setting, honsole, handle_new_configuration, exec, sleep, reescape_strings, fetch_tmp_file, format } from './handlers/index.js'
-import { tgBot as bot } from './bot.js'
+import { loadAndValidateConfig, checkSystemDependencies } from '#handlers/utils/config-validator'
+import db from '#db'
+
+// Load and validate configuration at startup
+let config
+try {
+    config = await loadAndValidateConfig()
+    console.log('✓ Configuration loaded and validated successfully')
+} catch (error) {
+    console.error('✗ Configuration validation failed:', error.message)
+    process.exit(1)
+}
+import { update_setting } from '#db'
+import { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, _l, k_os, k_link_setting, mg_albumize, mg_filter, mg2telegraph, read_user_setting, honsole, handle_new_configuration, sleep, reescape_strings, fetch_tmp_file, format } from '#handlers/index'
+import { createBot } from './bot.js'
+import { FileCleaner } from '#handlers/utils/file-cleaner'
 import axios from 'axios'
 import { InputFile } from 'grammy'
+
+// Create bot instance with validated configuration
+const bot = createBot(config)
+console.log('✓ Telegram bot instance created')
+
+// Initialize file cleaner for temporary files only
+const fileCleaner = new FileCleaner({
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    maxSize: 2 * 1024 * 1024 * 1024, // 2GB
+    cleanupInterval: 2 * 60 * 60 * 1000, // 2 hours
+    directories: ['./tmp/file', './tmp/ugoira', './tmp/timecode'] // 仅临时文件，不清理 MP4
+})
+fileCleaner.start()
+console.log('✓ File cleanup scheduler started (temp files only, MP4 files preserved)')
 
 // step 0 initial some necessary variables
 bot.use(async (ctx, next) => {
@@ -695,19 +720,24 @@ bot.catch(async (e) => {
 })
 
 db.db_initial().then(async () => {
+    // Check system dependencies
     if (!process.env.DEPENDIONLESS && !process.env.dev) {
         try {
-            await exec('which ffmpeg')
-            await exec('which mp4fpsmod')
-            await exec('which unzip')
+            const depCheck = await checkSystemDependencies()
+            if (!depCheck.allPresent) {
+                console.error('✗ Missing system dependencies for ugoira to MP4 conversion:')
+                depCheck.missing.forEach(dep => console.error(`  - ${dep}`))
+                console.error('Install missing dependencies or run with: DEPENDIONLESS=1 node app.js')
+                process.exit(1)
+            } else {
+                console.log('✓ All system dependencies are installed')
+            }
+        } catch (error) {
+            console.error('✗ Error checking system dependencies:', error)
+            process.exit(1)
         }
-        catch (error) {
-            console.error('You must install ffmpeg, mp4fpsmod and unzip to active ugoira to mp4 function', error)
-            console.error('If you want to run bot but won\'t install these above, please exec following command:')
-            console.error('DEPENDIONLESS=1 node app.js')
-            console.log('bye')
-            process.exit()
-        }
+    } else {
+        console.log('⚠ Running without dependency check (DEPENDIONLESS mode)')
     }
     if (process.argv[1].includes('cron')) {
         return
@@ -904,9 +934,17 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
         ...extra,
         disable_content_type_detection: true
     }
+    let file = null
+    try {
+        file = new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1))
+    } catch (error) {
+        await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), extra).then(x => {
+            reply_to_message_id = x.message_id
+        })
+    }
     await bot.api.sendDocument(
         chat_id,
-        media_o.includes(config.pixiv.ugoiraurl) ? new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1)) : media_o,
+        file,
         extra).then(x => {
             reply_to_message_id = x.message_id
         }).catch(async (e) => {

@@ -1,12 +1,79 @@
-import { r_p_ajax } from './request.js'
-import db from '../../db.js'
-import { honsole, sleep } from '../common.js'
-import { thumb_to_all } from './tools.js'
+import { r_p_ajax } from '#handlers/pixiv/request'
+import db from '#db'
+import { honsole, sleep } from '#handlers/common'
+import { thumb_to_all } from '#handlers/pixiv/tools'
 
 
-let illust_notfound_id_set = new Set();
-let illust_notfound_time_map = new Map();
-let illust_queue = new Set();
+// Cache with TTL management
+class TTLCache {
+    constructor(maxSize = 1000, ttl = 600000) { // 10 minutes default TTL
+        this.cache = new Map()
+        this.timers = new Map()
+        this.maxSize = maxSize
+        this.ttl = ttl
+    }
+    
+    set(key, value) {
+        // Clean old entry if exists
+        if (this.timers.has(key)) {
+            clearTimeout(this.timers.get(key))
+        }
+        
+        // If cache is full, remove oldest entry
+        if (this.cache.size >= this.maxSize) {
+            const firstKey = this.cache.keys().next().value
+            this.delete(firstKey)
+        }
+        
+        // Set new entry with TTL
+        this.cache.set(key, value)
+        const timer = setTimeout(() => {
+            this.delete(key)
+        }, this.ttl)
+        this.timers.set(key, timer)
+    }
+    
+    has(key) {
+        return this.cache.has(key)
+    }
+    
+    get(key) {
+        return this.cache.get(key)
+    }
+    
+    delete(key) {
+        if (this.timers.has(key)) {
+            clearTimeout(this.timers.get(key))
+            this.timers.delete(key)
+        }
+        this.cache.delete(key)
+    }
+    
+    clear() {
+        for (const timer of this.timers.values()) {
+            clearTimeout(timer)
+        }
+        this.timers.clear()
+        this.cache.clear()
+    }
+    
+    size() {
+        return this.cache.size
+    }
+}
+
+// Replace static caches with TTL caches
+const illust_notfound_cache = new TTLCache(500, 600000) // 10 minutes TTL for 404s
+const illust_queue = new Set()
+
+// Cleanup queue periodically
+setInterval(() => {
+    if (illust_queue.size > 100) {
+        honsole.warn(`Illust queue size is large: ${illust_queue.size}`)
+        // Clear old entries (this is a safety measure)
+        illust_queue.clear()
+    }
+}, 300000) // Check every 5 minutes
 
 /**
  * get illust data
@@ -17,7 +84,7 @@ let illust_queue = new Set();
  */
 export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
     if (try_time > 4) {
-        return false
+        throw new Error(`Max retry attempts reached for illust: ${id}`)
     }
     if (typeof id == 'object') {
         return id
@@ -27,9 +94,14 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
         return false
     }
 
-    if (illust_queue.has(id)) {
+    // Wait for queue with timeout instead of recursion
+    let waitCount = 0
+    while (illust_queue.has(id) && waitCount < 10) {
         await sleep(300)
-        return await get_illust(id, fresh, raw, try_time + 1)
+        waitCount++
+    }
+    if (waitCount >= 10) {
+        throw new Error(`Queue timeout for illust: ${id}`)
     }
 
     illust_queue.add(id)
@@ -48,16 +120,9 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
         }
 
         if (fresh) {
-            // 404 cache in memory (10 min)
-            // to prevent cache attack the 404 result will be not in database.
-            if (illust_notfound_id_set.has(id)) {
-                let notFoundTime = illust_notfound_time_map.get(id)
-                if (Date.now() - notFoundTime < 600000) { // 10 min
-                    return 404
-                } else {
-                    illust_notfound_id_set.delete(id)
-                    illust_notfound_time_map.delete(id)
-                }
+            // Check 404 cache with TTL
+            if (illust_notfound_cache.has(id)) {
+                return 404
             }
 
             try {
@@ -69,13 +134,12 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
                 // network, session or Work has been deleted or the ID does not exist.
                 if (error.response && error.response.status === 404) {
                     honsole.warn('404 illust', id)
-                    illust_notfound_id_set.add(id)
-                    illust_notfound_time_map.set(id, Date.now())
+                    illust_notfound_cache.set(id, true)
                     return 404
                 } else {
                     honsole.warn(error)
-                    await sleep(500)
-                    return await get_illust(id, fresh, raw, try_time + 1)
+                    await sleep(Math.min(500 * Math.pow(2, try_time), 5000))
+                    throw error // Let caller handle retry
                 }
             }
         }
@@ -84,6 +148,23 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
         return illust
     } finally {
         illust_queue.delete(id)
+    }
+}
+
+/**
+ * Wrapper for get_illust with non-recursive retry logic
+ */
+export async function get_illust_with_retry(id, fresh = false, raw = false, maxRetries = 3) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return await get_illust(id, fresh, raw, attempt)
+        } catch (error) {
+            if (attempt === maxRetries - 1) {
+                throw error // Last attempt
+            }
+            honsole.warn(`Get illust attempt ${attempt + 1} failed for ${id}, retrying...`)
+            await sleep(Math.min(1000 * Math.pow(2, attempt), 5000))
+        }
     }
 }
 

@@ -25,7 +25,7 @@ const escape_string_list = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+
 */
 export function format(td, flag, mode = 'message', p, mid) {
     if (!['message', 'inline', 'mediagroup_message', 'telegraph'].includes(mode)) {
-        throw 'invalid format mode'
+        throw new Error(`Invalid format mode: ${mode}. Expected one of: message, inline, mediagroup_message, telegraph`)
     }
     if (flag.setting?.format?.version === 'v1') {
         return format_v1(td, flag, mode, p, mid)
@@ -241,7 +241,7 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
             //     ['||', '||'],
             //     ['```\n', '```\n']
             // ]
-            if (prefix.endsWith('\n>') || prefix.endsWith('\n**>')) {
+            if (prefix.endsWith('\n>') || prefix.endsWith('\n>**') || prefix.endsWith('\n>**')) {
                 replacement = prefix + escape_markdownV2(dataValue).split('\n').map((line, i) => (i === 0 ? '' : '>') + line).join('\n') + (prefix.endsWith('\n**>') ? '||' : '') + suffix
             } else {
                 replacement = prefix + escape_markdownV2(dataValue) + suffix

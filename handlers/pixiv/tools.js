@@ -1,9 +1,10 @@
 import { default as axios } from 'axios'
-import { r_p_ajax } from './request.js'
+import { r_p_ajax } from '#handlers/pixiv/request'
 import fs from 'fs'
-import config from '../../config.js'
-import { download_file, sleep, honsole, asyncForEach, exec } from '../common.js'
-import { get_illust } from './illust.js'
+import { promises as fsPromises } from 'fs'
+import config from '#config'
+import { download_file, sleep, honsole, asyncForEach, exec } from '#handlers/common'
+import { get_illust } from '#handlers/pixiv/illust'
 // ugoira queue
 // maybe need redis ?
 let ugoira_mp4_queue_list = []
@@ -159,7 +160,11 @@ export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
         }, this)
 
         await clean_ugoira_cache(id)
-        fs.writeFileSync(`./tmp/timecode/${id}`, timecode)
+        // Ensure necessary directories exist
+        await fsPromises.mkdir('./tmp/timecode', { recursive: true })
+        await fsPromises.mkdir('./tmp/mp4_0', { recursive: true })
+        await fsPromises.mkdir('./tmp/mp4', { recursive: true })
+        await fsPromises.writeFile(`./tmp/timecode/${id}`, timecode)
         // download ugoira.zip
         await download_file(ud.originalSrc, id, force)
         // windows:
@@ -167,7 +172,7 @@ export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
         await exec(`unzip -n './tmp/file/${id}.zip' -d './tmp/ugoira/${id}'`)
         // copy last frame
         // see this issue https://github.com/my-telegram-bots/Pixiv_bot/issues/1
-        fs.copyFileSync(`./tmp/ugoira/${id}/${(ud.frames.length - 1).toString().padStart(6, 0)}.jpg`, `./tmp/ugoira/${id}/${(ud.frames.length).toString().padStart(6, 0)}.jpg`)
+        await fsPromises.copyFile(`./tmp/ugoira/${id}/${(ud.frames.length - 1).toString().padStart(6, 0)}.jpg`, `./tmp/ugoira/${id}/${(ud.frames.length).toString().padStart(6, 0)}.jpg`)
         // step1 jpg -> mp4 (no fps metadata)
         // thanks https://stackoverflow.com/questions/28086775/can-i-create-a-vfr-video-from-timestamped-images
         // need add metadata?
@@ -213,11 +218,12 @@ export function get_ugoira_path(id, type = 0, prefix = 'tmp/') {
             // } else {
             //     file_path = `tmp/mp4/${id.substr(0, 2).padStart(4,0)}/${id}.mp4`
             // }
-            let index_path = `mp4/${id.substr(0, id.length - 6).padStart(4, 0)}`
-            if (!fs.existsSync('tmp/' + index_path)) {
-                fs.mkdirSync('tmp/' + index_path)
-            }
-            file_path = `${index_path}/${id}.mp4`
+            // let index_path = `mp4/${id.substr(0, id.length - 6).padStart(4, 0)}`
+            // if (!fs.existsSync('tmp/' + index_path)) {
+            //     fs.mkdirSync('tmp/' + index_path)
+            // }
+            // file_path = `${index_path}/${id}.mp4`
+            file_path = `${id}.mp4`
             break
         case 1:
         case 'gif-small':

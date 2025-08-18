@@ -7,6 +7,14 @@
   "author": "huggy",
   "license": "MIT",
   "type": "module",
+  "imports": {
+    "#handlers/*": "./handlers/*.js",
+    "#handlers/utils/*": "./handlers/utils/*.js",
+    "#handlers/pixiv/*": "./handlers/pixiv/*.js",
+    "#handlers/telegram/*": "./handlers/telegram/*.js",
+    "#config": "./config.js",
+    "#db": "./db.js"
+  },
   "scripts": {
     "all": "node app.js",
     "bot": "WEBLESS=1 node app.js",

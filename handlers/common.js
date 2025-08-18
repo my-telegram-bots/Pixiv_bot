@@ -1,11 +1,12 @@
 import axios from 'axios'
-import config from '../config.js'
+import config from '#config'
 import fs from 'fs'
-import { _l } from './telegram/i18n.js'
+import { promises as fsPromises } from 'fs'
+import { _l } from '#handlers/telegram/i18n'
 import { createHash } from 'crypto'
 import { promisify } from 'util'
 import { exec as exec$0 } from 'child_process'
-import { get_illust } from './pixiv/illust.js'
+import { get_illust } from '#handlers/pixiv/illust'
 /**
  * ForEach with async
  * @param {Array} array
@@ -43,7 +44,35 @@ export const honsole = {
  * @param {*} try_time
  * @returns
  */
-let dw_queue_list = []
+// Download queue with size limit and cleanup
+class DownloadQueue {
+    constructor(maxSize = 10) {
+        this.queue = new Set()
+        this.maxSize = maxSize
+    }
+    
+    add(url) {
+        if (this.queue.size >= this.maxSize) {
+            return false
+        }
+        this.queue.add(url)
+        return true
+    }
+    
+    remove(url) {
+        this.queue.delete(url)
+    }
+    
+    has(url) {
+        return this.queue.has(url)
+    }
+    
+    get size() {
+        return this.queue.size
+    }
+}
+
+const dw_queue = new DownloadQueue(9)
 export async function download_file(url, id, force = false, try_time = 0) {
     // bypass cache, maybe not work
     if (url.includes(config.pixiv.ugoiraurl)) {
@@ -56,34 +85,51 @@ export async function download_file(url, id, force = false, try_time = 0) {
         }
     }
     if (try_time > 5) {
-        return false
+        throw new Error(`Max retry attempts reached for download: ${url}`)
     }
     url = url.replace('https://i-cf.pximg.net/', 'https://i.pximg.net/')
     let filename = url.split('/').slice(-1)[0]
     if (url.includes('.zip')) {
         filename = id + '.zip'
     }
-    if (fs.existsSync(`./tmp/file/${filename}`) && !force) {
-        return `./tmp/file/${filename}`
+    try {
+        // Check if file exists asynchronously
+        await fsPromises.access(`./tmp/file/${filename}`)
+        if (!force) {
+            return `./tmp/file/${filename}`
+        }
+    } catch {
+        // File doesn't exist, continue to download
     }
-    if (dw_queue_list.length > 9 || dw_queue_list.includes(url)) {
+    
+    // Use loop instead of recursion for queue waiting
+    while (dw_queue.has(url) || !dw_queue.add(url)) {
         await sleep(1000)
-        honsole.dev('downloading', id, url)
-        return await download_file(url, id, force, try_time)
+        honsole.dev('downloading queue wait', id, url)
+        if (try_time > 3) { // Prevent infinite waiting
+            throw new Error(`Queue timeout for download: ${url}`)
+        }
+        try_time++
     }
     try {
-        dw_queue_list.push(url)
-        fs.writeFileSync(`./tmp/file/${filename}`, (await axios({
+        const response = await axios({
             url: url,
             method: 'GET',
             responseType: 'arraybuffer',
+            timeout: 30000, // 30 second timeout
             headers: {
                 'User-Agent': config.pixiv.ua,
                 // Referer policy only include domain/
                 'Referer': 'https://www.pixiv.net/'
             }
-        })).data)
-        dw_queue_list.splice(dw_queue_list.indexOf(id), 1)
+        })
+        
+        // Ensure directory exists
+        await fsPromises.mkdir('./tmp/file', { recursive: true })
+        // Write file asynchronously
+        await fsPromises.writeFile(`./tmp/file/${filename}`, response.data)
+        
+        dw_queue.remove(url)
         return `./tmp/file/${filename}`
     } catch (error) {
         // maybe loooooop again LOL
@@ -96,11 +142,29 @@ export async function download_file(url, id, force = false, try_time = 0) {
             }
         }
         console.warn(error)
-        await sleep(1000)
-        dw_queue_list.splice(dw_queue_list.indexOf(id), 1)
-        return await download_file(url, id, try_time + 1)
+        dw_queue.remove(url)
+        await sleep(Math.min(1000 * Math.pow(2, try_time), 10000)) // Exponential backoff, max 10s
+        throw error // Let caller handle retry if needed
     }
 }
+
+/**
+ * Wrapper for download_file with non-recursive retry logic
+ */
+export async function download_file_with_retry(url, id, force = false, maxRetries = 3) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return await download_file(url, id, force, attempt)
+        } catch (error) {
+            if (attempt === maxRetries - 1) {
+                throw error // Last attempt, re-throw the error
+            }
+            honsole.warn(`Download attempt ${attempt + 1} failed for ${url}, retrying...`)
+            await sleep(Math.min(1000 * Math.pow(2, attempt), 5000)) // Exponential backoff
+        }
+    }
+}
+
 /**
  * fetch file in memory
  * @param {*} url 
@@ -108,7 +172,7 @@ export async function download_file(url, id, force = false, try_time = 0) {
  */
 export async function fetch_tmp_file(url, retry_time = 0) {
     if (retry_time > 3) {
-        throw 404
+        throw new Error(`Failed to fetch ${url} after 3 retries: 404 Not Found`)
     }
     try {
         return (await axios.get(url, {
@@ -136,19 +200,37 @@ export async function fetch_tmp_file(url, retry_time = 0) {
                         if (new_url) {
                             return await fetch_tmp_file(new_url)
                         } else {
-                            throw 404
+                            throw new Error(`File not found in illust data: ${filename}`)
                         }
                     }
                 } else {
-                    throw 404
+                    throw new Error(`Failed to fetch illust data for ID: ${id}`)
                 }
             }
-            throw 404
+            throw new Error(`File not found: ${url}`)
         }
-        await sleep(1000)
-        return await fetch_tmp_file(url, id, retry_time + 1)
+        await sleep(Math.min(1000 * Math.pow(2, retry_time), 10000))
+        throw error // Let caller handle retry
     }
 }
+
+/**
+ * Wrapper for fetch_tmp_file with non-recursive retry logic
+ */
+export async function fetch_tmp_file_with_retry(url, maxRetries = 3) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return await fetch_tmp_file(url, attempt)
+        } catch (error) {
+            if (attempt === maxRetries - 1) {
+                throw error // Last attempt
+            }
+            honsole.warn(`Fetch attempt ${attempt + 1} failed for ${url}, retrying...`)
+            await sleep(Math.min(1000 * Math.pow(2, attempt), 5000))
+        }
+    }
+}
+
 export function sleep(ms) {
     // console.log('hit sleep', ms)
     return new Promise(resolve => setTimeout(resolve, ms))
@@ -156,7 +238,7 @@ export function sleep(ms) {
 export function generate_token(user_id, time = +new Date()) {
     return createHash('sha1').update(`${config.tg.salt}${user_id}${time}`).digest('hex').toString()
 }
-export const exec = { promisify }.promisify(({ exec: exec$0 }).exec)
+export const exec = promisify(exec$0)
 
 String.prototype.escapeHTML = function () {
     return (this.replaceAll('&', '&amp;').replaceAll('>', '&gt;').replaceAll('<', '&lt;').replaceAll('"', '&quot;'))
