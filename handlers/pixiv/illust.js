@@ -159,6 +159,16 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
                     }
                     
                     return 404
+                } else if (error.message && error.message.includes('Request timeout')) {
+                    // Handle timeout errors specially
+                    honsole.warn('Request timeout for illust', id, `(attempt ${try_time + 1})`)
+                    if (try_time < 2) { // Retry up to 3 times for timeouts
+                        await sleep(Math.min(1000 * Math.pow(2, try_time), 5000))
+                        return await get_illust(id, fresh, raw, try_time + 1)
+                    } else {
+                        honsole.error('Max timeout retries reached for illust', id)
+                        return false // Return false instead of throwing
+                    }
                 } else {
                     honsole.warn(error)
                     await sleep(Math.min(500 * Math.pow(2, try_time), 5000))

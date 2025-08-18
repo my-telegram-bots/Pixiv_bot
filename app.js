@@ -355,6 +355,12 @@ export async function tg_sender(ctx) {
                         await bot.api.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra)
                         return
                     }
+                } else if (d === false) {
+                    // Handle timeout or other failures
+                    if (chat_id > 0) {
+                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                        return
+                    }
                 } else {
                     illusts.push(d)
                 }
@@ -442,14 +448,42 @@ export async function tg_sender(ctx) {
                         media = new InputFile(media)
                     }
                     if (!ctx.us.asfile) {
-                        const result = await bot.api.sendAnimation(chat_id, media, {
-                            ...extra,
-                            caption: mg[0].caption
-                        }).catch(async (e) => {
-                            if (await catchily(e, chat_id, ctx.l)) {
-                                bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                        let result
+                        try {
+                            // First try: send external URL
+                            result = await bot.api.sendAnimation(chat_id, media, {
+                                ...extra,
+                                caption: mg[0].caption
+                            })
+                        } catch (e) {
+                            // Retry: download from ugoira server to memory and send as arraybuffer
+                            if (typeof media === 'string' && media.includes('config.pixiv.ugoiraurl')) {
+                                honsole.warn('External ugoira URL failed, downloading to memory:', media)
+                                try {
+                                    // Download directly to memory as arraybuffer
+                                    const arrayBuffer = await fetch_tmp_file(media, 0, true)
+                                    if (arrayBuffer) {
+                                        honsole.log('Downloaded ugoira to memory, retrying send')
+                                        // Create InputFile from arraybuffer
+                                        result = await bot.api.sendAnimation(chat_id, new InputFile(arrayBuffer, `${illust.id}.mp4`), {
+                                            ...extra,
+                                            caption: mg[0].caption
+                                        })
+                                    } else {
+                                        throw new Error('Failed to download ugoira to memory')
+                                    }
+                                } catch (downloadError) {
+                                    honsole.error('Failed to download and send ugoira:', downloadError)
+                                    if (await catchily(e, chat_id, ctx.l)) {
+                                        bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                                    }
+                                }
+                            } else {
+                                if (await catchily(e, chat_id, ctx.l)) {
+                                    bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                                }
                             }
-                        })
+                        }
                         // save ugoira file_id and next time bot can reply without send file
                         if (!illust.tg_file_id && result?.document) {
                             let col = db.collection.illust
