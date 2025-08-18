@@ -111,6 +111,11 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
             illust = await db.collection.illust.findOne({ id })
             if (illust) {
                 delete illust._id
+                // Check if illust is marked as deleted
+                if (illust.deleted) {
+                    honsole.dev('illust marked as deleted in DB', id)
+                    return 404
+                }
                 if (illust.type === 2 && !illust.imgs_.cover_img_url) {
                     fresh = true
                 }
@@ -135,6 +140,24 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
                 if (error.response && error.response.status === 404) {
                     honsole.warn('404 illust', id)
                     illust_notfound_cache.set(id, true)
+                    
+                    // Mark illust as deleted in database for future reference
+                    try {
+                        await db.collection.illust.updateOne(
+                            { id: id },
+                            { 
+                                $set: { 
+                                    deleted: true,
+                                    deleted_at: new Date()
+                                }
+                            },
+                            { upsert: true }
+                        )
+                        honsole.dev('marked illust as deleted in DB', id)
+                    } catch (dbError) {
+                        honsole.warn('Failed to mark illust as deleted', id, dbError)
+                    }
+                    
                     return 404
                 } else {
                     honsole.warn(error)
@@ -235,6 +258,22 @@ export async function update_illust(illust, extra_data = false, id_update_flag =
         illust.imgs_ = await thumb_to_all(illust)
         if (!illust.imgs_) {
             console.warn(illust.id, 'deleted')
+            // Mark as deleted in database
+            try {
+                await db.collection.illust.updateOne(
+                    { id: illust.id },
+                    { 
+                        $set: { 
+                            deleted: true,
+                            deleted_at: new Date()
+                        }
+                    },
+                    { upsert: true }
+                )
+                honsole.dev('marked illust as deleted in update_illust', illust.id)
+            } catch (dbError) {
+                honsole.warn('Failed to mark illust as deleted in update_illust', illust.id, dbError)
+            }
             return
         }
     }

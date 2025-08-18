@@ -73,7 +73,24 @@ class DownloadQueue {
 }
 
 const dw_queue = new DownloadQueue(9)
-export async function download_file(url, id, force = false, try_time = 0) {
+// Cache for failed download URLs to prevent infinite loops
+const download_failed_cache = new Set()
+// Cache for fetch failed URLs to prevent infinite loops  
+const fetch_failed_cache = new Set()
+
+// Clear failed caches periodically to prevent memory leaks
+setInterval(() => {
+    if (download_failed_cache.size > 1000) {
+        honsole.warn(`Download failed cache size is large: ${download_failed_cache.size}, clearing...`)
+        download_failed_cache.clear()
+    }
+    if (fetch_failed_cache.size > 1000) {
+        honsole.warn(`Fetch failed cache size is large: ${fetch_failed_cache.size}, clearing...`)
+        fetch_failed_cache.clear()
+    }
+}, 300000) // Check every 5 minutes
+
+export async function download_file(url, id, force = false, try_time = 0, skip_refetch = false) {
     // bypass cache, maybe not work
     if (url.includes(config.pixiv.ugoiraurl)) {
         return url + '?' + (+new Date())
@@ -135,9 +152,24 @@ export async function download_file(url, id, force = false, try_time = 0) {
         // maybe loooooop again LOL
         if (error.response && error.response.status === 404) {
             if (url.includes('pximg.net')) {
-                // 404 = need refetch illust in database
-                honsole.dev('[404] fetching raw data', id, url)
-                await get_illust(id, true)
+                // Add to failed cache to prevent infinite loops
+                download_failed_cache.add(url)
+                
+                if (!skip_refetch && !download_failed_cache.has(`refetch_${id}`)) {
+                    // 404 = need refetch illust in database (but prevent loops)
+                    download_failed_cache.add(`refetch_${id}`)
+                    honsole.dev('[404] fetching raw data (once)', id, url)
+                    try {
+                        const updated_illust = await get_illust(id, true)
+                        if (updated_illust === 404) {
+                            // If illust itself is 404, propagate the error
+                            throw new Error(`Illust not found: ${id}`)
+                        }
+                    } catch (refetch_error) {
+                        honsole.warn('[404] refetch failed', id, refetch_error.message)
+                        throw new Error(`File and illust not found: ${id}`)
+                    }
+                }
                 return false
             }
         }
@@ -151,10 +183,10 @@ export async function download_file(url, id, force = false, try_time = 0) {
 /**
  * Wrapper for download_file with non-recursive retry logic
  */
-export async function download_file_with_retry(url, id, force = false, maxRetries = 3) {
+export async function download_file_with_retry(url, id, force = false, maxRetries = 3, skip_refetch = false) {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-            return await download_file(url, id, force, attempt)
+            return await download_file(url, id, force, attempt, skip_refetch)
         } catch (error) {
             if (attempt === maxRetries - 1) {
                 throw error // Last attempt, re-throw the error
@@ -170,7 +202,7 @@ export async function download_file_with_retry(url, id, force = false, maxRetrie
  * @param {*} url 
  * @returns arraybuffer
  */
-export async function fetch_tmp_file(url, retry_time = 0) {
+export async function fetch_tmp_file(url, retry_time = 0, skip_refetch = false) {
     if (retry_time > 3) {
         throw new Error(`Failed to fetch ${url} after 3 retries: 404 Not Found`)
     }
@@ -186,25 +218,43 @@ export async function fetch_tmp_file(url, retry_time = 0) {
     } catch (error) {
         if (error.response && error.response.status === 404) {
             if (url.startsWith('https://i.pximg.net/')) {
+                // Add to failed cache to prevent infinite loops
+                fetch_failed_cache.add(url)
+                
                 const filename = url.substring(url.lastIndexOf('/') + 1)
                 const id = filename.split('_')[0]
-                const illust_raw = await get_illust(id, true)
-                if (illust_raw && illust_raw.imgs_) {
-                    if (illust_raw.imgs_.cover_img_url) {
-                        return await fetch_tmp_file(illust_raw.imgs_.cover_img_url)
-                    } else if (illust_raw.imgs_.original_urls) {
-                        let new_url = [...illust_raw.imgs_.original_urls, ...illust_raw.imgs_.regular_urls, ...illust_raw.imgs_.thumb_urls].find(url => {
-                            return url.endsWith(filename)
-                        })
-                        honsole.dev('[fetch new url]', new_url)
-                        if (new_url) {
-                            return await fetch_tmp_file(new_url)
-                        } else {
-                            throw new Error(`File not found in illust data: ${filename}`)
+                
+                if (!skip_refetch && !fetch_failed_cache.has(`refetch_${id}`)) {
+                    // Only try to refetch once per ID
+                    fetch_failed_cache.add(`refetch_${id}`)
+                    
+                    try {
+                        const illust_raw = await get_illust(id, true)
+                        if (illust_raw === 404) {
+                            throw new Error(`Illust not found: ${id}`)
                         }
+                        
+                        if (illust_raw && illust_raw.imgs_) {
+                            if (illust_raw.imgs_.cover_img_url) {
+                                return await fetch_tmp_file(illust_raw.imgs_.cover_img_url, retry_time, true)
+                            } else if (illust_raw.imgs_.original_urls) {
+                                let new_url = [...illust_raw.imgs_.original_urls, ...illust_raw.imgs_.regular_urls, ...illust_raw.imgs_.thumb_urls].find(url => {
+                                    return url.endsWith(filename)
+                                })
+                                honsole.dev('[fetch new url]', new_url)
+                                if (new_url) {
+                                    return await fetch_tmp_file(new_url, retry_time, true)
+                                } else {
+                                    throw new Error(`File not found in illust data: ${filename}`)
+                                }
+                            }
+                        } else {
+                            throw new Error(`Failed to fetch illust data for ID: ${id}`)
+                        }
+                    } catch (refetch_error) {
+                        honsole.warn('[fetch_tmp_file] refetch failed', id, refetch_error.message)
+                        throw new Error(`File and illust not found: ${id}`)
                     }
-                } else {
-                    throw new Error(`Failed to fetch illust data for ID: ${id}`)
                 }
             }
             throw new Error(`File not found: ${url}`)
@@ -217,10 +267,10 @@ export async function fetch_tmp_file(url, retry_time = 0) {
 /**
  * Wrapper for fetch_tmp_file with non-recursive retry logic
  */
-export async function fetch_tmp_file_with_retry(url, maxRetries = 3) {
+export async function fetch_tmp_file_with_retry(url, maxRetries = 3, skip_refetch = false) {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-            return await fetch_tmp_file(url, attempt)
+            return await fetch_tmp_file(url, attempt, skip_refetch)
         } catch (error) {
             if (attempt === maxRetries - 1) {
                 throw error // Last attempt

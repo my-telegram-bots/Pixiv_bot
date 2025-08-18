@@ -166,7 +166,7 @@ export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
         await fsPromises.mkdir('./tmp/mp4', { recursive: true })
         await fsPromises.writeFile(`./tmp/timecode/${id}`, timecode)
         // download ugoira.zip
-        await download_file(ud.originalSrc, id, force)
+        await download_file(ud.originalSrc, id, force, 0, true) // skip_refetch=true to prevent loops
         // windows:
         // choco install ffmpeg unzip
         await exec(`unzip -n './tmp/file/${id}.zip' -d './tmp/ugoira/${id}'`)
@@ -332,7 +332,7 @@ export async function ugoira_to_gif(illust, quality = 'large', real_width = 0, r
         mp4_path = get_ugoira_path(id, 'mp4')
     } else {
         // if not in local, download it
-        mp4_path = await download_file(mp4_url, id)
+        mp4_path = await download_file(mp4_url, id, false, 0, true) // skip_refetch=true
     }
     try {
         // get width and height
