@@ -64,16 +64,34 @@ class TTLCache {
 
 // Replace static caches with TTL caches
 const illust_notfound_cache = new TTLCache(500, 600000) // 10 minutes TTL for 404s
-const illust_queue = new Set()
+
+// Queue with timestamps for timeout detection
+const illust_queue = new Map() // id -> { timestamp, retries }
 
 // Cleanup queue periodically
 setInterval(() => {
+    const now = Date.now()
+    const staleEntries = []
+    
+    for (const [id, entry] of illust_queue) {
+        // Remove entries older than 60 seconds
+        if (now - entry.timestamp > 60000) {
+            staleEntries.push(id)
+        }
+    }
+    
+    if (staleEntries.length > 0) {
+        honsole.warn(`Removing ${staleEntries.length} stale queue entries:`, staleEntries)
+        staleEntries.forEach(id => illust_queue.delete(id))
+    }
+    
     if (illust_queue.size > 100) {
         honsole.warn(`Illust queue size is large: ${illust_queue.size}`)
-        // Clear old entries (this is a safety measure)
-        illust_queue.clear()
+        // Log queue contents for debugging
+        const queueIds = Array.from(illust_queue.keys())
+        honsole.dev('Current queue contents:', queueIds.slice(0, 20))
     }
-}, 300000) // Check every 5 minutes
+}, 30000) // Check every 30 seconds for more frequent cleanup
 
 /**
  * get illust data
@@ -94,17 +112,33 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
         return false
     }
 
-    // Wait for queue with timeout instead of recursion
+    // Wait for queue with timeout and better error handling
     let waitCount = 0
-    while (illust_queue.has(id) && waitCount < 10) {
+    const maxWaitCount = 20 // Increased from 10 to 20 (6 seconds total)
+    
+    while (illust_queue.has(id) && waitCount < maxWaitCount) {
         await sleep(300)
         waitCount++
+        
+        // Check if queue entry is stale and force cleanup if needed
+        if (waitCount > 10) {
+            const entry = illust_queue.get(id)
+            if (entry && Date.now() - entry.timestamp > 30000) { // 30 seconds
+                honsole.warn(`Force removing stale queue entry for illust ${id}`)
+                illust_queue.delete(id)
+                break
+            }
+        }
     }
-    if (waitCount >= 10) {
-        throw new Error(`Queue timeout for illust: ${id}`)
+    
+    if (waitCount >= maxWaitCount) {
+        const entry = illust_queue.get(id)
+        const queueAge = entry ? Date.now() - entry.timestamp : 'unknown'
+        throw new Error(`Queue timeout for illust: ${id} (waited ${waitCount * 300}ms, queue age: ${queueAge}ms)`)
     }
 
-    illust_queue.add(id)
+    // Add to queue with timestamp
+    illust_queue.set(id, { timestamp: Date.now(), retries: try_time })
     try {
         let illust = null
         if (!fresh && !raw) {
@@ -179,8 +213,16 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
 
         honsole.dev('illust', illust)
         return illust
+    } catch (error) {
+        // Enhanced error logging for queue management
+        honsole.error(`Error processing illust ${id}:`, error.message)
+        throw error
     } finally {
-        illust_queue.delete(id)
+        // Always clean up queue entry
+        if (illust_queue.has(id)) {
+            illust_queue.delete(id)
+            honsole.dev(`Removed illust ${id} from queue`)
+        }
     }
 }
 

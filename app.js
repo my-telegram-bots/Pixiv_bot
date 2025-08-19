@@ -296,7 +296,10 @@ bot.on([':text', ':caption'], async (ctx) => {
                     type: link_setting.type
                 }
                 delete new_ctx.us
-                await tg_sender(new_ctx)
+                // Non-blocking processing for linked chats
+                tg_sender(new_ctx).catch(error => {
+                    honsole.error('Error processing linked chat message:', error)
+                })
                 if (link_setting.repeat < 2) {
                     direct_flag = false
                     if (link_setting.repeat === 1) {
@@ -312,10 +315,58 @@ bot.on([':text', ':caption'], async (ctx) => {
         }
     }
     if (direct_flag) {
-        await tg_sender(ctx)
+        // Check if this message contains Pixiv IDs that need processing
+        if (ctx.ids && (ctx.ids.illust.length > 0 || ctx.ids.novel.length > 0)) {
+            // Send quick acknowledgment for private chats with Pixiv content
+            if (chat_id > 0) {
+                // Start typing indicator immediately
+                bot.api.sendChatAction(chat_id, 'typing', ctx.default_extra.message_thread_id ? {
+                    message_thread_id: ctx.default_extra.message_thread_id
+                } : {}).catch(e => { })
+                
+                // Process asynchronously without blocking
+                processPixivContentAsync(ctx).catch(error => {
+                    honsole.error('Error processing direct message:', error)
+                    // Send error notification to user
+                    bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), ctx.default_extra).catch(e => { })
+                })
+            } else {
+                // For groups/channels, process synchronously to maintain message order
+                await tg_sender(ctx)
+            }
+        } else {
+            // For non-Pixiv messages, process normally (fast anyway)
+            await tg_sender(ctx)
+        }
     }
     return
 })
+
+/**
+ * Process Pixiv content asynchronously for better user experience
+ * @param {*} ctx context object
+ */
+async function processPixivContentAsync(ctx) {
+    const chat_id = ctx.chat_id
+    
+    // Send periodic typing indicators during long processing
+    let typingInterval = setInterval(async () => {
+        try {
+            await bot.api.sendChatAction(chat_id, 'typing', ctx.default_extra.message_thread_id ? {
+                message_thread_id: ctx.default_extra.message_thread_id
+            } : {})
+        } catch (e) {
+            // User might have blocked the bot or chat is unavailable
+            clearInterval(typingInterval)
+        }
+    }, 4000) // Send typing every 4 seconds (Telegram typing timeout is 5 seconds)
+    
+    try {
+        await tg_sender(ctx)
+    } finally {
+        clearInterval(typingInterval)
+    }
+}
 
 /**
  * build ctx object can send illust / novel manually (subscribe / auto push)
@@ -347,6 +398,20 @@ export async function tg_sender(ctx) {
         }
     }
     if (ids.illust.length > 0) {
+        // Send processing notification for multiple illustrations
+        let processingMsgId = null
+        if (chat_id > 0 && ids.illust.length > 1) {
+            try {
+                const processingMsg = await bot.api.sendMessage(chat_id, 
+                    `🔄 Processing ${ids.illust.length} illustrations...`, 
+                    default_extra
+                )
+                processingMsgId = processingMsg.message_id
+            } catch (e) {
+                honsole.warn('Failed to send processing notification:', e)
+            }
+        }
+
         await asyncForEach(ids.illust, async (id) => {
             let d = await handle_illust(id, ctx.us)
             if (d) {
@@ -366,6 +431,15 @@ export async function tg_sender(ctx) {
                 }
             }
         })
+
+        // Delete processing notification if it was sent
+        if (processingMsgId) {
+            try {
+                await bot.api.deleteMessage(chat_id, processingMsgId)
+            } catch (e) {
+                honsole.warn('Failed to delete processing notification:', e)
+            }
+        }
     }
     if (illusts.length > 0) {
         let mgs = []
@@ -748,7 +822,7 @@ bot.on('inline_query', async (ctx) => {
 
 bot.catch(async (e) => {
     honsole.warn('gg', e)
-    bot.api.sendMessage(config.tg.master_id, e, {
+    bot.api.sendMessage(config.tg.master_id, e.substring(0, 1000).replace(config.tg.token, '<REALLOCATED>'), {
         disable_web_page_preview: true
     })
 })
@@ -1003,7 +1077,6 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
  * @returns Boolean
  */
 async function is_chat_admin(chat_id, user_id) {
-    z
     try {
         let { status } = await bot.api.getChatMember(chat_id, user_id)
         if (status === 'administrator' || status === 'creator') {
