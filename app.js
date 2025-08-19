@@ -404,7 +404,10 @@ export async function tg_sender(ctx) {
             try {
                 const processingMsg = await bot.api.sendMessage(chat_id, 
                     `🔄 Processing ${ids.illust.length} illustrations...`, 
-                    default_extra
+                    {
+                        ...default_extra,
+                        parse_mode: '' // Use plain text to avoid markdown escaping issues
+                    }
                 )
                 processingMsgId = processingMsg.message_id
             } catch (e) {
