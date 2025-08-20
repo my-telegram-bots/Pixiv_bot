@@ -162,15 +162,18 @@ export async function mg_filter(mg, type = 't') {
                 }
             }
             if (x.invaild) {
-                if (x.invaild.includes('o') && x.invaild.includes('r')) {
-                    // ?
-                    if (x.invaild.includes('dlo')) {
-                        type = 'dlr'
-                    } else {
-                        type = 'dlo'
+                // Smart retry logic: if a media type failed, try alternatives
+                if (x.invaild.includes(type)) {
+                    // Current type failed, find best alternative
+                    if (type === 'o' && !x.invaild.includes('r')) {
+                        type = 'r'  // Try regular quality
+                    } else if (type === 'r' && !x.invaild.includes('dlo')) {
+                        type = 'dlo'  // Download original
+                    } else if (type === 'o' && !x.invaild.includes('dlo')) {
+                        type = 'dlo'  // Download original 
+                    } else if (!x.invaild.includes('dlr')) {
+                        type = 'dlr'  // Download regular as last resort
                     }
-                } else if (type === 'o' && x.invaild.includes(type)) {
-                    type = 'r'
                 }
             }
 

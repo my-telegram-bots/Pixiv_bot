@@ -72,7 +72,7 @@ bot.use(async (ctx, next) => {
         ctx.chat_id = ctx.callbackQuery.message.chat.id
         ctx.user_id = ctx.callbackQuery.from.id
     }
-    return await next()
+    next()
 })
 
 bot.command('start', async (ctx, next) => {
@@ -325,7 +325,7 @@ bot.on([':text', ':caption'], async (ctx) => {
                 } : {}).catch(e => { })
                 
                 // Process asynchronously without blocking
-                processPixivContentAsync(ctx).catch(error => {
+                tg_sender(ctx).catch(error => {
                     honsole.error('Error processing direct message:', error)
                     // Send error notification to user
                     bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), ctx.default_extra).catch(e => { })
@@ -342,31 +342,6 @@ bot.on([':text', ':caption'], async (ctx) => {
     return
 })
 
-/**
- * Process Pixiv content asynchronously for better user experience
- * @param {*} ctx context object
- */
-async function processPixivContentAsync(ctx) {
-    const chat_id = ctx.chat_id
-    
-    // Send periodic typing indicators during long processing
-    let typingInterval = setInterval(async () => {
-        try {
-            await bot.api.sendChatAction(chat_id, 'typing', ctx.default_extra.message_thread_id ? {
-                message_thread_id: ctx.default_extra.message_thread_id
-            } : {})
-        } catch (e) {
-            // User might have blocked the bot or chat is unavailable
-            clearInterval(typingInterval)
-        }
-    }, 4000) // Send typing every 4 seconds (Telegram typing timeout is 5 seconds)
-    
-    try {
-        await tg_sender(ctx)
-    } finally {
-        clearInterval(typingInterval)
-    }
-}
 
 /**
  * build ctx object can send illust / novel manually (subscribe / auto push)
@@ -534,7 +509,7 @@ export async function tg_sender(ctx) {
                             })
                         } catch (e) {
                             // Retry: download from ugoira server to memory and send as arraybuffer
-                            if (typeof media === 'string' && media.includes('config.pixiv.ugoiraurl')) {
+                            if (typeof media === 'string' && media.includes(config.pixiv.ugoiraurl)) {
                                 honsole.warn('External ugoira URL failed, downloading to memory:', media)
                                 try {
                                     // Download directly to memory as arraybuffer
@@ -937,52 +912,91 @@ async function catchily(e, chat_id, language_code = 'en') {
 }
 
 /**
- * send mediagroup with retry
- * @param {*} chat_id
- * @param {*} mg
- * @param {*} extra
- * @param {*} mg_type
- * @returns
+ * Send media group with smart retry logic
+ * - Parses Telegram error messages to identify specific failed media items
+ * - Marks failed items as invalid and retries with local downloads
+ * - Only retries failed items instead of entire media group
+ * - Prevents infinite retries with configurable limit
+ * @param {*} chat_id Telegram chat ID
+ * @param {*} language_code User's language code for error messages  
+ * @param {*} mg Media group array
+ * @param {*} extra Extra options for Telegram API
+ * @param {*} mg_type Array of media types to try (e.g., ['r', 'o', 'dlr', 'dlo'])
+ * @param {*} retryCount Current retry attempt count (internal use)
+ * @returns Promise<MediaGroup|false> Returns sent media group or false on failure
  */
-async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type = []) {
+async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type = [], retryCount = 0) {
+    // Prevent infinite retries
+    if (retryCount > 10) {
+        honsole.warn('Max retry attempts reached for media group', chat_id, mg.length, 'items')
+        return false
+    }
+    
     if (mg_type.length === 0) {
-        honsole.warn('empty mg', chat_id, mg)
+        honsole.warn('No more media types to try', chat_id, mg.length, 'items')
         return false
     }
     let current_mg_type = mg_type.shift();
+    
+    honsole.dev(`Media group retry attempt ${retryCount + 1}, trying type: ${current_mg_type}, remaining types: [${mg_type.join(', ')}]`)
+    
     (async () => {
         await bot.api.sendChatAction(chat_id, mg[0].type === 'document' ? 'upload_document' : 'upload_photo', extra.message_thread_id ? {
             message_thread_id: extra.message_thread_id
         } : {}).catch(e => { })
     })();
     try {
-        return await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type), extra)
+        const result = await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type), extra)
+        if (retryCount > 0) {
+            honsole.log(`Media group succeeded after ${retryCount + 1} attempts with type: ${current_mg_type}`)
+        }
+        return result
     } catch (e) {
         let status = await catchily(e, chat_id, language_code)
-        // Bad Request: failed to send message #1 with the error message "WEBPAGE_MEDIA_EMPTY"
-        // Bad Request: failed to send message #2 with the error message "WEBPAGE_CURL_FAILED"
-        // have a few bugs
-        // if (e.description && e.description.includes('failed to send message') && e.description.includes('#')) {
-        //     status = 'redo'
-        //     let mg_index = e.description.split(' ').find(x=>{
-        //         return x.startsWith('#')
-        //     })
-        //     if (mg_index) {
-        //         mg_index = parseInt(mg_index.substring(1)) - 1
-        //         if (!mg[mg_index].invaild) {
-        //             mg[mg_index].invaild = [current_mg_type]
-        //         }else {
-        //             mg[mg_index].invaild.push(current_mg_type)
-        //         }
-        //     }
-        // }
+        // Parse specific media item failure from Telegram error
+        // Examples: "Bad Request: failed to send message #1 with the error message 'WEBPAGE_MEDIA_EMPTY'"
+        //          "Bad Request: failed to send message #9 with the error message 'WEBPAGE_CURL_FAILED'"
+        if (e.description && e.description.includes('failed to send message') && e.description.includes('#')) {
+            status = 'redo'
+            // Extract the failed item index from error message
+            const failedIndexMatch = e.description.match(/failed to send message #(\d+)/);
+            if (failedIndexMatch) {
+                const mg_index = parseInt(failedIndexMatch[1]) - 1; // Convert to 0-based index
+                
+                // Validate index is within bounds
+                if (mg_index >= 0 && mg_index < mg.length) {
+                    honsole.log(`Media item #${mg_index + 1} failed with ${current_mg_type}, marking for local download retry`)
+                    
+                    // Mark this specific item as invalid for current media type
+                    if (!mg[mg_index].invaild) {
+                        mg[mg_index].invaild = [current_mg_type]
+                    } else if (!mg[mg_index].invaild.includes(current_mg_type)) {
+                        mg[mg_index].invaild.push(current_mg_type)
+                    }
+                    
+                    // For failed web URLs, try downloading locally first
+                    // Add 'dl' prefix to current type for download retry
+                    const downloadType = current_mg_type.startsWith('dl') ? current_mg_type : `dl${current_mg_type}`;
+                    if (!mg_type.includes(downloadType)) {
+                        mg_type.unshift(downloadType); // Try download version next
+                    }
+                } else {
+                    honsole.warn(`Invalid media index ${mg_index + 1} from error message, media group has ${mg.length} items`)
+                }
+            }
+        }
         if (status) {
             if (status === 'redo') {
-                mg_type.unshift(current_mg_type)
+                // Don't re-add the same type if we detected specific item failures
+                // The mg_filter function will handle type switching for failed items
+                const hasSpecificFailures = e.description && e.description.includes('failed to send message #');
+                if (!hasSpecificFailures) {
+                    mg_type.unshift(current_mg_type)
+                }
             }
-            return await sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type)
+            return await sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type, retryCount + 1)
         } else {
-            honsole.warn('error send mg', chat_id, mg)
+            honsole.warn('error send mg', chat_id, mg, e.description || e.message)
             return false
         }
     }
@@ -1049,26 +1063,45 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
     try {
         file = new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1))
     } catch (error) {
-        await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), extra).then(x => {
-            reply_to_message_id = x.message_id
-        })
+        honsole.warn('[sendDocumentWithRetry] File fetch failed:', error.message)
+        
+        // Check if it's a deletion case or file too large case
+        if (error.message.includes('File and illust not found') || error.message.includes('Illust not found')) {
+            // Case 2: Entire artwork deleted - mark as deleted
+            await bot.api.sendMessage(chat_id, _l(l, 'deleted'), extra).then(x => {
+                reply_to_message_id = x.message_id
+            })
+            return reply_to_message_id
+        } else {
+            // Case: File too large or other fetch error
+            await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), extra).then(x => {
+                reply_to_message_id = x.message_id
+            })
+            return reply_to_message_id
+        }
     }
-    await bot.api.sendDocument(
-        chat_id,
-        file,
-        extra).then(x => {
-            reply_to_message_id = x.message_id
-        }).catch(async (e) => {
-            if (await catchily(e, chat_id, l)) {
-                await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1)), extra).then(x => {
-                    reply_to_message_id = x.message_id
-                }).catch(async (e) => {
-                    await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), extra).then(x => {
-                        reply_to_message_id = x.message_id
-                    })
-                })
-            }
-        })
+    
+    // Only proceed if file is successfully fetched
+    if (file) {
+        await bot.api.sendDocument(
+            chat_id,
+            file,
+            extra).then(x => {
+                reply_to_message_id = x.message_id
+            }).catch(async (e) => {
+                if (await catchily(e, chat_id, l)) {
+                    try {
+                        await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1)), extra).then(x => {
+                            reply_to_message_id = x.message_id
+                        })
+                    } catch (retryError) {
+                        await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), extra).then(x => {
+                            reply_to_message_id = x.message_id
+                        })
+                    }
+                }
+            })
+    }
     return reply_to_message_id
 }
 

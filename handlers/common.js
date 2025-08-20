@@ -236,24 +236,37 @@ export async function fetch_tmp_file(url, retry_time = 0, skip_refetch = false) 
                         
                         if (illust_raw && illust_raw.imgs_) {
                             if (illust_raw.imgs_.cover_img_url) {
+                                honsole.dev('[fetch_tmp_file] trying cover_img_url:', illust_raw.imgs_.cover_img_url)
                                 return await fetch_tmp_file(illust_raw.imgs_.cover_img_url, retry_time, true)
                             } else if (illust_raw.imgs_.original_urls) {
-                                let new_url = [...illust_raw.imgs_.original_urls, ...illust_raw.imgs_.regular_urls, ...illust_raw.imgs_.thumb_urls].find(url => {
-                                    return url.endsWith(filename)
-                                })
+                                const all_urls = [
+                                    ...(illust_raw.imgs_.original_urls || []),
+                                    ...(illust_raw.imgs_.regular_urls || []),
+                                    ...(illust_raw.imgs_.thumb_urls || [])
+                                ]
+                                
+                                let new_url = all_urls.find(url => url && url.endsWith(filename))
                                 honsole.dev('[fetch new url]', new_url)
+                                
                                 if (new_url) {
                                     return await fetch_tmp_file(new_url, retry_time, true)
                                 } else {
+                                    const fallback_url = all_urls.find(url => url && url.includes(id))
+                                    if (fallback_url) {
+                                        honsole.dev('[fetch_tmp_file] trying fallback URL:', fallback_url)
+                                        return await fetch_tmp_file(fallback_url, retry_time, true)
+                                    }
                                     throw new Error(`File not found in illust data: ${filename}`)
                                 }
+                            } else {
+                                throw new Error(`No image URLs found in illust data for ID: ${id}`)
                             }
                         } else {
                             throw new Error(`Failed to fetch illust data for ID: ${id}`)
                         }
                     } catch (refetch_error) {
                         honsole.warn('[fetch_tmp_file] refetch failed', id, refetch_error.message)
-                        throw new Error(`File and illust not found: ${id}`)
+                        throw new Error(`File and illust not found: ${id} - ${refetch_error.message}`)
                     }
                 }
             }
