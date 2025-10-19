@@ -27,7 +27,7 @@ export async function mg_create(illust, us) {
                 mediagroup_data.has_spoiler = true
             }
             if (us.caption_above) {
-                show_caption_above_media = true
+                mediagroup_data.show_caption_above_media = true
             }
             // if illust data have file_id
             if (illust.tg_file_id) {

@@ -180,14 +180,14 @@ bot.on('callback_query', async (ctx) => {
         } else {
             await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error_not_a_gc_administrator')), {
                 show_alert: true
-            }).catch(e => { })
+            }).catch(() => { })
             return
         }
     }
     if (apply_flag) {
-        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'saved'))).catch(e => { })
+        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'saved'))).catch(() => { })
     } else {
-        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error'))).catch(e => { })
+        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error'))).catch(() => { })
     }
 })
 
@@ -271,9 +271,9 @@ bot.on([':text', ':caption'], async (ctx) => {
     }
     if (chat_id > 0) {
         (async () => {
-            await ctx.react('👀').catch(e => { })
+            await ctx.react('👀').catch(() => { })
             setTimeout(async () => {
-                await ctx.api.setMessageReaction(chat_id, ctx.message.message_id, []).catch(e => { })
+                await ctx.api.setMessageReaction(chat_id, ctx.message.message_id, []).catch(() => { })
             }, 5000)
         })()
     }
@@ -322,13 +322,13 @@ bot.on([':text', ':caption'], async (ctx) => {
                 // Start typing indicator immediately
                 bot.api.sendChatAction(chat_id, 'typing', ctx.default_extra.message_thread_id ? {
                     message_thread_id: ctx.default_extra.message_thread_id
-                } : {}).catch(e => { })
-                
+                } : {}).catch(() => { })
+
                 // Process asynchronously without blocking
                 tg_sender(ctx).catch(error => {
                     honsole.error('Error processing direct message:', error)
                     // Send error notification to user
-                    bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), ctx.default_extra).catch(e => { })
+                    bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), ctx.default_extra).catch(() => { })
                 })
             } else {
                 // For groups/channels, process synchronously to maintain message order
@@ -365,7 +365,7 @@ export async function tg_sender(ctx) {
             (async () => {
                 await bot.api.sendChatAction(chat_id, 'typing', ctx.default_extra.message_thread_id ? {
                     message_thread_id: ctx.default_extra.message_thread_id
-                } : {}).catch(e => { })
+                } : {}).catch(() => { })
             })();
             await asyncForEach(ids.author, async (id) => {
                 illusts = [...illusts, ...await get_user_illusts(id)]
@@ -377,8 +377,8 @@ export async function tg_sender(ctx) {
         let processingMsgId = null
         if (chat_id > 0 && ids.illust.length > 1) {
             try {
-                const processingMsg = await bot.api.sendMessage(chat_id, 
-                    `🔄 Processing ${ids.illust.length} illustrations...`, 
+                const processingMsg = await bot.api.sendMessage(chat_id,
+                    `🔄 Processing ${ids.illust.length} illustrations...`,
                     {
                         ...default_extra,
                         parse_mode: '' // Use plain text to avoid markdown escaping issues
@@ -395,13 +395,13 @@ export async function tg_sender(ctx) {
             if (d) {
                 if (d === 404) {
                     if (chat_id > 0) {
-                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra)
+                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra).catch(() => { })
                         return
                     }
                 } else if (d === false) {
                     // Handle timeout or other failures
                     if (chat_id > 0) {
-                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
                         return
                     }
                 } else {
@@ -486,7 +486,7 @@ export async function tg_sender(ctx) {
                     (async () => {
                         await bot.api.sendChatAction(chat_id, 'upload_video', ctx.default_extra.message_thread_id ? {
                             message_thread_id: ctx.default_extra.message_thread_id
-                        } : {}).catch(e => { })
+                        } : {}).catch(() => { })
                     })();
                     let media = mg[0].media_t
                     if (!media) {
@@ -527,12 +527,12 @@ export async function tg_sender(ctx) {
                                 } catch (downloadError) {
                                     honsole.error('Failed to download and send ugoira:', downloadError)
                                     if (await catchily(e, chat_id, ctx.l)) {
-                                        bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                                        bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
                                     }
                                 }
                             } else {
                                 if (await catchily(e, chat_id, ctx.l)) {
-                                    bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                                    bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
                                 }
                             }
                         }
@@ -559,7 +559,7 @@ export async function tg_sender(ctx) {
                             disable_content_type_detection: true
                         }).catch(async (e) => {
                             if (await catchily(e, chat_id, ctx.l)) {
-                                bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra)
+                                bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
                             }
                         })
                     }
@@ -598,14 +598,14 @@ export async function tg_sender(ctx) {
                     (async () => {
                         await bot.api.sendChatAction(chat_id, 'typing', ctx.default_extra.message_thread_id ? {
                             message_thread_id: ctx.default_extra.message_thread_id
-                        } : {}).catch(e => { })
+                        } : {}).catch(() => { })
                     })();
                     let res_data = await mg2telegraph(mgs[0], ctx.us.telegraph_title, user_id, ctx.us.telegraph_author_name, ctx.us.telegraph_author_url)
                     if (res_data) {
                         await asyncForEach(res_data, async (d) => {
-                            await bot.api.sendMessage(chat_id, d.ids.join('\n') + '\n' + d.telegraph_url)
+                            await bot.api.sendMessage(chat_id, d.ids.join('\n') + '\n' + d.telegraph_url, default_extra).catch(() => { })
                         })
-                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'telegraph_iv'), default_extra)
+                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'telegraph_iv'), default_extra).catch(() => { })
                     }
                 } catch (error) {
                     console.warn(error)
@@ -724,18 +724,26 @@ export async function tg_sender(ctx) {
             (async () => {
                 await bot.api.sendChatAction(chat_id, 'typing', ctx.default_extra.message_thread_id ? {
                     message_thread_id: ctx.default_extra.message_thread_id
-                } : {}).catch(e => { })
+                } : {}).catch(() => { })
             })();
             let d = await handle_novel(id)
             if (d) {
-                await bot.api.sendMessage(chat_id, `${d.telegraph_url}`)
+                let extra = { ...default_extra }
+                delete extra.parse_mode
+                await bot.api.sendMessage(chat_id, `${d.telegraph_url}`, extra).catch(e => {
+                    if (e.error_code === 400 && e.description === 'Bad Request: TOPIC_CLOSED') {
+                        console.log('Topic is closed, skipping message')
+                        return
+                    }
+                    console.warn(e)
+                })
             } else {
-                await bot.api.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra)
+                await bot.api.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra).catch(() => { })
             }
         })
     }
     if (text.includes('fanbox.cc/') && chat_id > 0) {
-        await bot.api.sendMessage(chat_id, _l(ctx.l, 'fanbox_not_support'), default_extra)
+        await bot.api.sendMessage(chat_id, _l(ctx.l, 'fanbox_not_support'), default_extra).catch(() => { })
     }
     return true
 }
@@ -802,7 +810,7 @@ bot.catch(async (e) => {
     honsole.warn('gg', e)
     bot.api.sendMessage(config.tg.master_id, e.substring(0, 1000).replace(config.tg.token, '<REALLOCATED>'), {
         disable_web_page_preview: true
-    })
+    }).catch(() => { })
 })
 
 db.db_initial().then(async () => {
@@ -832,7 +840,7 @@ db.db_initial().then(async () => {
         grammyjsRun(bot)
 
         console.log(new Date(), `bot @${bot.botInfo.username} started!`)
-        bot.api.sendMessage(config.tg.master_id, `${new Date().toString()} bot started!`)
+        bot.api.sendMessage(config.tg.master_id, `${new Date().toString()} bot started!`).catch(() => { })
     }).catch((e) => {
         console.error('You are offline or bad bot token', e)
         process.exit()
@@ -855,21 +863,25 @@ async function catchily(e, chat_id, language_code = 'en') {
     try {
         bot.api.sendMessage(config.tg.master_id, JSON.stringify(e).substring(0, 1000).replace(config.tg.token, '<REALLOCATED>'), {
             disable_web_page_preview: true
-        }).catch(e => { })
+        }).catch(() => { })
         if (!e.ok) {
             const description = e.description.toLowerCase()
             if (description.includes('media_caption_too_long')) {
-                await bot.api.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra).catch(e => { })
+                await bot.api.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra).catch(() => { })
                 return false
             } else if (description.includes('can\'t parse entities: character')) {
-                await bot.api.sendMessage(chat_id, _l(language_code, 'error_format', e.description)).catch(e => { })
+                await bot.api.sendMessage(chat_id, _l(language_code, 'error_format', e.description)).catch(() => { })
                 return false
                 // banned by user
             } else if (description.includes('forbidden:')) {
                 return false
                 // not have permission
             } else if (description.includes('not enough rights to send')) {
-                await bot.api.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra).catch(e => { })
+                await bot.api.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra).catch(() => { })
+                return false
+                // message thread not found - give up sending
+            } else if (description.includes('message thread not found')) {
+                console.log('Message thread not found, skipping message')
                 return false
                 // just a moment
             } else if (description.includes('too many requests')) {
@@ -931,19 +943,19 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
         honsole.warn('Max retry attempts reached for media group', chat_id, mg.length, 'items')
         return false
     }
-    
+
     if (mg_type.length === 0) {
         honsole.warn('No more media types to try', chat_id, mg.length, 'items')
         return false
     }
     let current_mg_type = mg_type.shift();
-    
-    honsole.dev(`Media group retry attempt ${retryCount + 1}, trying type: ${current_mg_type}, remaining types: [${mg_type.join(', ')}]`)
-    
+
+    honsole.dev(`Media group retry attempt ${retryCount + 1}, trying type: ${current_mg_type}, remaining types: [${mg_type.join(', ')}]`);
+
     (async () => {
         await bot.api.sendChatAction(chat_id, mg[0].type === 'document' ? 'upload_document' : 'upload_photo', extra.message_thread_id ? {
             message_thread_id: extra.message_thread_id
-        } : {}).catch(e => { })
+        } : {}).catch(() => { })
     })();
     try {
         const result = await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type), extra)
@@ -962,18 +974,18 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
             const failedIndexMatch = e.description.match(/failed to send message #(\d+)/);
             if (failedIndexMatch) {
                 const mg_index = parseInt(failedIndexMatch[1]) - 1; // Convert to 0-based index
-                
+
                 // Validate index is within bounds
                 if (mg_index >= 0 && mg_index < mg.length) {
                     honsole.log(`Media item #${mg_index + 1} failed with ${current_mg_type}, marking for local download retry`)
-                    
+
                     // Mark this specific item as invalid for current media type
                     if (!mg[mg_index].invaild) {
                         mg[mg_index].invaild = [current_mg_type]
                     } else if (!mg[mg_index].invaild.includes(current_mg_type)) {
                         mg[mg_index].invaild.push(current_mg_type)
                     }
-                    
+
                     // For failed web URLs, try downloading locally first
                     // Add 'dl' prefix to current type for download retry
                     const downloadType = current_mg_type.startsWith('dl') ? current_mg_type : `dl${current_mg_type}`;
@@ -1018,7 +1030,7 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
     (async () => {
         await bot.api.sendChatAction(chat_id, 'upload_photo', extra.message_thread_id ? {
             message_thread_id: extra.message_thread_id
-        } : {}).catch(e => { })
+        } : {}).catch(() => { })
     })();
     let raw_photo_url = photo_urls.shift()
     let photo_url = raw_photo_url
@@ -1052,7 +1064,7 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
     (async () => {
         await bot.api.sendChatAction(chat_id, 'upload_document', extra.message_thread_id ? {
             message_thread_id: extra.message_thread_id
-        } : {}).catch(e => { })
+        } : {}).catch(() => { })
     })();
     let reply_to_message_id = null
     extra = {
@@ -1064,23 +1076,37 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
         file = new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1))
     } catch (error) {
         honsole.warn('[sendDocumentWithRetry] File fetch failed:', error.message)
-        
+
         // Check if it's a deletion case or file too large case
+        // Create message-specific extra by filtering out document-specific fields
+        const messageExtra = {
+            parse_mode: extra.parse_mode,
+            reply_to_message_id: extra.reply_to_message_id,
+            message_thread_id: extra.message_thread_id,
+            allow_sending_without_reply: extra.allow_sending_without_reply
+        }
+
         if (error.message.includes('File and illust not found') || error.message.includes('Illust not found')) {
             // Case 2: Entire artwork deleted - mark as deleted
-            await bot.api.sendMessage(chat_id, _l(l, 'deleted'), extra).then(x => {
+            await bot.api.sendMessage(chat_id, _l(l, 'deleted'), messageExtra).then(x => {
                 reply_to_message_id = x.message_id
-            })
+            }).catch(() => { })
+            return reply_to_message_id
+        } else if (media_o) {
+            // Case: File too large or other fetch error
+            await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), messageExtra).then(x => {
+                reply_to_message_id = x.message_id
+            }).catch(() => { })
             return reply_to_message_id
         } else {
-            // Case: File too large or other fetch error
-            await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), extra).then(x => {
+            // Case: No media_o provided or other unexpected error
+            await bot.api.sendMessage(chat_id, _l(l, 'error'), messageExtra).then(x => {
                 reply_to_message_id = x.message_id
-            })
+            }).catch(() => { })
             return reply_to_message_id
         }
     }
-    
+
     // Only proceed if file is successfully fetched
     if (file) {
         await bot.api.sendDocument(
@@ -1095,9 +1121,15 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
                             reply_to_message_id = x.message_id
                         })
                     } catch (retryError) {
-                        await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), extra).then(x => {
+                        const messageExtra = {
+                            parse_mode: extra.parse_mode,
+                            reply_to_message_id: extra.reply_to_message_id,
+                            message_thread_id: extra.message_thread_id,
+                            allow_sending_without_reply: extra.allow_sending_without_reply
+                        }
+                        await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), messageExtra).then(x => {
                             reply_to_message_id = x.message_id
-                        })
+                        }).catch(() => { })
                     }
                 }
             })
