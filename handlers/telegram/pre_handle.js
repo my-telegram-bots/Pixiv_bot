@@ -5,6 +5,43 @@ import db from '../../db.js'
 import { honsole } from '../common.js'
 import { _l } from './i18n.js'
 import df from './df.js'
+
+/**
+ * Sanitize object to prevent prototype pollution
+ * Removes dangerous properties like __proto__, constructor, prototype
+ * @param {*} obj - Object to sanitize
+ * @returns {*} Sanitized object
+ */
+function sanitizeObject(obj) {
+    if (obj === null || typeof obj !== 'object') {
+        return obj
+    }
+
+    if (Array.isArray(obj)) {
+        return obj.map(item => sanitizeObject(item))
+    }
+
+    // Create object without prototype to prevent pollution
+    const sanitized = Object.create(null)
+
+    for (const key in obj) {
+        // Only process own properties
+        if (!Object.prototype.hasOwnProperty.call(obj, key)) {
+            continue
+        }
+
+        // Block dangerous property names
+        if (['__proto__', 'constructor', 'prototype'].includes(key)) {
+            honsole.warn(`Blocked dangerous property: ${key}`)
+            continue
+        }
+
+        // Recursively sanitize nested objects
+        sanitized[key] = sanitizeObject(obj[key])
+    }
+
+    return sanitized
+}
 let default_extra = {
     parse_mode: 'MarkdownV2',
     allow_sending_without_reply: true
@@ -354,7 +391,9 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         let new_setting = {}
         if (ctx.text.substring(0, 3) == 'eyJ') {
             try {
-                new_setting = JSON.parse(Buffer.from(ctx.text, 'base64').toString('utf8'))
+                const parsed = JSON.parse(Buffer.from(ctx.text, 'base64').toString('utf8'))
+                // Sanitize to prevent prototype pollution
+                new_setting = sanitizeObject(parsed)
             } catch (error) {
                 // message type is doesn't base64
                 await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error'))

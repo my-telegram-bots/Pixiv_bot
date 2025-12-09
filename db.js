@@ -79,6 +79,15 @@ export async function update_setting(value, chat_id, flag) {
             delete value.default
         }
         for (let i in value) {
+            // Only process own properties to prevent prototype pollution
+            if (!Object.prototype.hasOwnProperty.call(value, i)) {
+                continue
+            }
+            // Block dangerous property names
+            if (['__proto__', 'constructor', 'prototype'].includes(i)) {
+                console.warn(`Blocked dangerous property in update_setting: ${i}`)
+                continue
+            }
             // only match add_ and del_ prefix
             let action = i.substring(0, 3)
             let ii = i.substring(4)

@@ -332,11 +332,22 @@ bot.on([':text', ':caption'], async (ctx) => {
                 })
             } else {
                 // For groups/channels, process synchronously to maintain message order
-                await tg_sender(ctx)
+                try {
+                    await tg_sender(ctx)
+                } catch (error) {
+                    honsole.error('Error processing group/channel message:', error)
+                    // Send error notification
+                    bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), ctx.default_extra).catch(() => { })
+                }
             }
         } else {
             // For non-Pixiv messages, process normally (fast anyway)
-            await tg_sender(ctx)
+            try {
+                await tg_sender(ctx)
+            } catch (error) {
+                honsole.error('Error processing non-Pixiv message:', error)
+                bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), ctx.default_extra).catch(() => { })
+            }
         }
     }
     return

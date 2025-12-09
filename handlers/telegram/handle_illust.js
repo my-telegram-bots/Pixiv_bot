@@ -22,7 +22,14 @@ export async function handle_illusts(ids, flag) {
 export async function handle_illust(id, flag) {
     let illust = id
     if (typeof illust !== 'object' && !isNaN(parseInt(id))) {
-        illust = await get_illust(id)
+        try {
+            illust = await get_illust(id)
+        } catch (error) {
+            // Handle queue timeout and other errors gracefully
+            honsole.error(`Error fetching illust ${id}:`, error.message)
+            // Return false to indicate failure (handled in app.js)
+            return false
+        }
     }
     honsole.dev('i', illust.id)
 
