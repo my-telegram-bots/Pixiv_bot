@@ -288,6 +288,8 @@ export async function read_user_setting(bot, ctx) {
             bot.api.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_title_too_long'), {
                 ...default_extra,
                 reply_to_message_id: ctx.message.message_id
+            }).catch(e => {
+                honsole.warn('Failed to send telegraph title error message:', e.description || e.message)
             })
             return 'error'
         }
@@ -300,6 +302,8 @@ export async function read_user_setting(bot, ctx) {
             bot.api.sendMessage(chat_id, _l(ctx.l, 'error_tlegraph_author'), {
                 ...default_extra,
                 reply_to_message_id: ctx.message.message_id
+            }).catch(e => {
+                honsole.warn('Failed to send telegraph author error message:', e.description || e.message)
             })
             return 'error'
         }
@@ -349,7 +353,9 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         } catch (e) {
         }
         if (!admin_flag) {
-            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), default_extra)
+            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), default_extra).catch(e => {
+                honsole.warn('Failed to send admin check error message:', e.description || e.message)
+            })
             return
         }
     }
@@ -380,12 +386,16 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
     } else {
         if (ctx.text == '/s reset') {
             await db.delete_setting(ctx.chat.id)
-            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_reset'), default_extra)
+            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_reset'), default_extra).catch(e => {
+                honsole.warn('Failed to send setting reset message:', e.description || e.message)
+            })
             return
         }
         // can't use +god in permanent settings on group / channel
         else if (ctx.chat_id < 0 && ctx.text.startsWith('/s') && ctx.text.includes('+god')) {
-            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error'), default_extra)
+            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error'), default_extra).catch(e => {
+                honsole.warn('Failed to send god mode error message:', e.description || e.message)
+            })
             return
         }
         let new_setting = {}
@@ -396,7 +406,9 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
                 new_setting = sanitizeObject(parsed)
             } catch (error) {
                 // message type is doesn't base64
-                await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error'))
+                await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error')).catch(e => {
+                    honsole.warn('Failed to send parse error message:', e.description || e.message)
+                })
                 honsole.warn('parse base64 configuration failed', ctx.text, error)
             }
         } else if (ctx.text.length > 2 && (ctx.text.includes('+') || ctx.text.includes('-') || ctx.us.value_update_flag)) {
@@ -407,9 +419,13 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         if (JSON.stringify(new_setting).length > 2) {
             honsole.dev(new_setting)
             if (await db.update_setting(new_setting, ctx.chat.id, ctx.us)) {
-                await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_saved'), default_extra)
+                await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_saved'), default_extra).catch(e => {
+                    honsole.warn('Failed to send setting saved message:', e.description || e.message)
+                })
             } else {
-                await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error'), default_extra)
+                await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error'), default_extra).catch(e => {
+                    honsole.warn('Failed to send setting error message:', e.description || e.message)
+                })
             }
         }
         return

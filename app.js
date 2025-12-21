@@ -76,12 +76,14 @@ bot.use(async (ctx, next) => {
 })
 
 bot.command('start', async (ctx, next) => {
-    // match = deeplink 
+    // match = deeplink
     // see more https://core.telegram.org/bots#deep-linking
     if (!ctx.match.trim() || ctx.match === 's') {
         // reply start help command
         await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'start'), {
             ...ctx.default_extra
+        }).catch(e => {
+            honsole.warn('Failed to send start message:', e.description || e.message)
         })
     } else {
         // callback to next bot.on handler
@@ -93,12 +95,16 @@ bot.command('help', async (ctx) => {
     await bot.api.sendMessage(ctx.chat.id, 'https://pixiv-bot.pages.dev', {
         ...ctx.default_extra,
         parse_mode: ''
+    }).catch(e => {
+        honsole.warn('Failed to send help message:', e.description || e.message)
     })
 })
 bot.command('privacy', async (ctx) => {
     await bot.api.sendMessage(ctx.chat.id, 'https://pixiv-bot.pages.dev/privacy', {
         ...ctx.default_extra,
         parse_mode: ''
+    }).catch(e => {
+        honsole.warn('Failed to send privacy message:', e.description || e.message)
     })
 })
 
@@ -111,6 +117,8 @@ bot.command('id', async (ctx) => {
     await bot.api.sendMessage(ctx.chat.id, text, {
         ...ctx.default_extra,
         parse_mode: 'Markdown'
+    }).catch(e => {
+        honsole.warn('Failed to send id message:', e.description || e.message)
     })
 })
 
@@ -158,6 +166,8 @@ bot.on('callback_query', async (ctx) => {
                 }, chat_id)
                 await bot.api.editMessageText(chat_id, message_id, false, _l(ctx.l, 'link_unlink_done'), {
                     reply_markup: {}
+                }).catch(e => {
+                    honsole.warn('Failed to edit message:', e.description || e.message)
                 })
                 apply_flag = true
             } else {
@@ -196,7 +206,9 @@ bot.command('link', async (ctx) => {
     let chat_id = ctx.message.chat.id
     let user_id = ctx.from.id
     if (ctx.from.id === 1087968824) {
-        await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
+        await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_anonymous'), ctx.default_extra).catch(e => {
+            honsole.warn('Failed to send anonymous error message:', e.description || e.message)
+        })
     } else {
         if (chat_id > 0 || await is_chat_admin(chat_id, user_id)) {
             // if (ctx.us.setting.link_chat_list && JSON.stringify(ctx.us.setting.link_chat_list).length > 2) {
@@ -213,9 +225,13 @@ bot.command('link', async (ctx) => {
                                 chat_id: linked_chat_id,
                                 ...ctx.us.setting.link_chat_list[linked_chat_id]
                             })
+                        }).catch(e => {
+                            honsole.warn('Failed to send link setting message:', e.description || e.message)
                         })
                     } else {
-                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
+                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra).catch(e => {
+                            honsole.warn('Failed to send admin check error message:', e.description || e.message)
+                        })
                     }
                     new_flag = false
                 }
@@ -227,10 +243,14 @@ bot.command('link', async (ctx) => {
                         force_reply: true,
                         selective: true
                     }
+                }).catch(e => {
+                    honsole.warn('Failed to send link start message:', e.description || e.message)
                 })
             }
         } else {
-            await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
+            await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra).catch(e => {
+                honsole.warn('Failed to send admin check error message:', e.description || e.message)
+            })
         }
     }
 })
@@ -245,10 +265,16 @@ bot.on([':text', ':caption'], async (ctx) => {
     // @link
     if (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.text && ctx.message.reply_to_message.text.substring(0, 5) === '#link') {
         if (ctx.from.id === 1087968824) {
-            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_anonymous'), ctx.default_extra)
+            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_anonymous'), ctx.default_extra).catch(e => {
+                honsole.warn('Failed to send anonymous error message:', e.description || e.message)
+            })
         }
         if ((ctx.chat.id > 0 || await is_chat_admin(ctx.chat.id, ctx.from.id)) && await is_chat_admin(ctx.text, ctx.from.id)) {
-            let linked_chat = await bot.api.getChat(ctx.text)
+            let linked_chat = await bot.api.getChat(ctx.text).catch(e => {
+                honsole.warn('Failed to get chat info:', e.description || e.message)
+                return null
+            })
+            if (!linked_chat) return
             let default_linked_setting = {
                 chat_id: linked_chat.id,
                 type: linked_chat.type,
@@ -263,9 +289,13 @@ bot.on([':text', ':caption'], async (ctx) => {
             await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'link_done', linked_chat.title, linked_chat.id) + _l(ctx.l, 'link_setting'), {
                 ...ctx.default_extra,
                 ...k_link_setting(ctx.l, default_linked_setting)
+            }).catch(e => {
+                honsole.warn('Failed to send link done message:', e.description || e.message)
             })
         } else {
-            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra)
+            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra).catch(e => {
+                honsole.warn('Failed to send admin check error message:', e.description || e.message)
+            })
         }
         return
     }

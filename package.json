@@ -24,15 +24,15 @@
     "@grammyjs/auto-retry": "^2.0.2",
     "@grammyjs/runner": "^1.0.4",
     "@grammyjs/transformer-throttler": "^1.2.1",
-    "axios": "^1.8.4",
-    "grammy": "^1.35.1",
-    "jsdom": "^26.0.0",
-    "koa": "^2.16.1",
-    "koa-bodyparser": "^4.4.1",
-    "koa-router": "^10.1.1",
-    "mongodb": "^6.15.0",
+    "@koa/bodyparser": "^6.0.0",
+    "@koa/router": "^15.0.0",
+    "axios": "^1.13.2",
+    "grammy": "^1.38.4",
+    "jsdom": "^26.1.0",
+    "koa": "^3.1.1",
+    "mongodb": "^7.0.0",
     "node-fetch": "^3.3.2",
-    "remove-markdown": "^0.6.0",
+    "remove-markdown": "^0.6.2",
     "telegraf": "^4.16.3"
   }
 }
