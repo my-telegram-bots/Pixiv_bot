@@ -68,6 +68,9 @@ export async function thumb_to_all(illust, try_time = 0, lightweight = false) {
         .replace('/c/128x128/img-master', '∏a∏')
         .replace('/c/128x128/custom-thumb', '∏a∏')
         .replace('/c/250x250_80_a2/img-master', '∏a∏')
+        // Handle all /c/NxN/img-master/ and /c/NxN/custom-thumb/ formats (e.g., /c/480x960/, /c/600x1200/, etc.)
+        .replace(/\/c\/\d+x\d+\/img-master/g, '∏a∏')
+        .replace(/\/c\/\d+x\d+\/custom-thumb/g, '∏a∏')
         .replace('_square1200', '∏b∏')
         .replace('_custom1200', '∏b∏')
         .replace('_master1200', '∏b∏')
@@ -280,7 +283,7 @@ export async function detect_ugpira_url(illust, type = 0) {
     // If using remote ugoira conversion (closed-source/tensei), always return URL
     // Remote service handles conversion on-demand
     if (config.pixiv.ugoira_remote) {
-        return `${config.pixiv.ugoiraurl}${no_tmp_path}?a=1`
+        return `${config.pixiv.ugoiraurl}${no_tmp_path}`
     }
 
     // For local conversion, check if file exists

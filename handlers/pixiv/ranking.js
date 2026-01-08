@@ -1,6 +1,8 @@
 import db from '../../db.js'
-import { honsole } from '../common.js'
+import { honsole, asyncForEach } from '../common.js'
 import { r_p_ajax } from './request.js'
+import { thumb_to_all } from './tools.js'
+import { update_illust } from './illust.js'
 /**
  * 获取每日/每周/每月排行榜 当然 会缓存啦
  * @param {int} 页数
@@ -46,27 +48,80 @@ export async function ranking(page = 1, mode = 'daily', date = false, filter_typ
             honsole.dev('insert error', error)
         }
     }
+    const filteredData = data.contents.filter((p) => {
+        return filter_type.indexOf(parseInt(p.illust_type)) > -1
+    }).map((p) => {
+        p.url = p.url//.replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
+        return {
+            id: p.illust_id,
+            title: p.title,
+            ourl: p.url.replace("/c/240x480/img-master/", "/img-original/").replace("_master1200", ""),
+            murl: p.url.replace("/c/240x480/img-master/", "/img-master/"),
+            turl: p.url,
+            original_urls: [p.url.replace("/c/240x480/img-master/", "/img-original/").replace("_master1200", "")],
+            width: p.width,
+            height: p.height,
+            tags: p.tags,
+            author_name: p.user_name,
+            author_id: p.user_id,
+            urls: {
+                thumb: p.url,
+                original: p.url.replace("/c/240x480/img-master/", "/img-original/").replace("_master1200", "")
+            },
+            page_count: 1
+        }
+    })
+
+    // Asynchronously process and store ranking illusts in database (non-blocking)
+    processRankingIllusts(filteredData).catch(error => {
+        honsole.error('Error processing ranking illusts:', error)
+    })
+
     return {
-        data: data.contents.filter((p) => {
-            return filter_type.indexOf(parseInt(p.illust_type)) > -1
-        }).map((p) => {
-            p.url = p.url//.replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
-            return {
-                id: p.illust_id,
-                title: p.title,
-                ourl: p.url.replace("/c/240x480/img-master/", "/img-original/").replace("_master1200", ""),
-                murl: p.url.replace("/c/240x480/img-master/", "/img-master/"),
-                turl: p.url,
-                original_urls: [p.url.replace("/c/240x480/img-master/", "/img-original/").replace("_master1200", "")],
-                width: p.width,
-                height: p.height,
-                tags: p.tags,
-                author_name: p.user_name,
-                author_id: p.user_id
-            }
-        }),
+        data: filteredData,
         date: data.date,
         next_page: data.next
     }
+}
+
+/**
+ * Asynchronously process ranking illusts and store them in database
+ * Uses thumb_to_all to get complete image URLs
+ * @param {Array} illusts Array of illust objects from ranking
+ */
+async function processRankingIllusts(illusts) {
+    honsole.dev(`[processRankingIllusts] Starting to process ${illusts.length} illusts`)
+
+    await asyncForEach(illusts, async (illust) => {
+        try {
+            // Check if illust already exists in DB with complete data
+            const existingIllust = await db.collection.illust.findOne({ id: illust.id })
+
+            // Only process if not exists or missing imgs_ data
+            if (!existingIllust || !existingIllust.imgs_ || !existingIllust.imgs_.size || !existingIllust.imgs_.size[0]) {
+                honsole.dev(`[processRankingIllusts] Processing illust ${illust.id}`)
+
+                // Use thumb_to_all to get complete image URLs (lightweight mode for performance)
+                const imgs_ = await thumb_to_all(illust, 0, true)
+
+                if (imgs_) {
+                    illust.imgs_ = imgs_
+                    illust.type = 0 // illust type (0: illust, 1: manga, 2: ugoira)
+
+                    // Store in database
+                    await update_illust(illust, false, true, true)
+                    honsole.dev(`[processRankingIllusts] Stored illust ${illust.id}`)
+                } else {
+                    honsole.warn(`[processRankingIllusts] Failed to get imgs_ for illust ${illust.id}`)
+                }
+            } else {
+                honsole.dev(`[processRankingIllusts] Illust ${illust.id} already exists with complete data`)
+            }
+        } catch (error) {
+            honsole.error(`[processRankingIllusts] Error processing illust ${illust.id}:`, error)
+        }
+    })
+
+    honsole.dev(`[processRankingIllusts] Finished processing ${illusts.length} illusts`)
 }
 export default ranking
