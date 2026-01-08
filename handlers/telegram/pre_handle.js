@@ -155,7 +155,9 @@ export async function read_user_setting(bot, ctx) {
                 open: true,
                 share: true,
                 show_id: true,
-                album: true
+                album: true,
+                single_caption: true,
+                album_one: true
             },
             dbless: true, // the user isn't in chat_setting
         },
@@ -217,9 +219,9 @@ export async function read_user_setting(bot, ctx) {
         caption_above: us(d_f, ctx.text, 'caption_above', ['above']),
         // can't use switch_inline_query in a channel chat, because a user will not be able to use the button without knowing bot's username
         share: us(d_f, ctx.text, 'share'),
-        //                                              dirty but work
-        remove_keyboard: us(d_f, ctx.text.replaceAll('+', '\uff69').replaceAll('-', '+').replaceAll('\uff69', '-'), 'remove_keyboard', ['kb']),
-        remove_caption: us(d_f, ctx.text.replaceAll('+', '\uff69').replaceAll('-', '+').replaceAll('\uff69', '-'), 'remove_caption', ['cp']),
+        // inverted=true: -kb means enable removal, +kb means disable removal
+        remove_keyboard: us(d_f, ctx.text, 'remove_keyboard', ['kb'], true),
+        remove_caption: us(d_f, ctx.text, 'remove_caption', ['cp'], true),
         // inline mode doesn't support mediagroup single_caption mode is useless
         single_caption: us(d_f, ctx.text, 'single_caption', ['sc']),
         show_id: us(d_f, ctx.text, 'show_id', ['id']),
@@ -325,16 +327,51 @@ export async function read_user_setting(bot, ctx) {
     }
     return ctx.us
 }
-function us(d_f, text, name = 'tags', slugs = []) {
+/**
+ * Parse user setting from text with support for +/- flags
+ * @param {Object} d_f - Default flags object
+ * @param {string} text - Text to parse for flags
+ * @param {string} name - Setting name
+ * @param {string[]} slugs - Alternative slug names for this setting
+ * @param {boolean} inverted - If true, inverts the meaning of +/- (use for remove_* options)
+ * @returns {boolean} The resolved setting value
+ */
+function us(d_f, text, name = 'tags', slugs = [], inverted = false) {
     slugs.push(name)
-    if (slugs.some(slug => {
-        return text.includes(`-${slug}`)
-    })) {
+
+    // Escape regex special characters in slug
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+    // Check for explicit enable/disable flags with word boundaries
+    const hasPlus = slugs.some(slug => {
+        // Match +slug followed by space, end of string, or non-word character
+        const pattern = new RegExp(`\\+${escapeRegex(slug)}(?=\\s|$|[^\\w])`)
+        return pattern.test(text)
+    })
+
+    const hasMinus = slugs.some(slug => {
+        // Match -slug followed by space, end of string, or non-word character
+        const pattern = new RegExp(`-${escapeRegex(slug)}(?=\\s|$|[^\\w])`)
+        return pattern.test(text)
+    })
+
+    // If inverted, swap the meaning of + and -
+    // Used for remove_* options where - means "enable removal" (counterintuitive but existing behavior)
+    const enableFlag = inverted ? hasMinus : hasPlus
+    const disableFlag = inverted ? hasPlus : hasMinus
+
+    // Explicit disable flag takes priority
+    if (disableFlag) {
         return false
     }
-    return d_f[name] || slugs.some(slug => {
-        return text.includes(`+${slug}`)
-    })
+
+    // Explicit enable flag takes priority over default
+    if (enableFlag) {
+        return true
+    }
+
+    // Fall back to default value, or false if no default exists
+    return d_f[name] || false
 }
 export async function handle_new_configuration(bot, ctx, default_extra) {
     if (ctx.chat && ctx.chat.type === 'channel') {

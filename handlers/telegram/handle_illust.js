@@ -18,12 +18,13 @@ export async function handle_illusts(ids, flag) {
  * 作为 ../pixiv/illust 的 tg 封装
  * @param {*} id
  * @param {*} flag
+ * @param {boolean} lightweight Lightweight mode for inline query (skip fsize)
  */
-export async function handle_illust(id, flag) {
+export async function handle_illust(id, flag, lightweight = false) {
     let illust = id
     if (typeof illust !== 'object' && !isNaN(parseInt(id))) {
         try {
-            illust = await get_illust(id)
+            illust = await get_illust(id, false, false, 0, lightweight)
         } catch (error) {
             // Handle queue timeout and other errors gracefully
             honsole.error(`Error fetching illust ${id}:`, error.message)

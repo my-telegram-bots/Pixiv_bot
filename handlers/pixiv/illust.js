@@ -1,6 +1,6 @@
 import { r_p_ajax } from '#handlers/pixiv/request'
 import db from '#db'
-import { honsole, sleep } from '#handlers/common'
+import { honsole, sleep, memoryMonitor } from '#handlers/common'
 import { thumb_to_all } from '#handlers/pixiv/tools'
 
 
@@ -68,28 +68,39 @@ const illust_notfound_cache = new TTLCache(500, 600000) // 10 minutes TTL for 40
 // Queue with timestamps for timeout detection
 const illust_queue = new Map() // id -> { timestamp, retries }
 
-// Cleanup queue periodically
-setInterval(() => {
+// Cleanup queue periodically and monitor memory
+setInterval(async () => {
     const now = Date.now()
     const staleEntries = []
-    
+
     for (const [id, entry] of illust_queue) {
         // Remove entries older than 60 seconds
         if (now - entry.timestamp > 60000) {
             staleEntries.push(id)
         }
     }
-    
+
     if (staleEntries.length > 0) {
         honsole.warn(`Removing ${staleEntries.length} stale queue entries:`, staleEntries)
         staleEntries.forEach(id => illust_queue.delete(id))
     }
-    
+
     if (illust_queue.size > 100) {
         honsole.warn(`Illust queue size is large: ${illust_queue.size}`)
         // Log queue contents for debugging
         const queueIds = Array.from(illust_queue.keys())
         honsole.dev('Current queue contents:', queueIds.slice(0, 20))
+    }
+
+    // Monitor memory and cache sizes
+    const status = await memoryMonitor.logStatus({
+        illust_queue,
+        illust_notfound_cache
+    })
+
+    // Trigger GC if memory is high and GC is available
+    if (status.shouldGC) {
+        memoryMonitor.gc()
     }
 }, 30000) // Check every 30 seconds for more frequent cleanup
 
@@ -100,7 +111,7 @@ setInterval(() => {
  * @param {boolean} fresh true => return newest data from pixiv
  * @param {object} flag configure
  */
-export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
+export async function get_illust(id, fresh = false, raw = false, try_time = 0, lightweight = false) {
     if (try_time > 4) {
         throw new Error(`Max retry attempts reached for illust: ${id}`)
     }
@@ -167,7 +178,7 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0) {
             try {
                 let illust_data = (await r_p_ajax.get('illust/' + id)).data
                 honsole.dev('fetch-fresh-illust', illust_data)
-                illust = await update_illust(illust_data.body)
+                illust = await update_illust(illust_data.body, false, true, lightweight)
                 return illust
             } catch (error) {
                 // network, session or Work has been deleted or the ID does not exist.
@@ -248,9 +259,10 @@ export async function get_illust_with_retry(id, fresh = false, raw = false, maxR
  * @param {*} illust
  * @param {object} extra_data extra data stored in database
  * @param {boolean} id_update_flag true => will delete 'id' (string) and create id (number)
+ * @param {boolean} lightweight Lightweight mode: skip fsize, return fast, complete in background
  * @returns object
  */
-export async function update_illust(illust, extra_data = false, id_update_flag = true) {
+export async function update_illust(illust, extra_data = false, id_update_flag = true, lightweight = false) {
     if (typeof illust != 'object') {
         return false
     }
@@ -307,15 +319,15 @@ export async function update_illust(illust, extra_data = false, id_update_flag =
             cover_img_url: illust.urls.original
         }
     } else if (!illust.imgs_ || !illust.imgs_.fsize || !illust.imgs_.fsize[0]) {
-        illust.imgs_ = await thumb_to_all(illust)
+        illust.imgs_ = await thumb_to_all(illust, 0, lightweight)
         if (!illust.imgs_) {
             console.warn(illust.id, 'deleted')
             // Mark as deleted in database
             try {
                 await db.collection.illust.updateOne(
                     { id: illust.id },
-                    { 
-                        $set: { 
+                    {
+                        $set: {
                             deleted: true,
                             deleted_at: new Date()
                         }
@@ -362,5 +374,27 @@ export async function update_illust(illust, extra_data = false, id_update_flag =
         upsert: true
     })
     honsole.dev('real_illust', real_illust)
+
+    // In lightweight mode, trigger background completion with full fsize data
+    if (lightweight && (!illust.imgs_.fsize || illust.imgs_.fsize[0] === -1 || illust.imgs_.fsize[0] <= 0)) {
+        honsole.dev('[update_illust] Triggering background fsize completion for', illust.id)
+        // Non-blocking: complete fsize detection and update DB in background
+        ;(async () => {
+            try {
+                const fullIllust = { ...illust }
+                fullIllust.imgs_ = await thumb_to_all(fullIllust, 0, false) // Get full data with fsize
+                if (fullIllust.imgs_) {
+                    await db.collection.illust.updateOne(
+                        { id: illust.id },
+                        { $set: { imgs_: fullIllust.imgs_ } }
+                    )
+                    honsole.dev('[update_illust] Background fsize completion done for', illust.id)
+                }
+            } catch (error) {
+                honsole.warn('[update_illust] Background fsize completion failed for', illust.id, error)
+            }
+        })()
+    }
+
     return real_illust
 }

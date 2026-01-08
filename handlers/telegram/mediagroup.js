@@ -1,9 +1,8 @@
 import { format } from './format.js'
 import { asyncForEach, fetch_tmp_file, honsole } from '../common.js'
-import config from '../../config.js'
 import { detect_ugpira_url, ugoira_to_mp4 } from '../pixiv/tools.js'
 import { InputFile } from 'grammy'
-import df from './df.js'
+import config from '../../config.js'
 
 export async function mg_create(illust, us) {
     let mediagroups = []
@@ -43,6 +42,16 @@ export async function mg_create(illust, us) {
                 mediagroup_data.media_r = illust.imgs_.regular_urls[pid]
             } else if (illust.type == 2) {
                 let url = await detect_ugpira_url(illust, 'mp4')
+                // For local conversion: wait if mp4 doesn't exist yet
+                // For remote conversion: URL is always available (tensei handles on-demand)
+                if (!url && !config.pixiv.ugoira_remote) {
+                    honsole.log('Ugoira mp4 not ready, waiting for local conversion:', illust.id)
+                    url = await ugoira_to_mp4(illust)
+                    if (!url) {
+                        honsole.warn('Ugoira local conversion failed:', illust.id)
+                        return // Skip adding this to mediagroups
+                    }
+                }
                 mediagroup_data = {
                     ...mediagroup_data,
                     type: 'video',
@@ -122,8 +131,9 @@ export function mg_albumize(mg = [], us) {
 }
 export async function mg_filter(mg, type = 't') {
     honsole.dev('filter_type', type)
-    let t = []
-    await asyncForEach(mg, async (x) => {
+
+    // Parallel processing for better performance (especially when downloading files)
+    const results = await Promise.all(mg.map(async (x) => {
         let xx = {
             type: x.type
         }
@@ -139,54 +149,52 @@ export async function mg_filter(mg, type = 't') {
         } else {
             xx.media = x.media_t ? x.media_t : x.media_o
         }
+
+        // Create local copy of type for this specific item
+        let itemType = type
+
         if (x.type == 'document') {
             xx.media = x.media_o
-            if (type.includes('dl')) {
+            if (itemType.includes('dl')) {
                 // dlo => download media_o file
                 // dlr => download media_r file
-                const url = x['media_' + type.replace('dl', '')]
+                const url = x['media_' + itemType.replace('dl', '')]
                 xx.media = new InputFile(await fetch_tmp_file(url), url.slice(url.lastIndexOf('/') + 1))
             }
         } else if (x.type == 'video') {
-            // nothing download in ugoira
-            xx.media = x.media
-            if (type.includes('dl') || type.includes('r')) {
-                xx.media = `${xx.media}?${+new Date()}`
+            // Video: prefer file_id, otherwise force local download (HTTP URLs unreliable for video in mediagroup)
+            if (x.tg_file_id) {
+                xx.media = x.tg_file_id
+            } else {
+                // Force download and upload as InputFile
+                const url = x.media_o || x.media
+                xx.media = new InputFile(await fetch_tmp_file(url), url.slice(url.lastIndexOf('/') + 1))
             }
         } else {
-            if (type.includes('o')) {
-                if (x.fsize > 4999999 && type == 'o') {
-                    type = 'r'
-                } else if (x.fsize > 9999999 && type == 'dlo') {
-                    type = 'dlr'
+            if (itemType.includes('o')) {
+                if (x.fsize > 4999999 && itemType == 'o') {
+                    itemType = 'r'
+                } else if (x.fsize > 9999999 && itemType == 'dlo') {
+                    itemType = 'dlr'
                 }
             }
-            if (x.invaild) {
-                // Smart retry logic: if a media type failed, try alternatives
-                if (x.invaild.includes(type)) {
-                    // Current type failed, find best alternative
-                    if (type === 'o' && !x.invaild.includes('r')) {
-                        type = 'r'  // Try regular quality
-                    } else if (type === 'r' && !x.invaild.includes('dlo')) {
-                        type = 'dlo'  // Download original
-                    } else if (type === 'o' && !x.invaild.includes('dlo')) {
-                        type = 'dlo'  // Download original 
-                    } else if (!x.invaild.includes('dlr')) {
-                        type = 'dlr'  // Download regular as last resort
-                    }
-                }
+            // Smart retry: if current type failed before, try alternatives
+            if (x.invaild && x.invaild.includes(itemType)) {
+                const fallbackOrder = ['r', 'dlo', 'dlr']
+                itemType = fallbackOrder.find(t => !x.invaild.includes(t)) || itemType
             }
 
-            if (type.includes('dl') && !x.media_t) {
+            if (itemType.includes('dl') && !x.media_t) {
                 // dlo => download media_o file
                 // dlr => download media_r file
-                const url = x['media_' + type.replace('dl', '')]
+                const url = x['media_' + itemType.replace('dl', '')]
                 xx.media = new InputFile(await fetch_tmp_file(url), url.slice(url.lastIndexOf('/') + 1))
-            } else if (type == 'r') {
+            } else if (itemType == 'r') {
                 xx.media = x.media_r ? x.media_r : x.media_o
             }
         }
-        t.push(xx)
-    })
-    return t
+        return xx
+    }))
+
+    return results
 }

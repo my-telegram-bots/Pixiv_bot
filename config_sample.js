@@ -8,7 +8,8 @@ export default {
         ua: "",
         pximgproxy: "",
         csrf: "",
-        ugoiraurl: ""
+        ugoiraurl: "",
+        ugoira_remote: false // Set to true if using remote ugoira conversion
     },
     tg: {
         master_id: 1,
@@ -16,12 +17,5 @@ export default {
         access_token: "",
         salt: "",
         refetch_api: ""
-    },
-    web: {
-        enabled: false,
-        host: "127.0.0.1",
-        port: 30005,
-        recaptcha_key: false,
-        hcaptcha_key: false
     }
 }

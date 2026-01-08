@@ -16,18 +16,18 @@
     "#db": "./db.js"
   },
   "scripts": {
-    "all": "node app.js",
-    "bot": "WEBLESS=1 node app.js",
-    "web": "node web.js"
+    "all": "node --max-old-space-size=4096 app.js",
+    "bot": "WEBLESS=1 node --max-old-space-size=4096 app.js",
+    "web": "node --max-old-space-size=4096 web.js"
   },
   "dependencies": {
     "@grammyjs/auto-retry": "^2.0.2",
     "@grammyjs/runner": "^1.0.4",
     "@grammyjs/transformer-throttler": "^1.2.1",
     "@koa/bodyparser": "^6.0.0",
-    "@koa/router": "^15.0.0",
+    "@koa/router": "^15.2.0",
     "axios": "^1.13.2",
-    "grammy": "^1.38.4",
+    "grammy": "^1.39.2",
     "jsdom": "^26.1.0",
     "koa": "^3.1.1",
     "mongodb": "^7.0.0",
