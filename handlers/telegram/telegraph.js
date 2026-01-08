@@ -19,21 +19,14 @@ export async function mg2telegraph(mg, title, user_id, author_name, author_url) 
         await asyncForEach(mg, async (d) => {
             let url = null
             // telegraph cant fetch the file size over 2M
-            // if (d.type == 'photo') {
-            //     // image too large and telegram will disable the instat view in telegraph
-            //     if (d.fsize > 2048000) {
-            //         // 2048000 = 2MB
-            //         url = d.media_r
-            //     }
-            // } else 
             if (d.type == 'video') {
                 url = await ugoira_to_mp4(d.id)
-            }
-            // iv support.webp for reduce file size and fetch time
-            else if (config.tg.webp) {
-                url = d.media_o.replace('i-cf.pximg.net', config.pixiv.pximgproxy).replace('i.pximg.net', config.pixiv.pximgproxy) + '.webp'
+                // iv support.webp for reduce file size and fetch time
             } else {
                 url = d.media_r.replace('i-cf.pximg.net', config.pixiv.pximgproxy).replace('i.pximg.net', config.pixiv.pximgproxy)
+                if (config.tg.webp) {
+                    url += '.webp'
+                }
             }
             // caption = '' = -> muilt images
             if (d.caption == '') {

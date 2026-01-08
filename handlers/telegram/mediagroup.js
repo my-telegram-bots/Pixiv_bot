@@ -37,7 +37,6 @@ export async function mg_create(illust, us) {
                 }
             }
             if (illust.type <= 1) {
-                mediagroup_data.fsize = illust.imgs_.fsize[pid]
                 mediagroup_data.media_o = illust.imgs_.original_urls[pid]
                 mediagroup_data.media_r = illust.imgs_.regular_urls[pid]
             } else if (illust.type == 2) {
@@ -171,13 +170,6 @@ export async function mg_filter(mg, type = 't') {
                 xx.media = new InputFile(await fetch_tmp_file(url), url.slice(url.lastIndexOf('/') + 1))
             }
         } else {
-            if (itemType.includes('o')) {
-                if (x.fsize > 4999999 && itemType == 'o') {
-                    itemType = 'r'
-                } else if (x.fsize > 9999999 && itemType == 'dlo') {
-                    itemType = 'dlr'
-                }
-            }
             // Smart retry: if current type failed before, try alternatives
             if (x.invaild && x.invaild.includes(itemType)) {
                 const fallbackOrder = ['r', 'dlo', 'dlr']

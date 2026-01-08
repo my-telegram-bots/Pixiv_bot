@@ -18,7 +18,7 @@ export async function handle_illusts(ids, flag) {
  * 作为 ../pixiv/illust 的 tg 封装
  * @param {*} id
  * @param {*} flag
- * @param {boolean} lightweight Lightweight mode for inline query (skip fsize)
+ * @param {boolean} lightweight Lightweight mode for inline query (skip head_url check)
  */
 export async function handle_illust(id, flag, lightweight = false) {
     let illust = id

@@ -36,13 +36,12 @@ const headUrlQueue = new HeadUrlQueue(5)
 
 /**
  * thumb url to regular and original urls
- * and got original file size
  * @param {string} thumb_url
  * @param {number} page_count
- * @param {boolean} skip_fsize Skip file size detection for faster loading (inline query)
+ * @param {boolean} lightweight Skip head_url check for faster loading (inline query)
  * @returns
  */
-export async function thumb_to_all(illust, try_time = 0, skip_fsize = false) {
+export async function thumb_to_all(illust, try_time = 0, lightweight = false) {
     if (try_time > 3) {
         return false
     }
@@ -60,8 +59,7 @@ export async function thumb_to_all(illust, try_time = 0, skip_fsize = false) {
         thumb_urls: [],
         regular_urls: [],
         original_urls: [],
-        size: [],
-        fsize: []
+        size: []
     }
     let base_url = illust.url ? illust.url : ((illust.imgs_ && illust.imgs_.thumb_urls) ? illust.imgs_.thumb_urls[0] : illust.urls.thumb)
     base_url = base_url
@@ -86,18 +84,18 @@ export async function thumb_to_all(illust, try_time = 0, skip_fsize = false) {
         console.warn('Inpossible! no origin url', illust.id, original_url)
     }
     try {
-        let original_img_length = 0
         let get_page_flag = false
 
-        // Skip file size detection for inline query (major performance boost)
-        if (!skip_fsize) {
-            original_img_length = await head_url(original_url)
-            if (original_img_length == 404) {
-                // 404 = not only jpg but also gif
+        // Skip head_url check in lightweight mode for better performance (inline query)
+        if (!lightweight) {
+            // Check if original URL exists (might be wrong format like png/gif instead of jpg)
+            const fileExists = await head_url(original_url)
+            if (!fileExists) {
+                // 404 = not only jpg but also gif/png, need to call pages API
                 get_page_flag = true
             }
         } else {
-            honsole.dev('[thumb_to_all] Skipping fsize detection for fast inline loading', illust.id)
+            honsole.dev('[thumb_to_all] Skipping head_url check for fast inline loading', illust.id)
         }
 
         if (get_page_flag || (illust.page_count && illust.page_count > 1) || (illust.pageCount && illust.pageCount > 1) || (illust.imgs_ && illust.imgs_.size && illust.imgs_.size.length > 1)) {
@@ -119,23 +117,12 @@ export async function thumb_to_all(illust, try_time = 0, skip_fsize = false) {
             }]
         }
         await asyncForEach(illust.page, async (l, i) => {
-            imgs_.thumb_urls[i] = l.urls.thumb//.replace('i.pximg.net', 'i-cf.pximg.net')
-            imgs_.regular_urls[i] = l.urls.regular//.replace('i.pximg.net', 'i-cf.pximg.net')
-            imgs_.original_urls[i] = l.urls.original//.replace('i.pximg.net', 'i-cf.pximg.net')
+            imgs_.thumb_urls[i] = l.urls.thumb
+            imgs_.regular_urls[i] = l.urls.regular
+            imgs_.original_urls[i] = l.urls.original
             imgs_.size[i] = {
                 width: l.width,
                 height: l.height
-            }
-
-            // Skip file size detection for inline query
-            if (!skip_fsize) {
-                if (!original_img_length || original_img_length == 404 || i > 0) {
-                    original_img_length = await head_url(imgs_.original_urls[i])
-                }
-                imgs_.fsize[i] = original_img_length
-            } else {
-                // Use -1 to indicate "not detected yet" (will be filled in background)
-                imgs_.fsize[i] = -1
             }
 
             honsole.dev(imgs_)
@@ -418,17 +405,13 @@ export async function ugoira_to_gif(illust, quality = 'large', real_width = 0, r
     return config.pixiv.ugoiraurl + no_tmp_path
 }
 /**
- * get url's file size (content-length)
+ * Check if URL exists (HEAD request)
  * @param {*} url
- * @returns number / boolean
+ * @returns boolean (true = 200 OK, false = 404 or error)
  */
 export async function head_url(url, try_time = 0) {
-    // dbless mode -> save request time
-    if (process.env.DBLESS) {
-        return 99999999
-    }
     if (try_time > 6) {
-        honsole.error("can't get", url, 'content-length')
+        honsole.error("can't head", url)
         return false
     }
     url = url.replace('i-cf.pixiv.net', 'i.pixiv.net')
@@ -437,84 +420,9 @@ export async function head_url(url, try_time = 0) {
     await headUrlQueue.acquire(url)
 
     try {
-        // original may be a .png file
-        // send head reqeust to check.
         honsole.log('[head_url] trying', try_time, url)
 
-        // Use streaming GET request to avoid loading entire file into memory
-        if (try_time > 1) {
-            let size = 0
-            const response = await axios({
-                url: url,
-                method: 'GET',
-                responseType: 'stream',
-                headers: {
-                    'User-Agent': config.pixiv.ua,
-                    'Referer': 'https://www.pixiv.net'
-                },
-                timeout: 5000,
-                maxContentLength: Infinity,
-                maxBodyLength: Infinity
-            })
-
-            // Get size from content-length if available
-            if (response.headers['content-length']) {
-                response.data.destroy() // Close stream immediately
-                headUrlQueue.release(url)
-                return parseInt(response.headers['content-length'])
-            }
-
-            // Otherwise count bytes from stream without storing in memory
-            return new Promise((resolve, reject) => {
-                let streamClosed = false
-
-                // Add timeout to prevent hanging streams (10 seconds max for size detection)
-                const timeoutId = setTimeout(() => {
-                    if (!streamClosed) {
-                        streamClosed = true
-                        honsole.warn('[head_url] Stream timeout, destroying stream:', url)
-                        response.data.destroy()
-                        headUrlQueue.release(url)
-                        // If we got some data, use that size; otherwise assume large file
-                        resolve(size > 0 ? size : 9999999)
-                    }
-                }, 10000)
-
-                response.data.on('data', (chunk) => {
-                    size += chunk.length
-                    // If file is too large (>10MB), stop streaming early
-                    if (size > 10000000) {
-                        if (!streamClosed) {
-                            streamClosed = true
-                            clearTimeout(timeoutId)
-                            response.data.destroy()
-                            headUrlQueue.release(url)
-                            resolve(size)
-                        }
-                    }
-                })
-
-                response.data.on('end', () => {
-                    if (!streamClosed) {
-                        streamClosed = true
-                        clearTimeout(timeoutId)
-                        headUrlQueue.release(url)
-                        resolve(size)
-                    }
-                })
-
-                response.data.on('error', (err) => {
-                    if (!streamClosed) {
-                        streamClosed = true
-                        clearTimeout(timeoutId)
-                        headUrlQueue.release(url)
-                        reject(err)
-                    }
-                })
-            })
-        }
-
-        // First try with HEAD request
+        // Send HEAD request to check if file exists
         let res = await axios({
             url: url,
             method: 'HEAD',
@@ -525,34 +433,25 @@ export async function head_url(url, try_time = 0) {
             timeout: 2000
         })
 
-        if (!res.headers['content-length']) {
-            headUrlQueue.release(url)
-            throw 'n_cl'; // no have content-length
-        }
-        // Warning, Pixiv return content-length value is not a real file size
-        // it less than real_value
-        // pixiv's content-length * .1.05 ≈ real_value
         headUrlQueue.release(url)
-        return parseInt(res.headers['content-length'])
+        return res.status === 200
     } catch (error) {
         headUrlQueue.release(url)
-        if (error.code) {
-            // timeout
-            // 文件太大了，以程序行为，没有统计大小的必要了
-            if (error.code === 'ECONNABORTED') {
-                honsole.log('[head_url] timeout', url)
-                return 9999999
-            }
+
+        if (error.response && error.response.status === 404) {
+            return false
         }
-        if (error.response && error.response.status == 404) {
-            // maybe not return 404 (length)
-            return 404
-        }
-        else {
-            honsole.warn('ggggg try again')
-            honsole.dev(error)
+
+        // Retry on timeout or other errors
+        if (error.code === 'ECONNABORTED') {
+            honsole.log('[head_url] timeout', url)
             await sleep(100)
             return await head_url(url, try_time + 1)
         }
+
+        honsole.warn('[head_url] error, retrying', error.message)
+        honsole.dev(error)
+        await sleep(100)
+        return await head_url(url, try_time + 1)
     }
 }

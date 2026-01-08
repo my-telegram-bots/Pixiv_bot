@@ -120,11 +120,11 @@ export async function buildIllustURLsWithProbe(illust) {
     const urls = deriveURLsFromBase(baseUrl)
 
     // Probe first file's format
-    let probeResult = await head_url(urls.original)
+    const fileExists = await head_url(urls.original)
     let needsPageFetch = false
 
-    if (probeResult === 404) {
-        // 404 might mean wrong format (png/gif), need to get page details
+    if (!fileExists) {
+        // File doesn't exist might mean wrong format (png/gif), need to get page details
         needsPageFetch = true
     }
 

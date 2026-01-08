@@ -335,6 +335,33 @@ async function override_user_setting_format_2025_april() {
     process.exit()
 }
 
+/**
+ * Remove fsize field from all illusts (2025 January)
+ * fsize is no longer needed - we simplified head_url to only check file existence
+ */
+async function remove_fsize_field_2025_january() {
+    await db.db_initial()
+    let d = await db.collection.illust.find({}).toArray()
+    console.log('Removing fsize field from illusts in local database', d.length)
+
+    let updated = 0
+    await asyncForEach(d, async (illust, id) => {
+        if (illust.imgs_ && illust.imgs_.fsize) {
+            console.log('removing fsize from', id, illust.id, illust.title)
+            await db.collection.illust.updateOne(
+                { id: illust.id },
+                { $unset: { 'imgs_.fsize': '' } }
+            )
+            updated++
+            if (updated % 100 === 0) {
+                console.log('Progress:', updated, '/', d.length)
+            }
+        }
+    })
+    console.log('Completed! Updated', updated, 'illusts')
+    process.exit()
+}
+
 try {
     // just some expliot ? LOL
     eval(process.argv[2] + '()')
