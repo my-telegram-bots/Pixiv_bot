@@ -11,13 +11,13 @@ export async function handle_ranking([...rank], flag) {
         inline.push({
             type: 'photo',
             id: 'p_' + td.id,
-            // only show regualar url
-            photo_url: td.murl,
-            thumb_url: td.turl,
-            caption: format(td, flag, 'inline', 1, flag.setting.format.inline),
+            // Use standard imgs_ structure
+            photo_url: td.imgs_.regular_urls[0],
+            thumb_url: td.imgs_.thumb_urls[0],
+            caption: format(td, flag, 'inline', 0, flag.setting.format.inline),
             parse_mode: 'MarkdownV2',
-            photo_width: td.width,
-            photo_height: td.height,
+            photo_width: td.imgs_.size[0].width,
+            photo_height: td.imgs_.size[0].height,
             ...k_os(td.id, flag)
         })
     })

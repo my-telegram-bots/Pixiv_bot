@@ -370,7 +370,7 @@ export async function update_illust(illust, extra_data = false, id_update_flag =
             }
         }
     }
-    ['id', 'title', 'type', 'comment', 'description', 'author_id', 'author_name', 'imgs_', 'tags', 'sl', 'restrict', 'x_restrict', /* 'create_date',*/ 'ai_type', 'tg_file_id', 'storage_endpoint'].forEach(x => {
+    ['id', 'title', 'type', 'comment', 'description', 'author_id', 'author_name', 'imgs_', 'tags', 'sl', 'restrict', 'x_restrict', /* 'create_date',*/ 'ai_type', 'tg_file_id'].forEach(x => {
         // I think pixiv isn't pass me a object?
         if (illust[x] !== undefined) {
             real_illust[x] = illust[x]

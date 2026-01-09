@@ -165,6 +165,9 @@ function dummy_collection() {
     return {
         find: () => { return null; },
         findOne: () => { return null; },
+        insertOne: () => {
+            return { acknowledged: true, insertedId: null }
+        },
         updateOne: () => {
             return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
         },

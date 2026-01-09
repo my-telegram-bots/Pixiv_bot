@@ -20,6 +20,7 @@ import { InputFile } from 'grammy'
 import illustService from '#handlers/pixiv/illust-service'
 import { mg_create } from '#handlers/telegram/mediagroup'
 import { ugoira_to_mp4 as ugoiraConverter } from '#handlers/pixiv/tools'
+import { rankingScheduler } from '#handlers/pixiv/ranking-scheduler'
 
 // Create bot instance with validated configuration
 const bot = createBot(config)
@@ -860,11 +861,11 @@ bot.on('inline_query', async (ctx) => {
                     })
                 } else if (illust.type === 2) {
                     // Ugoira - only show if already converted to MP4
-                    if (illust.tg_file_id || illust.storage_endpoint || process.env.DBLESS) {
+                    if (illust.tg_file_id || process.env.DBLESS) {
                         const options = {}
                         if (illust.tg_file_id) {
                             options.mpeg4_file_id = illust.tg_file_id
-                        } else if (illust.storage_endpoint || process.env.DBLESS) {
+                        } else if (process.env.DBLESS) {
                             options.mpeg4_url = await ugoira_to_mp4(illust)
                             options.thumb_url = illust.imgs_.cover_img_url
                         }
@@ -1002,6 +1003,14 @@ db.db_initial().then(async () => {
         // Initialize memory monitor with bot instance
         memoryMonitor.init(bot, config.tg.master_id)
         console.log('✓ Memory monitor initialized')
+
+        // Initialize ranking scheduler (skip in dbless mode)
+        if (!process.env.DBLESS) {
+            rankingScheduler.start()
+            console.log('✓ Ranking scheduler initialized')
+        } else {
+            console.log('⚠ Ranking scheduler skipped (DBLESS mode)')
+        }
 
         grammyjsRun(bot)
 

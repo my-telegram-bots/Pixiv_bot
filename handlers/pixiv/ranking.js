@@ -33,7 +33,9 @@ export async function ranking(page = 1, mode = 'daily', date = false, filter_typ
     let data = await col.findOne({
         id: mode + date + '_' + page
     })
+    let isNewData = false
     if (!data) {
+        isNewData = true
         data = (await r_p_ajax({
             baseURL: "https://www.pixiv.net/ranking.php",
             params: params
@@ -43,39 +45,49 @@ export async function ranking(page = 1, mode = 'daily', date = false, filter_typ
                 id: data.mode + data.date + '_' + page,
                 ...data,
             })
+            honsole.dev(`[ranking] Inserted new ranking data: ${mode}${date}_${page}`)
         }
         catch (error) {
-            honsole.dev('insert error', error)
+            honsole.dev('[ranking] Insert error', error)
         }
     }
     const filteredData = data.contents.filter((p) => {
         return filter_type.indexOf(parseInt(p.illust_type)) > -1
     }).map((p) => {
-        p.url = p.url//.replace('https://i.pximg.net/', 'https://i-cf.pximg.net/')
+        // Calculate regular URL from thumb URL (reliable transformation)
+        // Remove size constraints like /c/240x480/, /c/480x960/, etc.
+        const regularUrl = p.url.replace(/\/c\/\d+0x\d+0\//, '/')
+
         return {
             id: p.illust_id,
             title: p.title,
-            ourl: p.url.replace("/c/240x480/img-master/", "/img-original/").replace("_master1200", ""),
-            murl: p.url.replace("/c/240x480/img-master/", "/img-master/"),
-            turl: p.url,
-            original_urls: [p.url.replace("/c/240x480/img-master/", "/img-original/").replace("_master1200", "")],
-            width: p.width,
-            height: p.height,
             tags: p.tags,
             author_name: p.user_name,
             author_id: p.user_id,
-            urls: {
-                thumb: p.url,
-                original: p.url.replace("/c/240x480/img-master/", "/img-original/").replace("_master1200", "")
-            },
-            page_count: 1
+            type: parseInt(p.illust_type),
+            rank: p.rank,
+            // Use standard imgs_ structure (same as handle_illust)
+            imgs_: {
+                size: [{
+                    width: p.width,
+                    height: p.height
+                }],
+                thumb_urls: [p.url],
+                regular_urls: [regularUrl]
+            }
         }
     })
 
-    // Asynchronously process and store ranking illusts in database (non-blocking)
-    processRankingIllusts(filteredData).catch(error => {
-        honsole.error('Error processing ranking illusts:', error)
-    })
+    // Only process new data in background (not cached data, not dbless mode)
+    if (isNewData && !process.env.DBLESS) {
+        processRankingIllusts(filteredData, mode + date + '_' + page).catch(error => {
+            honsole.error('Error processing ranking illusts:', error)
+        })
+    } else if (isNewData && process.env.DBLESS) {
+        honsole.dev(`[ranking] DBLESS mode, skipping background processing`)
+    } else {
+        honsole.dev(`[ranking] Using cached data for ${mode}${date}_${page}, skipping background processing`)
+    }
 
     return {
         data: filteredData,

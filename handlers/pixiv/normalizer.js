@@ -72,7 +72,7 @@ export function normalizeIllustData(rawIllust) {
  * @returns {object} Database storage object
  */
 export function extractDbFields(illust, extraData = {}) {
-    const fields = ['id', 'title', 'type', 'comment', 'description', 'author_id', 'author_name', 'imgs_', 'tags', 'sl', 'restrict', 'x_restrict', 'ai_type', 'tg_file_id', 'storage_endpoint']
+    const fields = ['id', 'title', 'type', 'comment', 'description', 'author_id', 'author_name', 'imgs_', 'tags', 'sl', 'restrict', 'x_restrict', 'ai_type', 'tg_file_id']
 
     const dbObject = {}
     for (const field of fields) {

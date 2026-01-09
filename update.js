@@ -362,6 +362,31 @@ async function remove_fsize_field_2025_january() {
     process.exit()
 }
 
+/**
+ * Remove storage_endpoint field from all illusts (2025 January)
+ * storage_endpoint feature has been removed from the codebase
+ */
+async function remove_storage_endpoint_2025_january() {
+    await db.db_initial()
+    let d = await db.collection.illust.find({ storage_endpoint: { $exists: true } }).toArray()
+    console.log('Removing storage_endpoint field from illusts in local database', d.length)
+
+    let updated = 0
+    await asyncForEach(d, async (illust, id) => {
+        console.log('removing storage_endpoint from', id, illust.id, illust.title)
+        await db.collection.illust.updateOne(
+            { id: illust.id },
+            { $unset: { storage_endpoint: '' } }
+        )
+        updated++
+        if (updated % 100 === 0) {
+            console.log('Progress:', updated, '/', d.length)
+        }
+    })
+    console.log('Completed! Updated', updated, 'illusts')
+    process.exit()
+}
+
 try {
     // just some expliot ? LOL
     eval(process.argv[2] + '()')

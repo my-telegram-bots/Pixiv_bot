@@ -69,11 +69,11 @@ export async function handle_illust(id, flag, lightweight = false) {
         })
     } else if (illust.type == 2) {
         // inline + ugoira 只有在现存动图的情况下有意义
-        if (illust.tg_file_id || illust.storage_endpoint || process.env.DBLESS) {
+        if (illust.tg_file_id || process.env.DBLESS) {
             let options = {}
             if (illust.tg_file_id) {
                 options.mpeg4_file_id = illust.tg_file_id
-            } else if (illust.storage_endpoint || process.env.DBLESS) {
+            } else if (process.env.DBLESS) {
                 options.mpeg4_url = await ugoira_to_mp4(illust)
                 // too large
                 options.thumb_url = illust.imgs_.cover_img_url

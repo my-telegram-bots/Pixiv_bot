@@ -6,9 +6,9 @@ import config from '#config'
 import { download_file, sleep, honsole, asyncForEach, exec } from '#handlers/common'
 import { get_illust } from '#handlers/pixiv/illust'
 // ugoira queue
-// maybe need redis ?
-let ugoira_mp4_queue_list = []
-let ugoira_gif_queue_list = []
+// Use Set for O(1) lookup and automatic deduplication
+let ugoira_mp4_queue = new Set()
+let ugoira_gif_queue = new Set()
 
 // head_url concurrency control to prevent OOM
 class HeadUrlQueue {
@@ -68,9 +68,9 @@ export async function thumb_to_all(illust, try_time = 0, lightweight = false) {
         .replace('/c/128x128/img-master', '∏a∏')
         .replace('/c/128x128/custom-thumb', '∏a∏')
         .replace('/c/250x250_80_a2/img-master', '∏a∏')
-        // Handle all /c/NxN/img-master/ and /c/NxN/custom-thumb/ formats (e.g., /c/480x960/, /c/600x1200/, etc.)
-        .replace(/\/c\/\d+x\d+\/img-master/g, '∏a∏')
-        .replace(/\/c\/\d+x\d+\/custom-thumb/g, '∏a∏')
+        // Handle all /c/N0xN0/img-master/ and /c/N0xN0/custom-thumb/ formats (e.g., /c/480x960/, /c/600x1200/, etc.)
+        .replace(/\/c\/\d+0x\d+0\/img-master/g, '∏a∏')
+        .replace(/\/c\/\d+0x\d+0\/custom-thumb/g, '∏a∏')
         .replace('_square1200', '∏b∏')
         .replace('_custom1200', '∏b∏')
         .replace('_master1200', '∏b∏')
@@ -165,12 +165,12 @@ export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
     }
 
     // simple queue
-    if (ugoira_mp4_queue_list.length > 4 || ugoira_mp4_queue_list.includes(id)) {
+    if (ugoira_mp4_queue.size > 4 || ugoira_mp4_queue.has(id)) {
         await sleep(1000)
         return await ugoira_to_mp4(id, force, retry_time)
     }
 
-    ugoira_mp4_queue_list.push(id)
+    ugoira_mp4_queue.add(id)
     try {
         // get fps metadata (timecode)
         // powered by mp4fpsmod
@@ -209,14 +209,14 @@ export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
         await exec(`mp4fpsmod -o ${final_path} -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
 
         clean_ugoira_cache(id)
-        ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
+        ugoira_mp4_queue.delete(id)
         // add some code send file to some endpoints
         // lazy....
         // so u need commit this file when pull and diff changes
 
     } catch (error) {
         honsole.warn(error)
-        ugoira_mp4_queue_list.splice(ugoira_mp4_queue_list.indexOf(id), 1)
+        ugoira_mp4_queue.delete(id)
         await sleep(2000)
         await ugoira_to_mp4(id, force, retry_time + 1)
     }
@@ -349,11 +349,11 @@ export async function ugoira_to_gif(illust, quality = 'large', real_width = 0, r
         honsole.warn('gif retry time exceed 3', id)
         return null
     }
-    if (ugoira_gif_queue_list.length > 4 || ugoira_gif_queue_list.includes(id)) {
+    if (ugoira_gif_queue.size > 4 || ugoira_gif_queue.has(id)) {
         await sleep(1000)
         return await ugoira_to_gif(id, quality, real_width, real_height, force, retry_time)
     }
-    ugoira_gif_queue_list.push(id)
+    ugoira_gif_queue.add(id)
     let mp4_path = null
     let mp4_url = await ugoira_to_mp4(illust)
     // check resouce is local
@@ -396,11 +396,11 @@ export async function ugoira_to_gif(illust, quality = 'large', real_width = 0, r
         // when the processing is complete, -processing.gif -> .gif
         fs.renameSync(`./tmp/gif/${id}-${quality}-processing.gif`, `./tmp/gif/${id}-${quality}.gif`)
         clean_ugoira_cache(id)
-        ugoira_gif_queue_list.splice(ugoira_gif_queue_list.indexOf(id), 1)
+        ugoira_gif_queue.delete(id)
     }
     catch (error) {
         honsole.warn(error)
-        ugoira_gif_queue_list.splice(ugoira_gif_queue_list.indexOf(id), 1)
+        ugoira_gif_queue.delete(id)
         await sleep(500)
         return await ugoira_to_gif(id, quality, real_width, real_height, force, retry_time + 1)
     }
