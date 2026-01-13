@@ -47,12 +47,18 @@ export async function thumb_to_all(illust, try_time = 0, lightweight = false) {
     }
     // ugoira only need cover_url I see
     if (illust.type == 2) {
+        // For ugoira, determine cover_img_url from available sources
+        // Handle both normal API format (urls.original) and ranking format (imgs_.regular_urls)
+        const cover_img_url = illust.urls?.original
+            || (illust.imgs_?.regular_urls && illust.imgs_.regular_urls[0])
+            || (illust.imgs_?.thumb_urls && illust.imgs_.thumb_urls[0])
+
         return {
             size: [{
                 width: illust.width ? illust.width : illust.imgs_.size[0].width,
                 height: illust.height ? illust.height : illust.imgs_.size[0].height
             }],
-            cover_img_url: illust.urls.original
+            cover_img_url: cover_img_url
         }
     }
     let imgs_ = {
