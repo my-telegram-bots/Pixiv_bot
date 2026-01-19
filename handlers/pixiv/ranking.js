@@ -90,9 +90,10 @@ export async function ranking(page = 1, mode = 'daily', date = false, filter_typ
         }
     })
 
-    // Only process new data in background (not cached data, not dbless mode)
+    // Only process new data (not cached data, not dbless mode)
+    // IMPORTANT: Must await to prevent multiple concurrent processRankingIllusts causing OOM
     if (isNewData && !process.env.DBLESS) {
-        processRankingIllusts(filteredData, mode + date + '_' + page).catch(error => {
+        await processRankingIllusts(filteredData, mode + date + '_' + page).catch(error => {
             honsole.error('Error processing ranking illusts:', error)
         })
     } else if (isNewData && process.env.DBLESS) {
