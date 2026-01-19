@@ -26,9 +26,21 @@ export async function ranking(page = 1, mode = 'daily', date = false, filter_typ
     if (date) {
         params.date = date
     }
-    // GMT+0 9 * 60 * 60 - 86400  = 日本前一天时间 - 8 * 60 * 60 (8点更新)
-    // 目前我觉得 pixiv 日榜是 GMT+9 08:00 AM 更新的 等我早起或者挂监控脚本才知道了（（
-    date = date ? date : new Date(new Date().getTime() - 82800000).toISOString().split("T")[0].replace(/-/g, "")
+    // Calculate correct ranking date based on JST time
+    // Pixiv ranking updates at GMT+9 08:00, so we need to use JST timezone
+    if (!date) {
+        const now = new Date()
+        const jstOffset = 9 * 60 * 60 * 1000
+        const jstNow = new Date(now.getTime() + jstOffset + now.getTimezoneOffset() * 60 * 1000)
+
+        // Before JST 08:00, use previous day's ranking
+        const rankingDate = new Date(jstNow)
+        if (jstNow.getHours() < 8) {
+            rankingDate.setDate(rankingDate.getDate() - 1)
+        }
+
+        date = rankingDate.toISOString().split("T")[0].replace(/-/g, "")
+    }
     let col = db.collection.ranking
     let data = await col.findOne({
         id: mode + date + '_' + page
@@ -99,41 +111,78 @@ export async function ranking(page = 1, mode = 'daily', date = false, filter_typ
 /**
  * Asynchronously process ranking illusts and store them in database
  * Uses thumb_to_all to get complete image URLs
+ * MEMORY OPTIMIZED: Processes in small batches with delays
  * @param {Array} illusts Array of illust objects from ranking
  */
 async function processRankingIllusts(illusts) {
     honsole.dev(`[processRankingIllusts] Starting to process ${illusts.length} illusts`)
 
-    await asyncForEach(illusts, async (illust) => {
-        try {
-            // Check if illust already exists in DB with complete data
-            const existingIllust = await db.collection.illust.findOne({ id: illust.id })
+    const BATCH_SIZE = 20 // Process 20 illusts at a time to prevent memory exhaustion
+    const BATCH_DELAY = 3000 // 3 second delay between batches for GC
+    const MEMORY_THRESHOLD_MB = 1500 // Stop if memory exceeds 1.5GB
 
-            // Only process if not exists or missing imgs_ data
-            if (!existingIllust || !existingIllust.imgs_ || !existingIllust.imgs_.size || !existingIllust.imgs_.size[0]) {
-                honsole.dev(`[processRankingIllusts] Processing illust ${illust.id}`)
+    let processedCount = 0
+    let skippedCount = 0
 
-                // Use thumb_to_all to get complete image URLs (lightweight mode for performance)
-                const imgs_ = await thumb_to_all(illust, 0, true)
+    // Process in batches to prevent memory exhaustion
+    for (let i = 0; i < illusts.length; i += BATCH_SIZE) {
+        const batch = illusts.slice(i, i + BATCH_SIZE)
 
-                if (imgs_) {
-                    illust.imgs_ = imgs_
-                    illust.type = 0 // illust type (0: illust, 1: manga, 2: ugoira)
+        // Check memory before processing batch
+        const memUsage = process.memoryUsage()
+        const heapUsedMB = memUsage.heapUsed / 1024 / 1024
 
-                    // Store in database
-                    await update_illust(illust, false, true, true)
-                    honsole.dev(`[processRankingIllusts] Stored illust ${illust.id}`)
-                } else {
-                    honsole.warn(`[processRankingIllusts] Failed to get imgs_ for illust ${illust.id}`)
-                }
-            } else {
-                honsole.dev(`[processRankingIllusts] Illust ${illust.id} already exists with complete data`)
-            }
-        } catch (error) {
-            honsole.error(`[processRankingIllusts] Error processing illust ${illust.id}:`, error)
+        if (heapUsedMB > MEMORY_THRESHOLD_MB) {
+            honsole.warn(`[processRankingIllusts] Memory threshold exceeded (${heapUsedMB.toFixed(2)}MB), stopping processing`)
+            break
         }
-    })
 
-    honsole.dev(`[processRankingIllusts] Finished processing ${illusts.length} illusts`)
+        honsole.log(`[processRankingIllusts] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(illusts.length / BATCH_SIZE)} (${batch.length} illusts, memory: ${heapUsedMB.toFixed(2)}MB)`)
+
+        await asyncForEach(batch, async (illust) => {
+            try {
+                // Check if illust already exists in DB with complete data
+                const existingIllust = await db.collection.illust.findOne({ id: illust.id })
+
+                // Only process if not exists or missing imgs_ data
+                if (!existingIllust || !existingIllust.imgs_ || !existingIllust.imgs_.size || !existingIllust.imgs_.size[0]) {
+                    honsole.dev(`[processRankingIllusts] Processing illust ${illust.id}`)
+
+                    // Use thumb_to_all to get complete image URLs (lightweight mode for performance)
+                    const imgs_ = await thumb_to_all(illust, 0, true)
+
+                    if (imgs_) {
+                        illust.imgs_ = imgs_
+                        illust.type = 0 // illust type (0: illust, 1: manga, 2: ugoira)
+
+                        // Store in database
+                        await update_illust(illust, false, true, true)
+                        honsole.dev(`[processRankingIllusts] Stored illust ${illust.id}`)
+                        processedCount++
+                    } else {
+                        honsole.warn(`[processRankingIllusts] Failed to get imgs_ for illust ${illust.id}`)
+                    }
+                } else {
+                    honsole.dev(`[processRankingIllusts] Illust ${illust.id} already exists with complete data`)
+                    skippedCount++
+                }
+            } catch (error) {
+                honsole.error(`[processRankingIllusts] Error processing illust ${illust.id}:`, error)
+            }
+        })
+
+        // Delay between batches to allow garbage collection
+        if (i + BATCH_SIZE < illusts.length) {
+            honsole.dev(`[processRankingIllusts] Waiting ${BATCH_DELAY}ms before next batch...`)
+            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY))
+
+            // Suggest garbage collection (if --expose-gc flag is set)
+            if (global.gc) {
+                global.gc()
+            }
+        }
+    }
+
+    honsole.log(`[processRankingIllusts] Finished processing ${illusts.length} illusts (processed: ${processedCount}, skipped: ${skippedCount})`)
 }
 export default ranking

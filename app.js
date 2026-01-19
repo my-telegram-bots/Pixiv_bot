@@ -842,15 +842,21 @@ bot.on('inline_query', async (ctx) => {
                 if (illust.type <= 1) {
                     illust.imgs_.size.forEach((size, pid) => {
                         // Skip if URLs are missing
-                        if (!illust.imgs_.regular_urls[pid] || !illust.imgs_.thumb_urls[pid]) {
+                        if (!illust.imgs_.regular_urls[pid]) {
                             honsole.warn('[inline_query] Missing URLs for illust', illust.id, 'pid', pid)
                             return
                         }
+                        // Generate thumb_url from regular_url: /img-master -> /c/480x960/img-master, ensure _master1200.jpg
+                        const regular_url = illust.imgs_.regular_urls[pid]
+                        const thumb_url = regular_url
+                            .replace('/img-master', '/c/480x960/img-master')
+                            .replace(/\.(jpg|png|gif)$/i, '_master1200.jpg')
+
                         inline[pid] = {
                             type: 'photo',
                             id: 'p_' + illust.id + '-' + pid,
-                            photo_url: illust.imgs_.regular_urls[pid],
-                            thumb_url: illust.imgs_.thumb_urls[pid],
+                            photo_url: regular_url,
+                            thumb_url: thumb_url,
                             caption: format(illust, ctx.us, 'inline', pid),
                             photo_width: size.width,
                             photo_height: size.height,
@@ -1036,7 +1042,11 @@ async function catchily(e, chat_id, language_code = 'en') {
     }
     honsole.warn(e)
     try {
-        bot.api.sendMessage(config.tg.master_id, JSON.stringify(e).substring(0, 1000).replace(config.tg.token, '<REALLOCATED>'), {
+        const error_json = JSON.stringify(e);
+        const error_msg = error_json.length > 1000
+            ? error_json.substring(0, 500) + '\n...\n' + error_json.substring(error_json.length - 500)
+            : error_json;
+        bot.api.sendMessage(config.tg.master_id, error_msg.replace(config.tg.token, '<REALLOCATED>'), {
             disable_web_page_preview: true
         }).catch(() => { })
         if (!e.ok) {
@@ -1063,6 +1073,32 @@ async function catchily(e, chat_id, language_code = 'en') {
                 console.log(chat_id, 'sleep', e.description.parameters.retry_after, 's')
                 // await sleep(e.description.parameters.retry_after * 1000)
                 return 'redo'
+            } else if (description.includes('failed to send message') && description.includes('#')) {
+                // Handle specific media item failure: "failed to send message #N with the error message 'WEBPAGE_MEDIA_EMPTY'"
+                const failed_index_match = description.match(/failed to send message #(\d+)/);
+                if (failed_index_match && e.method === 'sendMediaGroup' && e.payload.media) {
+                    const failed_index = parseInt(failed_index_match[1]) - 1; // Convert to 0-based index
+                    if (failed_index >= 0 && failed_index < e.payload.media.length) {
+                        const failed_media = e.payload.media[failed_index];
+                        if (failed_media.media && typeof failed_media.media === 'string' && failed_media.media.includes('https://')) {
+                            const failed_url = failed_media.media;
+                            honsole.log(`[refetch] Media item #${failed_index + 1} failed, refetching URL`);
+                            if (config.tg.refetch_api) {
+                                (async () => {
+                                    try {
+                                        await axios.post(config.tg.refetch_api, {
+                                            url: failed_url
+                                        })
+                                        honsole.log('[ok] refetch url', failed_url)
+                                    } catch (error) {
+                                        honsole.warn('[err] refetch url', error)
+                                    }
+                                })()
+                            }
+                        }
+                    }
+                }
+                // Don't return here, let it continue to check other error types
             } else if (description.includes('failed to get http url content') || description.includes('wrong file identifier/http url specified') || description.includes('wrong type of the web page content') || description.includes('group send failed')) {
                 let photo_urls = []
                 if (e.method === 'sendPhoto') {
@@ -1099,13 +1135,45 @@ async function catchily(e, chat_id, language_code = 'en') {
 }
 
 /**
+ * Mark failed media item and schedule retry with download fallback
+ * @param {Array} mg Media group array
+ * @param {number} failed_index Failed item index (0-based)
+ * @param {string} current_type Current media type that failed
+ * @param {Array} mg_type_queue Media type queue to update
+ * @returns {boolean} Success status
+ */
+function markFailedMediaItem(mg, failed_index, current_type, mg_type_queue) {
+    if (failed_index < 0 || failed_index >= mg.length) {
+        honsole.warn(`Invalid media index ${failed_index + 1}, media group has ${mg.length} items`)
+        return false
+    }
+
+    honsole.log(`Media item #${failed_index + 1} failed with ${current_type}, marking for retry`)
+
+    // Mark this specific item as invalid for current media type
+    if (!mg[failed_index].invaild) {
+        mg[failed_index].invaild = [current_type]
+    } else if (!mg[failed_index].invaild.includes(current_type)) {
+        mg[failed_index].invaild.push(current_type)
+    }
+
+    // For failed web URLs, try downloading locally first
+    const download_type = current_type.startsWith('dl') ? current_type : `dl${current_type}`;
+    if (!mg_type_queue.includes(download_type)) {
+        mg_type_queue.unshift(download_type);
+    }
+
+    return true
+}
+
+/**
  * Send media group with smart retry logic
  * - Parses Telegram error messages to identify specific failed media items
  * - Marks failed items as invalid and retries with local downloads
  * - Only retries failed items instead of entire media group
  * - Prevents infinite retries with configurable limit
  * @param {*} chat_id Telegram chat ID
- * @param {*} language_code User's language code for error messages  
+ * @param {*} language_code User's language code for error messages
  * @param {*} mg Media group array
  * @param {*} extra Extra options for Telegram API
  * @param {*} mg_type Array of media types to try (e.g., ['r', 'o', 'dlr', 'dlo'])
@@ -1149,44 +1217,19 @@ async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_typ
         return result
     } catch (e) {
         let status = await catchily(e, chat_id, language_code)
-        // Parse specific media item failure from Telegram error
-        // Examples: "Bad Request: failed to send message #1 with the error message 'WEBPAGE_MEDIA_EMPTY'"
-        //          "Bad Request: failed to send message #9 with the error message 'WEBPAGE_CURL_FAILED'"
-        if (e.description && e.description.includes('failed to send message') && e.description.includes('#')) {
+
+        // Handle specific media item failure (WEBPAGE_MEDIA_EMPTY, WEBPAGE_CURL_FAILED, etc.)
+        const failed_index_match = e.description?.match(/failed to send message #(\d+)/);
+        if (failed_index_match) {
             status = 'redo'
-            // Extract the failed item index from error message
-            const failedIndexMatch = e.description.match(/failed to send message #(\d+)/);
-            if (failedIndexMatch) {
-                const mg_index = parseInt(failedIndexMatch[1]) - 1; // Convert to 0-based index
-
-                // Validate index is within bounds
-                if (mg_index >= 0 && mg_index < mg.length) {
-                    honsole.log(`Media item #${mg_index + 1} failed with ${current_mg_type}, marking for local download retry`)
-
-                    // Mark this specific item as invalid for current media type
-                    if (!mg[mg_index].invaild) {
-                        mg[mg_index].invaild = [current_mg_type]
-                    } else if (!mg[mg_index].invaild.includes(current_mg_type)) {
-                        mg[mg_index].invaild.push(current_mg_type)
-                    }
-
-                    // For failed web URLs, try downloading locally first
-                    // Add 'dl' prefix to current type for download retry
-                    const downloadType = current_mg_type.startsWith('dl') ? current_mg_type : `dl${current_mg_type}`;
-                    if (!mg_type.includes(downloadType)) {
-                        mg_type.unshift(downloadType); // Try download version next
-                    }
-                } else {
-                    honsole.warn(`Invalid media index ${mg_index + 1} from error message, media group has ${mg.length} items`)
-                }
-            }
+            const failed_index = parseInt(failed_index_match[1]) - 1;
+            markFailedMediaItem(mg, failed_index, current_mg_type, mg_type)
         }
+
         if (status) {
             if (status === 'redo') {
                 // Don't re-add the same type if we detected specific item failures
-                // The mg_filter function will handle type switching for failed items
-                const hasSpecificFailures = e.description && e.description.includes('failed to send message #');
-                if (!hasSpecificFailures) {
+                if (!failed_index_match) {
                     mg_type.unshift(current_mg_type)
                 }
             }

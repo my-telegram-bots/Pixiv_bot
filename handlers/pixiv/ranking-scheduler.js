@@ -87,7 +87,8 @@ class RankingScheduler {
         try {
             this.isRunning = true
             const totalPages = 10
-            honsole.log(`[RankingScheduler] Fetching daily ranking (${totalPages} pages)...`)
+            const expected_date = this.getTodayRankingId().replace('daily', '').replace('_1', '')
+            honsole.log(`[RankingScheduler] Fetching daily ranking (${totalPages} pages)... Expected date: ${expected_date}`)
 
             let successCount = 0
             let totalItems = 0
@@ -98,6 +99,14 @@ class RankingScheduler {
                     const result = await ranking(page, 'daily')
 
                     if (result && result.data && result.data.length > 0) {
+                        // Check if returned date matches expected date
+                        if (page === 1 && result.date !== expected_date) {
+                            honsole.warn(`[RankingScheduler] Date mismatch! Expected: ${expected_date}, Got: ${result.date}`)
+                            honsole.log('[RankingScheduler] Pixiv ranking not yet updated, will retry later')
+                            this.isRunning = false
+                            return false
+                        }
+
                         successCount++
                         totalItems += result.data.length
                         honsole.log(`[RankingScheduler] Page ${page}/${totalPages}: ${result.data.length} items`)
@@ -188,20 +197,11 @@ class RankingScheduler {
     async start() {
         honsole.log('[RankingScheduler] Starting ranking scheduler')
 
-        // Check if we need to run immediately
-        const now = new Date()
-        const jstOffset = 9 * 60 * 60 * 1000
-        const jstNow = new Date(now.getTime() + jstOffset + now.getTimezoneOffset() * 60 * 1000)
-        const currentHour = jstNow.getHours()
-
-        // If current time is past update hour, check and execute if needed
-        if (currentHour >= this.updateHour) {
-            honsole.log('[RankingScheduler] Boot-up check: Update time has passed today')
-            await this.executeTask()
-        } else {
-            honsole.log('[RankingScheduler] Boot-up check: Update time not yet reached today')
-            this.scheduleNext()
-        }
+        // IMPORTANT: Never run ranking fetch immediately at startup
+        // This prevents memory crashes during bot initialization
+        // Schedule for next update time instead
+        honsole.log('[RankingScheduler] Scheduling next update (skipping immediate execution to prevent memory issues)')
+        this.scheduleNext()
     }
 
     /**

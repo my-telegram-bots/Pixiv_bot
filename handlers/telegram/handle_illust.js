@@ -50,11 +50,17 @@ export async function handle_illust(id, flag, lightweight = false) {
     }
     if (illust.type <= 1) {
         illust.imgs_.size.forEach((size, pid) => {
+            // Generate thumb_url from regular_url: /img-master -> /c/480x960/img-master, ensure _master1200.jpg
+            const regular_url = illust.imgs_.regular_urls[pid]
+            const thumb_url = regular_url
+                .replace('/img-master', '/c/480x960/img-master')
+                .replace(/\.(jpg|png|gif)$/i, '_master1200.jpg')
+
             illust.inline[pid] = {
                 type: 'photo',
                 id: 'p_' + illust.id + '-' + pid,
-                photo_url: illust.imgs_.regular_urls[pid],
-                thumb_url: illust.imgs_.thumb_urls[pid],
+                photo_url: regular_url,
+                thumb_url: thumb_url,
                 caption: format(illust, flag, 'inline', pid),
                 photo_width: size.width,
                 photo_height: size.height,
