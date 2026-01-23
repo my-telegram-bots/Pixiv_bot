@@ -19,6 +19,9 @@ export function deriveURLsFromBase(baseUrl) {
         .replace('/c/128x128/img-master', '∏a∏')
         .replace('/c/128x128/custom-thumb', '∏a∏')
         .replace('/c/250x250_80_a2/img-master', '∏a∏')
+        // Handle all /c/N0xN0/img-master/ and /c/N0xN0/custom-thumb/ formats
+        .replace(/\/c\/\d+0x\d+0\/img-master/g, '∏a∏')
+        .replace(/\/c\/\d+0x\d+0\/custom-thumb/g, '∏a∏')
         .replace('_square1200', '∏b∏')
         .replace('_custom1200', '∏b∏')
         .replace('_master1200', '∏b∏')
@@ -48,14 +51,6 @@ export async function buildIllustURLsFast(illust) {
         }
     }
 
-    const baseUrl = illust.url || illust.imgs_?.thumb_urls?.[0] || illust.urls?.thumb
-    if (!baseUrl) {
-        honsole.error('[buildIllustURLsFast] No base URL found for illust', illust.id)
-        return null
-    }
-
-    const urls = deriveURLsFromBase(baseUrl)
-
     // Check if multi-page work
     const isMultiPage = (illust.page_count && illust.page_count > 1) ||
                         (illust.pageCount && illust.pageCount > 1) ||
@@ -65,16 +60,24 @@ export async function buildIllustURLsFast(illust) {
     if (isMultiPage) {
         pages = await fetchIllustPages(illust.id)
     } else {
-        // Single page: build from derived URLs
-        pages = [{
-            urls: {
-                original: urls.original,
-                regular: urls.regular,
-                thumb: urls.thumb
-            },
-            width: illust.width || illust.imgs_?.size?.[0]?.width,
-            height: illust.height || illust.imgs_?.size?.[0]?.height
-        }]
+        // Single page: prefer API urls over derived URLs
+        if (illust.urls && illust.urls.original) {
+            // Use API-provided URLs directly (most reliable for fresh data)
+            pages = [{
+                urls: {
+                    original: illust.urls.original,
+                    regular: illust.urls.regular || illust.urls.medium,
+                    thumb: illust.urls.thumb || illust.urls.small
+                },
+                width: illust.width || illust.imgs_?.size?.[0]?.width,
+                height: illust.height || illust.imgs_?.size?.[0]?.height
+            }]
+        } else {
+            // Fallback: fetch from API for old cached data without urls field
+            // This ensures we get accurate URLs instead of unreliable string derivation
+            honsole.dev('[buildIllustURLsFast] No urls field, fetching from pages API', illust.id)
+            pages = await fetchIllustPages(illust.id)
+        }
     }
 
     // Build result
