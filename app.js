@@ -602,7 +602,7 @@ export async function tg_sender(ctx) {
                             ...extra,
                             caption: mg[0].caption,
                             disable_content_type_detection: true
-                        }).catch(async (e) => {
+                        }, ctx.l).catch(async (e) => {
                             if (await catchily(e, chat_id, ctx.l)) {
                                 bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
                             }
@@ -610,7 +610,7 @@ export async function tg_sender(ctx) {
                     }
                     if (ctx.us.append_file && !ctx.us.append_file_immediate) {
                         delete extra.reply_markup
-                        files.push([chat_id, media, extra, ctx.l])
+                        files.push([chat_id, mg[0].media_o, extra, ctx.l])
                     }
                 }
             } else {
@@ -734,6 +734,7 @@ export async function tg_sender(ctx) {
                     await asyncForEach(mgs, async mgsi => {
                         await asyncForEach(mg_albumize(mgsi, ctx.us), async (mg, i) => {
                             let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg => {
+                                delete mg.media_t
                                 return {
                                     ...mg,
                                     type: 'document'
@@ -1282,10 +1283,10 @@ async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra
 
 /**
  * sendDocumentWithRetry
- * @param {*} chat_id 
- * @param {*} media_o 
- * @param {*} extra 
- * @param {*} l 
+ * @param {*} chat_id
+ * @param {*} media_o - Can be URL or local file path
+ * @param {*} extra
+ * @param {*} l
  */
 async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
     // Send upload_document action
@@ -1300,7 +1301,14 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
     }
     let file = null
     try {
-        file = new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1))
+        // Check if media_o is local path or HTTP URL
+        if (media_o.includes('tmp/')) {
+            // Local file - read directly
+            file = new InputFile(media_o, media_o.slice(media_o.lastIndexOf('/') + 1))
+        } else {
+            // HTTP URL - download first
+            file = new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1))
+        }
     } catch (error) {
         honsole.warn('[sendDocumentWithRetry] File fetch failed:', error.message)
 
@@ -1344,7 +1352,14 @@ async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
             }).catch(async (e) => {
                 if (await catchily(e, chat_id, l)) {
                     try {
-                        await bot.api.sendDocument(chat_id, new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1)), extra).then(x => {
+                        // Retry logic - handle local path vs HTTP URL
+                        let retryFile
+                        if (media_o.includes('tmp/')) {
+                            retryFile = new InputFile(media_o, media_o.slice(media_o.lastIndexOf('/') + 1))
+                        } else {
+                            retryFile = new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1))
+                        }
+                        await bot.api.sendDocument(chat_id, retryFile, extra).then(x => {
                             reply_to_message_id = x.message_id
                         })
                     } catch (retryError) {

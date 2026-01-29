@@ -1,6 +1,6 @@
 import { format } from './format.js'
 import { asyncForEach, fetch_tmp_file, honsole } from '../common.js'
-import { detect_ugpira_url, ugoira_to_mp4 } from '../pixiv/tools.js'
+import { detect_ugpira_url, detect_ugpira_file, ugoira_to_mp4 } from '../pixiv/tools.js'
 import { InputFile } from 'grammy'
 import config from '../../config.js'
 
@@ -32,8 +32,6 @@ export async function mg_create(illust, us) {
             if (illust.tg_file_id) {
                 if (typeof illust.tg_file_id == 'string') {
                     mediagroup_data.media_t = illust.tg_file_id
-                } else {
-                    mediagroup_data.media_t = illust.tg_file_id[pid]
                 }
             }
             if (illust.type <= 1) {
@@ -51,11 +49,12 @@ export async function mg_create(illust, us) {
                         return // Skip adding this to mediagroups
                     }
                 }
+
                 mediagroup_data = {
                     ...mediagroup_data,
                     type: 'video',
-                    media: url,
-                    media_o: url
+                    media: url,                                    // HTTP URL for sendAnimation
+                    media_o: detect_ugpira_file(illust.id, 'mp4') || url  // Local path for sendDocument, fallback to URL
                 }
             }
             mediagroups.push(mediagroup_data)
@@ -158,16 +157,41 @@ export async function mg_filter(mg, type = 't') {
                 // dlo => download media_o file
                 // dlr => download media_r file
                 const url = x['media_' + itemType.replace('dl', '')]
-                xx.media = new InputFile(await fetch_tmp_file(url), url.slice(url.lastIndexOf('/') + 1))
+                try {
+                    const fileData = await fetch_tmp_file(url)
+                    if (!fileData || fileData.byteLength === 0) {
+                        throw new Error(`Downloaded file is empty: ${url}`)
+                    }
+                    xx.media = new InputFile(fileData, url.slice(url.lastIndexOf('/') + 1))
+                } catch (error) {
+                    honsole.warn(`[mg_filter] Failed to download ${itemType} for document:`, error.message)
+                    // Re-throw to trigger retry mechanism
+                    throw new Error(`Failed to download ${itemType}: ${error.message}`)
+                }
             }
         } else if (x.type == 'video') {
-            // Video: prefer file_id, otherwise force local download (HTTP URLs unreliable for video in mediagroup)
+            // Video: prefer file_id, otherwise use media (HTTP URL) or local path
             if (x.tg_file_id) {
                 xx.media = x.tg_file_id
             } else {
-                // Force download and upload as InputFile
-                const url = x.media_o || x.media
-                xx.media = new InputFile(await fetch_tmp_file(url), url.slice(url.lastIndexOf('/') + 1))
+                // Use media (HTTP URL) for download, or media_o if it's local path
+                const source = x.media || x.media_o
+                if (source && source.includes('tmp/')) {
+                    // Local file - use InputFile directly
+                    xx.media = new InputFile(source, source.slice(source.lastIndexOf('/') + 1))
+                } else {
+                    // HTTP URL - download and upload
+                    try {
+                        const fileData = await fetch_tmp_file(source)
+                        if (!fileData || fileData.byteLength === 0) {
+                            throw new Error(`Downloaded video file is empty: ${source}`)
+                        }
+                        xx.media = new InputFile(fileData, source.slice(source.lastIndexOf('/') + 1))
+                    } catch (error) {
+                        honsole.warn(`[mg_filter] Failed to download video:`, error.message)
+                        throw new Error(`Failed to download video: ${error.message}`)
+                    }
+                }
             }
         } else {
             // Smart retry: if current type failed before, try alternatives
