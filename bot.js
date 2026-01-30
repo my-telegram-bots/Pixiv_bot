@@ -2,6 +2,8 @@ import { Bot } from 'grammy'
 import { apiThrottler } from '@grammyjs/transformer-throttler'
 import { autoRetry } from '@grammyjs/auto-retry'
 
+let botInstance = null
+
 /**
  * Create and configure Telegram bot with given configuration
  */
@@ -9,7 +11,7 @@ export function createBot(config) {
     if (!config.tg || !config.tg.token) {
         throw new Error('Telegram bot token is required')
     }
-    
+
     const botConfig = {
         // Only add client config if needed
         ...(process.env.TELEGRAM_API_SERVER ? {
@@ -18,19 +20,30 @@ export function createBot(config) {
             }
         } : {})
     }
-    
+
     const bot = new Bot(config.tg.token, botConfig)
-    
+
     // Configure API throttling and auto-retry
     const throttler = apiThrottler()
     bot.api.config.use(throttler)
     bot.api.config.use(autoRetry())
-    
+
     // Handle channel posts
     bot.on('channel_post', (ctx, next) => {
         ctx.update.message = ctx.update.channel_post
         next()
     })
-    
+
+    botInstance = bot
     return bot
+}
+
+/**
+ * Get bot instance (must call createBot first)
+ */
+export function getBot() {
+    if (!botInstance) {
+        throw new Error('Bot not initialized. Call createBot first.')
+    }
+    return botInstance
 }
