@@ -857,7 +857,7 @@ bot.on('inline_query', async (ctx) => {
                             type: 'photo',
                             id: 'p_' + illust.id + '-' + pid,
                             photo_url: regular_url,
-                            thumb_url: thumb_url,
+                            thumbnail_url: thumb_url,
                             caption: format(illust, ctx.us, 'inline', pid),
                             photo_width: size.width,
                             photo_height: size.height,
@@ -874,7 +874,7 @@ bot.on('inline_query', async (ctx) => {
                             options.mpeg4_file_id = illust.tg_file_id
                         } else if (process.env.DBLESS) {
                             options.mpeg4_url = await ugoira_to_mp4(illust)
-                            options.thumb_url = illust.imgs_.cover_img_url
+                            options.thumbnail_url = illust.imgs_.cover_img_url
                         }
                         inline[0] = {
                             type: 'mpeg4_gif',
@@ -971,7 +971,14 @@ bot.on('inline_query', async (ctx) => {
 
     const duration = Date.now() - startTime
     honsole.dev(`[inline_query] Completed in ${duration}ms`)
-    await ctx.answerInlineQuery(res, res_options).catch(async (e) => {
+
+    // Remove thumb_url from all results to avoid URL issues
+    const resWithoutThumb = res.map(item => {
+        const { thumbnail_url, ...rest } = item
+        return rest
+    })
+
+    await ctx.answerInlineQuery(resWithoutThumb, res_options).catch(async (e) => {
         await catchily(e, config.tg.master_id, ctx.l)
     })
 })

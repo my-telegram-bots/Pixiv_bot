@@ -48,9 +48,13 @@ class RankingScheduler {
         const jstOffset = 9 * 60 * 60 * 1000
         const jstNow = new Date(now.getTime() + jstOffset + now.getTimezoneOffset() * 60 * 1000)
 
-        // For ranking, pixiv uses the previous day's date when before update time
+        // Ranking is always for previous day(s)
         const rankingDate = new Date(jstNow)
         if (jstNow.getHours() < this.updateHour) {
+            // Before JST 08:00: latest available is day-2
+            rankingDate.setDate(rankingDate.getDate() - 2)
+        } else {
+            // After JST 08:00: latest available is day-1
             rankingDate.setDate(rankingDate.getDate() - 1)
         }
 

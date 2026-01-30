@@ -13,7 +13,7 @@ export async function handle_ranking([...rank], flag) {
             id: 'p_' + td.id,
             // Use standard imgs_ structure
             photo_url: td.imgs_.regular_urls[0],
-            thumb_url: td.imgs_.thumb_urls[0],
+            thumbnail_url: td.imgs_.thumb_urls[0],
             caption: format(td, flag, 'inline', 0, flag.setting.format.inline),
             parse_mode: 'MarkdownV2',
             photo_width: td.imgs_.size[0].width,

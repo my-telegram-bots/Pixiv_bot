@@ -60,7 +60,7 @@ export async function handle_illust(id, flag, lightweight = false) {
                 type: 'photo',
                 id: 'p_' + illust.id + '-' + pid,
                 photo_url: regular_url,
-                thumb_url: thumb_url,
+                thumbnail_url: thumb_url,
                 caption: format(illust, flag, 'inline', pid),
                 photo_width: size.width,
                 photo_height: size.height,

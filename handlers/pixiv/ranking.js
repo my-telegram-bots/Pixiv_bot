@@ -27,15 +27,19 @@ export async function ranking(page = 1, mode = 'daily', date = false, filter_typ
         params.date = date
     }
     // Calculate correct ranking date based on JST time
-    // Pixiv ranking updates at GMT+9 08:00, so we need to use JST timezone
+    // Pixiv ranking is ALWAYS for previous day(s), updates at GMT+9 08:00
     if (!date) {
         const now = new Date()
         const jstOffset = 9 * 60 * 60 * 1000
         const jstNow = new Date(now.getTime() + jstOffset + now.getTimezoneOffset() * 60 * 1000)
 
-        // Before JST 08:00, use previous day's ranking
+        // Ranking is always for previous day(s)
         const rankingDate = new Date(jstNow)
         if (jstNow.getHours() < 8) {
+            // Before JST 08:00: latest available is day-2 (yesterday's ranking not yet updated)
+            rankingDate.setDate(rankingDate.getDate() - 2)
+        } else {
+            // After JST 08:00: latest available is day-1 (yesterday's ranking now available)
             rankingDate.setDate(rankingDate.getDate() - 1)
         }
 
