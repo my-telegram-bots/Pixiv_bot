@@ -805,27 +805,22 @@ bot.on('inline_query', async (ctx) => {
     const startTime = Date.now()
     const TIMEOUT = 25000 // 25 seconds (Telegram limit is 30s, leave 5s buffer)
 
+    const offset = parseInt(ctx.inlineQuery.offset) || 0
+    const query = ctx.text
+    const ids = ctx.ids
+
     let res = []
-    let offset = ctx.inlineQuery.offset
-    if (!offset) {
-        offset = 0 // offset == empty -> offset = 0
-    }
-    let query = ctx.text
-    // offset = page
-    offset = parseInt(offset)
-    let res_options = {
+    const res_options = {
         cache_time: 20,
-        is_personal: ctx.us.setting.dbless ? false : true // personal result
+        is_personal: !ctx.us.setting.dbless // personal result
     }
-    let ids = ctx.ids
 
     if (ids.illust.length > 0) {
-        ids.illust = [...new Set(ids.illust)]
-
-        let hasUgoiraRedirect = false
+        // Deduplicate and reverse (newest first)
+        const uniqueIds = [...new Set(ids.illust)].reverse()
 
         // Parallel processing with IllustService
-        const illustPromises = ids.illust.reverse().map(async (id) => {
+        const illustPromises = uniqueIds.map(async (id) => {
             try {
                 if (Date.now() - startTime > TIMEOUT) {
                     honsole.warn('[inline_query] Timeout approaching, skipping illust', id)
@@ -885,9 +880,9 @@ bot.on('inline_query', async (ctx) => {
                             inline[0].has_spoiler = true
                         }
                     } else {
-                        // Not converted yet - redirect to PM for conversion
+                        // Not converted yet - mark for redirect (collect all unconverted ugoiras)
                         ugoiraConverter(illust.id)
-                        return { type: 'ugoira_redirect', ids: ids.illust }
+                        return { type: 'ugoira_redirect', id }
                     }
                 }
 
@@ -899,74 +894,67 @@ bot.on('inline_query', async (ctx) => {
             }
         })
 
-        // Process results with timeout
-        const results = await Promise.race([
-            Promise.allSettled(illustPromises),
-            new Promise(resolve => setTimeout(() => {
-                honsole.warn('[inline_query] Timeout reached, returning partial results')
-                resolve([])
-            }, TIMEOUT))
-        ])
+        // Wait for all promises to complete
+        const results = await Promise.allSettled(illustPromises)
 
+        // Collect ugoira redirect IDs and regular results
+        const ugoiraRedirectIds = []
         for (const result of results) {
-            if (result && result.status === 'fulfilled' && result.value) {
+            if (result.status === 'fulfilled' && result.value) {
                 if (result.value.type === 'ugoira_redirect') {
-                    hasUgoiraRedirect = true
-                    await ctx.answerInlineQuery([], {
-                        switch_pm_text: _l(ctx.l, 'pm_to_generate_ugoira'),
-                        switch_pm_parameter: result.value.ids.join('-_-').toString(),
-                        cache_time: 0
-                    }).catch(async (e) => {
-                        await catchily(e, config.tg.master_id, ctx.l)
-                    })
-                    return
+                    ugoiraRedirectIds.push(result.value.id)
                 } else if (Array.isArray(result.value)) {
                     res = res.concat(result.value)
                 }
             }
         }
 
-        if (hasUgoiraRedirect) return
+        // If any ugoira needs conversion, redirect to PM
+        if (ugoiraRedirectIds.length > 0) {
+            await ctx.answerInlineQuery([], {
+                switch_pm_text: _l(ctx.l, 'pm_to_generate_ugoira'),
+                switch_pm_parameter: ugoiraRedirectIds.join('-_-'),
+                cache_time: 0
+            }).catch(async (e) => {
+                await catchily(e, config.tg.master_id, ctx.l)
+            })
+            return
+        }
+
+        // Add "Get all" button if total results > 1 and within deeplink limit
+        if (res.length > 1 && uniqueIds.length < 8) {
+            res_options.switch_pm_text = _l(ctx.l, 'pm_to_get_all_illusts')
+            res_options.switch_pm_parameter = uniqueIds.join('-')
+        }
 
         // Pagination: slice results for current page
         const itemsPerPage = 20
-        const totalResults = res.length
         const startIndex = offset * itemsPerPage
         const endIndex = startIndex + itemsPerPage
 
-        if (endIndex < totalResults) {
+        if (endIndex < res.length) {
             res_options.next_offset = offset + 1
         }
 
         res = res.slice(startIndex, endIndex)
-
-        // ids.illust > 8 -> .length > 64 = cant send /start with deeplink
-        // lazy... I would like to store ids in database or redis
-        if (res.length > 1 && ids.illust.length < 8) {
-            res_options.switch_pm_text = _l(ctx.l, 'pm_to_get_all_illusts')
-            res_options.switch_pm_parameter = ids.illust.join('-')
-        }
     } else if (query.trim() === '') {
-        // Ranking query with timeout protection
+        // Ranking query
         try {
-            const rankingPromise = handle_ranking([offset], ctx.us)
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Ranking timeout')), TIMEOUT)
-            )
-
-            let data = await Promise.race([rankingPromise, timeoutPromise])
-            res = data.data
-            if (data.next_offset) {
-                res_options.next_offset = data.next_offset
+            const data = await handle_ranking([offset], ctx.us)
+            if (data) {
+                res = data.data || []
+                if (data.next_offset) {
+                    res_options.next_offset = data.next_offset
+                }
             }
         } catch (error) {
-            honsole.error('[inline_query] Ranking failed or timeout:', error)
-            // Return empty results on timeout
+            honsole.error('[inline_query] Ranking failed:', error)
         }
     }
 
+    // Return results (empty array if no results found)
     const duration = Date.now() - startTime
-    honsole.dev(`[inline_query] Completed in ${duration}ms`)
+    honsole.dev(`[inline_query] Completed in ${duration}ms with ${res.length} results`)
 
     await ctx.answerInlineQuery(res, res_options).catch(async (e) => {
         await catchily(e, config.tg.master_id, ctx.l)
