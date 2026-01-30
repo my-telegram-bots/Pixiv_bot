@@ -1,8 +1,5 @@
-import { k_os } from './keyboard.js'
 import { asyncForEach, honsole } from '../common.js'
 import { get_illust } from '../pixiv/illust.js'
-import { format } from './format.js'
-import { ugoira_to_mp4 } from '../pixiv/tools.js'
 import { mg_create } from './mediagroup.js'
 export async function handle_illusts(ids, flag) {
     if (!ids instanceof Array) {
@@ -42,64 +39,15 @@ export async function handle_illust(id, flag, lightweight = false) {
         ...illust,
         //                                               || illust.tags.includes('R18-G')
         nsfw: illust.xRestrict > 0 || (illust.tags && illust.tags.includes('R-18')),
-        ai: !illust.ai_type === undefined || illust.ai_type === 2,
-        inline: []
+        ai: !illust.ai_type === undefined || illust.ai_type === 2
     }
     if (illust.nsfw && flag.auto_spoiler) {
         flag.spoiler = true
     }
-    if (illust.type <= 1) {
-        illust.imgs_.size.forEach((size, pid) => {
-            // Generate thumb_url from regular_url: /img-master -> /c/480x960/img-master, ensure _master1200.jpg
-            const regular_url = illust.imgs_.regular_urls[pid]
-            const thumb_url = regular_url
-                .replace('/img-master', '/c/480x960/img-master')
-                .replace(/\.(jpg|png|gif)$/i, '_master1200.jpg')
 
-            illust.inline[pid] = {
-                type: 'photo',
-                id: 'p_' + illust.id + '-' + pid,
-                photo_url: regular_url,
-                thumbnail_url: thumb_url,
-                caption: format(illust, flag, 'inline', pid),
-                photo_width: size.width,
-                photo_height: size.height,
-                parse_mode: 'MarkdownV2',
-                show_caption_above_media: flag.caption_above,
-                ...k_os(illust.id, flag)
-            }
-            // but telegram doesn't support spoiler in inline mode
-            if (flag.spoiler) {
-                illust.inline[pid].has_spoiler = true
-            }
-        })
-    } else if (illust.type == 2) {
-        // inline + ugoira 只有在现存动图的情况下有意义
-        if (illust.tg_file_id || process.env.DBLESS) {
-            let options = {}
-            if (illust.tg_file_id) {
-                options.mpeg4_file_id = illust.tg_file_id
-            } else if (process.env.DBLESS) {
-                options.mpeg4_url = await ugoira_to_mp4(illust)
-                // too large
-                options.thumb_url = illust.imgs_.cover_img_url
-            }
-            illust.inline[0] = {
-                type: 'mpeg4_gif',
-                id: 'p' + illust.id,
-                caption: format(illust, flag, 'inline', 1),
-                parse_mode: 'MarkdownV2',
-                show_caption_above_media: flag.caption_above,
-                ...options,
-                ...k_os(illust.id, flag)
-            }
-            if (flag.spoiler) {
-                illust.inline[0].has_spoiler = true
-            }
-        } else {
-            ugoira_to_mp4(illust)
-        }
-    }
+    // Note: .inline field removed - it was redundant dead code
+    // Inline query handler (app.js) uses illustService.getQuick() and builds inline results directly
+    // This function is only called for regular messages, which only need .mediagroup
     illust.mediagroup = await mg_create(illust, flag)
     return illust
 }

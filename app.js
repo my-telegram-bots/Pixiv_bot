@@ -12,8 +12,9 @@ try {
     process.exit(1)
 }
 import { update_setting } from '#db'
-import { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, _l, k_os, k_link_setting, mg_albumize, mg2telegraph, read_user_setting, honsole, handle_new_configuration, sleep, reescape_strings, format, memoryMonitor } from '#handlers/index'
-import { sendDocumentWithRetry, sendPhotoWithRetry, sendMediaGroupWithRetry, catchily } from '#handlers/telegram/sender'
+import { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, _l, k_os, k_link_setting, mg_albumize, mg2telegraph, read_user_setting, honsole, handle_new_configuration, reescape_strings, format, memoryMonitor } from '#handlers/index'
+import { sendPhotoWithRetry, sendMediaGroupWithRetry, catchily } from '#handlers/telegram/sender'
+import { sendDocumentWithChain, sendMediaGroupDocuments, updateReplyChain, rateLimit } from '#handlers/telegram/file-sender'
 import { createBot, getBot } from './bot.js'
 import { FileCleaner } from '#handlers/utils/file-cleaner'
 import { InputFile } from 'grammy'
@@ -509,18 +510,28 @@ export async function tg_sender(ctx) {
                                 await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
                             }
                         }
+                        // Send as file (asfile mode or append_file_immediate mode)
                         if (ctx.us.asfile || ctx.us.append_file_immediate) {
-                            delete extra_one.reply_markup
-                            let result = await sendDocumentWithRetry(chat_id, o.media_o, {
-                                ...extra_one,
-                                reply_to_message_id: ctx.us.append_file_immediate ? reply_to_message_id : file_reply_to_message_id
-                            }, ctx.l)
-                            if (ctx.us.append_file_immediate && result) {
-                                file_reply_to_message_id = result
+                            const targetReplyId = ctx.us.append_file_immediate ? reply_to_message_id : file_reply_to_message_id
+
+                            const newMessageId = await sendDocumentWithChain({
+                                chat_id,
+                                media_url: o.media_o,
+                                extra: extra_one,
+                                lang: ctx.l,
+                                reply_to_message_id: targetReplyId,
+                                default_extra
+                            })
+
+                            // Update reply chain for append_file_immediate
+                            if (ctx.us.append_file_immediate && newMessageId) {
+                                reply_to_message_id = newMessageId
+                                file_reply_to_message_id = newMessageId
                             }
                         }
+
+                        // Queue for delayed batch send (append_file non-immediate mode)
                         if (ctx.us.append_file && !ctx.us.append_file_immediate) {
-                            delete extra_one.reply_markup
                             files.push([chat_id, o.media_o, extra_one, ctx.l])
                         }
                     })
@@ -596,20 +607,29 @@ export async function tg_sender(ctx) {
                             // Error already notified by catch blocks above
                         }
                     }
+                    // Send ugoira as file (asfile mode or append_file_immediate mode)
                     if (ctx.us.asfile || ctx.us.append_file_immediate) {
-                        delete extra.reply_markup
-                        const result = await sendDocumentWithRetry(chat_id, mg[0].media_o, {
-                            ...extra,
-                            caption: mg[0].caption,
-                            disable_content_type_detection: true
-                        }, ctx.l).catch(async (e) => {
-                            if (await catchily(e, chat_id, ctx.l)) {
-                                bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
-                            }
+                        const newMessageId = await sendDocumentWithChain({
+                            chat_id,
+                            media_url: mg[0].media_o,
+                            extra: {
+                                ...extra,
+                                caption: mg[0].caption,
+                                disable_content_type_detection: true
+                            },
+                            lang: ctx.l,
+                            reply_to_message_id: extra.reply_to_message_id,
+                            default_extra
                         })
+
+                        // Update reply chain for append_file_immediate
+                        if (ctx.us.append_file_immediate && newMessageId) {
+                            extra.reply_to_message_id = newMessageId
+                        }
                     }
+
+                    // Queue ugoira for delayed batch send (append_file non-immediate mode)
                     if (ctx.us.append_file && !ctx.us.append_file_immediate) {
-                        delete extra.reply_markup
                         files.push([chat_id, mg[0].media_o, extra, ctx.l])
                     }
                 }
@@ -697,79 +717,78 @@ export async function tg_sender(ctx) {
                             // Notify user of failure so they know to retry
                             await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
                         }
-                        // Too Many Requests: retry after 10
-                        if (i > 4) {
-                            await sleep(1500)
-                        } else {
-                            await sleep(500)
-                        }
+                        // Rate limiting to avoid "Too Many Requests"
+                        await rateLimit(i)
+
+                        // Send MediaGroup as documents immediately (append_file_immediate mode)
                         if (ctx.us.append_file_immediate) {
-                            let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg => {
-                                return {
-                                    ...mg,
-                                    type: 'document'
-                                }
-                            }), mg_extra, ['o', 'dlo'])
-                            if (result) {
-                                if (result[0] && result[0].message_id) {
-                                    mg_extra.reply_to_message_id = result[0].message_id
-                                } else {
-                                    delete mg_extra.reply_to_message_id
-                                }
-                            } else {
-                                honsole.warn('error send mg (append_file_immediate)', result)
-                                // Notify user of failure so they know to retry
-                                await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
-                            }
-                            // Too Many Requests: retry after 10
-                            if (i > 4) {
-                                await sleep(1500)
-                            } else {
-                                await sleep(500)
-                            }
+                            const newMessageId = await sendMediaGroupDocuments({
+                                chat_id,
+                                lang: ctx.l,
+                                mediagroup: mg,
+                                extra: mg_extra,
+                                url_fallbacks: ['o', 'dlo'],
+                                default_extra
+                            })
+
+                            // Update reply chain
+                            updateReplyChain(mg_extra, newMessageId)
+
+                            // Rate limiting
+                            await rateLimit(i)
                         }
                     })
                 })
+                // Send MediaGroups as documents in delayed batch (append_file non-immediate mode)
                 if (ctx.us.append_file && !ctx.us.append_file_immediate) {
                     await asyncForEach(mgs, async mgsi => {
                         await asyncForEach(mg_albumize(mgsi, ctx.us), async (mg, i) => {
-                            let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg.map(mg => {
-                                delete mg.media_t
-                                return {
-                                    ...mg,
-                                    type: 'document'
-                                }
-                            }), mg_extra, ['o', 'dlo'])
-                            if (result) {
-                                if (result[0] && result[0].message_id) {
-                                    mg_extra.reply_to_message_id = result[0].message_id
-                                } else {
-                                    delete mg_extra.reply_to_message_id
-                                }
-                            } else {
-                                honsole.warn('error send mg (append_file)', result)
-                                // Notify user of failure so they know to retry
-                                await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
-                            }
-                            // Too Many Requests: retry after 10
-                            if (i > 4) {
-                                await sleep(1500)
-                            } else {
-                                await sleep(500)
-                            }
+                            const newMessageId = await sendMediaGroupDocuments({
+                                chat_id,
+                                lang: ctx.l,
+                                mediagroup: mg,
+                                extra: mg_extra,
+                                url_fallbacks: ['o', 'dlo'],
+                                default_extra
+                            })
+
+                            // Update reply chain
+                            updateReplyChain(mg_extra, newMessageId)
+
+                            // Rate limiting
+                            await rateLimit(i)
                         })
                     })
                 }
             }
         }
 
-        await asyncForEach(files, async (f, i) => {
-            const result = await sendDocumentWithRetry(...f)
-            if (!result) {
-                honsole.warn('Failed to send appended file', i, f[1])
-                // Note: error already sent by sendDocumentWithRetry if applicable
-            }
-        })
+        // Send batched files (delayed append_file mode)
+        if (files.length > 0) {
+            let successCount = 0
+            let failedCount = 0
+
+            await asyncForEach(files, async (f, i) => {
+                const [file_chat_id, media_url, extra, lang] = f
+
+                const newMessageId = await sendDocumentWithChain({
+                    chat_id: file_chat_id,
+                    media_url,
+                    extra,
+                    lang,
+                    default_extra
+                })
+
+                if (newMessageId) {
+                    successCount++
+                } else {
+                    failedCount++
+                    honsole.warn('[batched files] Failed to send file', i, media_url?.substring?.(0, 100))
+                }
+            })
+
+            honsole.dev(`[batched files] Completed: ${successCount} success, ${failedCount} failed`)
+        }
     }
 
     if (ids.novel.length > 0) {
@@ -938,7 +957,7 @@ bot.on('inline_query', async (ctx) => {
 
         res = res.slice(startIndex, endIndex)
     } else if (query.trim() === '') {
-        // Ranking query
+        // Empty query: show ranking
         try {
             const data = await handle_ranking([offset], ctx.us)
             if (data) {
@@ -949,6 +968,75 @@ bot.on('inline_query', async (ctx) => {
             }
         } catch (error) {
             honsole.error('[inline_query] Ranking failed:', error)
+        }
+    } else if (!process.env.DBLESS && query.trim()) {
+        // Search query: search local database
+        try {
+            const searchTerm = query.trim()
+            const col = db.collection.illust
+
+            // Build search query (case-insensitive regex)
+            const searchRegex = new RegExp(searchTerm, 'i')
+            const searchQuery = {
+                $or: [
+                    { title: searchRegex },
+                    { tags: searchRegex },
+                    { author_name: searchRegex }
+                ]
+            }
+
+            // Pagination
+            const itemsPerPage = 20
+            const skip = offset * itemsPerPage
+
+            // Search with limit + 1 to check if there are more results
+            const illusts = await col.find(searchQuery)
+                .sort({ id: -1 }) // Newest first
+                .skip(skip)
+                .limit(itemsPerPage + 1)
+                .toArray()
+
+            // Check if there are more results
+            if (illusts.length > itemsPerPage) {
+                res_options.next_offset = offset + 1
+                illusts.pop() // Remove the extra item
+            }
+
+            // Build inline results from search results
+            for (const illust of illusts) {
+                if (illust.type <= 1 && illust.imgs_ && illust.imgs_.regular_urls) {
+                    // Photo/Manga
+                    illust.imgs_.size.forEach((size, pid) => {
+                        if (illust.imgs_.regular_urls[pid]) {
+                            res.push({
+                                type: 'photo',
+                                id: `p_${illust.id}-${pid}`,
+                                photo_url: illust.imgs_.regular_urls[pid],
+                                thumbnail_url: illust.imgs_.regular_urls[pid],
+                                caption: format(illust, ctx.us, 'inline', pid),
+                                photo_width: size.width,
+                                photo_height: size.height,
+                                parse_mode: 'MarkdownV2',
+                                show_caption_above_media: ctx.us.caption_above,
+                                ...k_os(illust.id, ctx.us)
+                            })
+                        }
+                    })
+                } else if (illust.type === 2 && illust.tg_file_id) {
+                    // Ugoira (only if already converted)
+                    res.push({
+                        type: 'mpeg4_gif',
+                        id: `p${illust.id}`,
+                        mpeg4_file_id: illust.tg_file_id,
+                        caption: format(illust, ctx.us, 'inline', 1),
+                        parse_mode: 'MarkdownV2',
+                        show_caption_above_media: ctx.us.caption_above,
+                        ...k_os(illust.id, ctx.us)
+                    })
+                }
+            }
+        } catch (error) {
+            honsole.error('[inline_query] Search failed:', error)
         }
     }
 

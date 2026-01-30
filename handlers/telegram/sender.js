@@ -76,7 +76,7 @@ export async function catchily(e, chat_id, language_code = 'en') {
                     }
                 }
                 // Don't return here, let it continue to check other error types
-            } else if (description.includes('failed to get http url content') || description.includes('wrong file identifier/http url specified') || description.includes('wrong type of the web page content') || description.includes('group send failed')) {
+            } else if (description.includes('failed to get http url content') || description.includes('wrong file identifier/http url specified') || description.includes('wrong type of the web page content') || description.includes('group send failed') || description.includes('can\'t parse inputmedia') || description.includes('media not found')) {
                 let photo_urls = []
                 if (e.method === 'sendPhoto') {
                     photo_urls[0] = e.payload.photo
