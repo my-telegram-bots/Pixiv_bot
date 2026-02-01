@@ -823,7 +823,7 @@ export async function tg_sender(ctx) {
 
 bot.on('inline_query', async (ctx) => {
     const startTime = Date.now()
-    const TIMEOUT = 16000
+    const TIMEOUT = 21000
     const ITEMS_PER_PAGE = 20
 
     const offset = parseInt(ctx.inlineQuery.offset) || 0
@@ -977,14 +977,9 @@ bot.on('inline_query', async (ctx) => {
             const searchTerm = query.trim()
             const col = db.collection.illust
 
-            // Build search query (case-insensitive regex)
-            const searchRegex = new RegExp(searchTerm, 'i')
+            // Build search query (exact match on tags for performance)
             const searchQuery = {
-                $or: [
-                    { title: searchRegex },
-                    { tags: searchRegex },
-                    { author_name: searchRegex }
-                ]
+                tags: searchTerm
             }
 
             // Calculate which batch of 100 illusts to fetch based on offset
@@ -1056,15 +1051,16 @@ bot.on('inline_query', async (ctx) => {
 
     // Return results (empty array if no results found)
     const duration = Date.now() - startTime
-    honsole.dev(`[inline_query] Completed in ${duration}ms with ${res.length} results`)
+    honsole.dev(`[inline_query] Answering query: "${query}" | offset: ${offset} | results: ${res.length} | duration: ${duration}ms`)
 
     await ctx.answerInlineQuery(res, res_options).catch(async (e) => {
         // Ignore "query is too old" errors as they're expected when processing takes too long
         if (e.description && e.description.includes('query is too old')) {
-            honsole.warn('[inline_query] Query expired before answer could be sent')
+            honsole.warn(`[inline_query] Query expired before answer could be sent | query: "${query}" | offset: ${offset} | duration: ${duration}ms`)
             return
         }
         // Report other errors to master
+        honsole.error(`[inline_query] Error answering query: "${query}" | offset: ${offset}`, e)
         await catchily(e, config.tg.master_id, ctx.l)
     })
 })

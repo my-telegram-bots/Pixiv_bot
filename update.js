@@ -387,6 +387,24 @@ async function remove_storage_endpoint_2025_january() {
     process.exit()
 }
 
+/**
+ * Create index for tags field (2026 February)
+ * Improves inline search performance by allowing fast exact match queries on tags
+ */
+async function create_tags_index_2026_february() {
+    await db.db_initial()
+    console.log('Creating index for illust.tags field...')
+
+    try {
+        await db.collection.illust.createIndex({ tags: 1 })
+        console.log('✓ Successfully created index for illust.tags')
+    } catch (error) {
+        console.error('✗ Failed to create index:', error)
+    }
+
+    process.exit()
+}
+
 try {
     // just some expliot ? LOL
     eval(process.argv[2] + '()')

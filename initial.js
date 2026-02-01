@@ -21,6 +21,11 @@ export async function handle() {
     }, {
         unique: true,
     })
+    // Create index for tags field for fast inline search
+    await db.collection.illust.createIndex({
+        tags: 1
+    })
+    console.log('✓ Created index for illust.tags')
     process.exit()
 }
 /**
