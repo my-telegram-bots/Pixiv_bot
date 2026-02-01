@@ -1,5 +1,5 @@
 import db from './db.js'
-import { sleep, asyncForEach, update_illust, get_illust, head_url, thumb_to_all } from './handlers/index.js'
+import { sleep, asyncForEach } from './handlers/index.js'
 import fs from 'fs'
 
 process.env.dev = 1
