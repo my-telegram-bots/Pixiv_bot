@@ -54,8 +54,8 @@ export function get_pixiv_ids(text) {
         // fanbox: [],
     }
     if (text && (typeof text === 'string' || typeof text === 'number')) {
-        //                  remove value text   nothing               remove www.               force add https://                          remove dup https://                         force https://                      https with newline                     remove all +- and space                                  force newline (for split) remove all /en
-        get_values(text).rm_valued_text.replace(/-_-/g, ' ').replace(/www\./ig, '').replace(/pixiv\.net\//ig, 'https://pixiv.net/').replace(/https:\/\/https:\/\//ig, 'https://').replace(/http:\/\//ig, 'https://').replace(/https:\/\//ig, '\nhttps://').replace(/  /g, ' ').replace(/\+/g, ' +').replace(/\-/g, ' -').replace(/ /g, '\n').replace(/\/en/ig, '').split('\n').forEach(u => {
+        //                  remove value text   nothing               remove www.               force add https://                          remove dup https://                         force https://                      https with newline                     remove all +- and space                                  force newline (for split) remove all /en   phixiv -> pixiv
+        get_values(text).rm_valued_text.replace(/-_-/g, ' ').replace(/www\./ig, '').replace(/pixiv\.net\//ig, 'https://pixiv.net/').replace(/https:\/\/https:\/\//ig, 'https://').replace(/http:\/\//ig, 'https://').replace(/https:\/\//ig, '\nhttps://').replace(/  /g, ' ').replace(/\+/g, ' +').replace(/\-/g, ' -').replace(/ /g, '\n').replace(/\/en/ig, '').replace(/phix/g, 'pix').split('\n').forEach(u => {
             // url match
             try {
                 const uu = new URL(u)
