@@ -13,6 +13,7 @@ try {
 }
 import { update_setting } from '#db'
 import { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, _l, k_os, k_link_setting, mg_albumize, mg2telegraph, read_user_setting, honsole, handle_new_configuration, reescape_strings, format, memoryMonitor } from '#handlers/index'
+import { detect_ugpira_url } from '#handlers/pixiv/tools'
 import { sendPhotoWithRetry, sendMediaGroupWithRetry, catchily } from '#handlers/telegram/sender'
 import { sendDocumentWithChain, sendMediaGroupDocuments, updateReplyChain, rateLimit } from '#handlers/telegram/file-sender'
 import { createBot, getBot } from './bot.js'
@@ -822,7 +823,8 @@ export async function tg_sender(ctx) {
 
 bot.on('inline_query', async (ctx) => {
     const startTime = Date.now()
-    const TIMEOUT = 25000 // 25 seconds (Telegram limit is 30s, leave 5s buffer)
+    const TIMEOUT = 16000
+    const ITEMS_PER_PAGE = 20
 
     const offset = parseInt(ctx.inlineQuery.offset) || 0
     const query = ctx.text
@@ -836,7 +838,7 @@ bot.on('inline_query', async (ctx) => {
 
     if (ids.illust.length > 0) {
         // Deduplicate and reverse (newest first)
-        const uniqueIds = [...new Set(ids.illust)].reverse()
+        const uniqueIds = [...new Set(ids.illust)]
 
         // Parallel processing with IllustService
         const illustPromises = uniqueIds.map(async (id) => {
@@ -877,29 +879,40 @@ bot.on('inline_query', async (ctx) => {
                         }
                     })
                 } else if (illust.type === 2) {
-                    // Ugoira - only show if already converted to MP4
-                    if (illust.tg_file_id || process.env.DBLESS) {
-                        const options = {}
-                        if (illust.tg_file_id) {
-                            options.mpeg4_file_id = illust.tg_file_id
-                        } else if (process.env.DBLESS) {
-                            options.mpeg4_url = await ugoira_to_mp4(illust)
-                            options.thumbnail_url = illust.imgs_.cover_img_url
-                        }
+                    // Ugoira - check if URL is available
+                    const ugoiraUrl = await detect_ugpira_url(illust, 'mp4')
+
+                    if (illust.tg_file_id) {
+                        // Use Telegram file_id if available (fastest)
                         inline[0] = {
                             type: 'mpeg4_gif',
                             id: 'p' + illust.id,
+                            mpeg4_file_id: illust.tg_file_id,
                             caption: format(illust, ctx.us, 'inline', 1),
                             parse_mode: 'MarkdownV2',
                             show_caption_above_media: ctx.us.caption_above,
-                            ...options,
+                            ...k_os(illust.id, ctx.us)
+                        }
+                        if (ctx.us.spoiler) {
+                            inline[0].has_spoiler = true
+                        }
+                    } else if (ugoiraUrl) {
+                        // Use URL if file exists or remote conversion enabled
+                        inline[0] = {
+                            type: 'mpeg4_gif',
+                            id: 'p' + illust.id,
+                            mpeg4_url: ugoiraUrl,
+                            thumbnail_url: illust.imgs_.cover_img_url,
+                            caption: format(illust, ctx.us, 'inline', 1),
+                            parse_mode: 'MarkdownV2',
+                            show_caption_above_media: ctx.us.caption_above,
                             ...k_os(illust.id, ctx.us)
                         }
                         if (ctx.us.spoiler) {
                             inline[0].has_spoiler = true
                         }
                     } else {
-                        // Not converted yet - mark for redirect (collect all unconverted ugoiras)
+                        // Not converted yet - mark for redirect
                         ugoiraConverter(illust.id)
                         return { type: 'ugoira_redirect', id }
                     }
@@ -913,10 +926,10 @@ bot.on('inline_query', async (ctx) => {
             }
         })
 
-        // Wait for all promises to complete
+        // Wait for all illusts to be fetched (in parallel)
         const results = await Promise.allSettled(illustPromises)
 
-        // Collect ugoira redirect IDs and regular results
+        // Collect results
         const ugoiraRedirectIds = []
         for (const result of results) {
             if (result.status === 'fulfilled' && result.value) {
@@ -945,17 +958,6 @@ bot.on('inline_query', async (ctx) => {
             res_options.switch_pm_text = _l(ctx.l, 'pm_to_get_all_illusts')
             res_options.switch_pm_parameter = uniqueIds.join('-')
         }
-
-        // Pagination: slice results for current page
-        const itemsPerPage = 20
-        const startIndex = offset * itemsPerPage
-        const endIndex = startIndex + itemsPerPage
-
-        if (endIndex < res.length) {
-            res_options.next_offset = offset + 1
-        }
-
-        res = res.slice(startIndex, endIndex)
     } else if (query.trim() === '') {
         // Empty query: show ranking
         try {
@@ -985,22 +987,17 @@ bot.on('inline_query', async (ctx) => {
                 ]
             }
 
-            // Pagination
-            const itemsPerPage = 20
-            const skip = offset * itemsPerPage
+            // Calculate which batch of 100 illusts to fetch based on offset
+            const ILLUSTS_PER_BATCH = 100
+            const batchIndex = Math.floor(offset / 5)  // 5 pages per batch (100 illusts ≈ 100-300 images, 20 per page)
+            const skip = batchIndex * ILLUSTS_PER_BATCH
 
-            // Search with limit + 1 to check if there are more results
+            // Fetch up to 100 illusts (pagination applied later)
             const illusts = await col.find(searchQuery)
                 .sort({ id: -1 }) // Newest first
                 .skip(skip)
-                .limit(itemsPerPage + 1)
+                .limit(ILLUSTS_PER_BATCH)
                 .toArray()
-
-            // Check if there are more results
-            if (illusts.length > itemsPerPage) {
-                res_options.next_offset = offset + 1
-                illusts.pop() // Remove the extra item
-            }
 
             // Build inline results from search results
             for (const illust of illusts) {
@@ -1040,11 +1037,34 @@ bot.on('inline_query', async (ctx) => {
         }
     }
 
+    // Universal pagination: slice to 20 items per page
+    // For search mode, use offset within current batch; for other modes, use global offset
+    const PAGES_PER_BATCH = 5  // Each batch of 100 illusts ≈ 5 pages of 20 items
+    const isSearchMode = !process.env.DBLESS && query.trim()
+    const offsetInBatch = isSearchMode ? offset % PAGES_PER_BATCH : offset
+    const startIndex = offsetInBatch * ITEMS_PER_PAGE
+    const endIndex = startIndex + ITEMS_PER_PAGE
+
+    if (res.length > endIndex) {
+        res_options.next_offset = (offset + 1).toString()
+    }
+
+    if (res.length > ITEMS_PER_PAGE || startIndex > 0) {
+        honsole.dev(`[inline_query] Paginating: ${res.length} total in batch, showing ${startIndex}-${Math.min(endIndex, res.length)}`)
+        res = res.slice(startIndex, endIndex)
+    }
+
     // Return results (empty array if no results found)
     const duration = Date.now() - startTime
     honsole.dev(`[inline_query] Completed in ${duration}ms with ${res.length} results`)
 
     await ctx.answerInlineQuery(res, res_options).catch(async (e) => {
+        // Ignore "query is too old" errors as they're expected when processing takes too long
+        if (e.description && e.description.includes('query is too old')) {
+            honsole.warn('[inline_query] Query expired before answer could be sent')
+            return
+        }
+        // Report other errors to master
         await catchily(e, config.tg.master_id, ctx.l)
     })
 })
