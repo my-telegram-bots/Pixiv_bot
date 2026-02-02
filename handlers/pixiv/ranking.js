@@ -158,7 +158,7 @@ async function processRankingIllusts(illusts) {
 
                     if (imgs_) {
                         illust.imgs_ = imgs_
-                        illust.type = 0 // illust type (0: illust, 1: manga, 2: ugoira)
+                        // Keep original type from ranking data (don't override)
 
                         // Store in database
                         await update_illust(illust, false, true, true)

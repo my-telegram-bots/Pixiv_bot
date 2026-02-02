@@ -405,6 +405,59 @@ async function create_tags_index_2026_february() {
     process.exit()
 }
 
+/**
+ * Fix ugoira type mismatch (2026 February)
+ * Fixes illusts where type != 2 but imgs_ structure indicates it's a ugoira
+ * Root cause: ranking.js was hardcoding type=0 for all ranking illusts
+ */
+async function fix_ugoira_type_mismatch_2026_february() {
+    await db.db_initial()
+    console.log('Finding illusts with ugoira structure but wrong type...')
+
+    // Find all illusts where:
+    // - type is not 2 (not marked as ugoira)
+    // - imgs_ has cover_img_url (ugoira structure)
+    // - imgs_ doesn't have original_urls (ugoira structure)
+    let d = await db.collection.illust.find({
+        type: { $ne: 2 },
+        'imgs_.cover_img_url': { $exists: true }
+    }).toArray()
+
+    console.log(`Found ${d.length} potential ugoira illusts with wrong type`)
+
+    let fixed = 0
+    let skipped = 0
+
+    await asyncForEach(d, async (illust, id) => {
+        // Double check: make sure it's actually ugoira structure
+        const hasOriginalUrls = illust.imgs_.original_urls && illust.imgs_.original_urls.length > 0
+        const hasCoverImgUrl = illust.imgs_.cover_img_url
+
+        if (hasCoverImgUrl && !hasOriginalUrls) {
+            console.log(`Fixing illust ${illust.id} (${illust.title}): type ${illust.type} -> 2`)
+            await db.collection.illust.updateOne(
+                { id: illust.id },
+                { $set: { type: 2 } }
+            )
+            fixed++
+        } else {
+            console.log(`Skipping illust ${illust.id}: has both cover_img_url and original_urls`)
+            skipped++
+        }
+
+        if ((fixed + skipped) % 10 === 0) {
+            console.log(`Progress: ${fixed + skipped}/${d.length} (fixed: ${fixed}, skipped: ${skipped})`)
+        }
+    })
+
+    console.log(`\nCompleted!`)
+    console.log(`- Fixed: ${fixed} illusts`)
+    console.log(`- Skipped: ${skipped} illusts`)
+    console.log(`- Total: ${d.length} illusts`)
+
+    process.exit()
+}
+
 try {
     // just some expliot ? LOL
     eval(process.argv[2] + '()')
