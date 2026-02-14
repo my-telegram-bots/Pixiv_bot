@@ -24,37 +24,109 @@ Document: https://pixiv-bot.pages.dev
     pm2 start --name pixiv_bot app.js
     pm2 save
     sudo pm2 startup
-## upgrade
-version 2.0.2 edit the illust collection in local database, you need exec the following command.
+## Breaking Changes
 
-    node update update_db_2021_june
+### Version 2.1.0 (February 2025) - PostgreSQL Migration ⚠️ BREAKING
 
-Version 2.0.3 has changed the file storage directory, you need exec the following command.
+**Major database migration from MongoDB to PostgreSQL.**
 
-    node update move_ugoira_folder_and_index_2022_nov
+⚠️ **This is a breaking change that requires manual migration.**
+
+**What's Changed:**
+- Database backend changed from MongoDB to PostgreSQL
+- Removed MongoDB wrapper layer, using direct SQL for better performance
+- New direct SQL API: `getIllust()`, `updateIllust()`
+- SQL injection prevention with parameterized queries
+- N+1 query optimization (40+ queries → 1 aggregated query)
+- Fast random sampling with indexed random_value column
+- Performance indexes for 2.2M+ dataset
+
+**Migration Steps:**
+
+1. **Install PostgreSQL** (if not already installed):
+   ```bash
+   # ArchLinux
+   sudo pacman -S postgresql
+   sudo -u postgres initdb -D /var/lib/postgres/data
+   sudo systemctl enable postgresql --now
+
+   # Create database
+   sudo -u postgres createdb pixiv_bot
+   ```
+
+2. **Update config.js** - Add PostgreSQL configuration:
+   ```javascript
+   postgres: {
+       uri: "postgresql://user:password@localhost:5432/pixiv_bot"
+   }
+   ```
+
+3. **Run migration** (if upgrading from MongoDB):
+   ```bash
+   # Export MongoDB data
+   node mongodb2pg.js
+
+   # Or start fresh with PostgreSQL
+   psql pixiv_bot < sql/schema.sql
+   ```
+
+4. **Restart bot**:
+   ```bash
+   pm2 restart pixiv_bot
+   ```
+
+**Environment Variables:**
+- `AUTO_APPLY_PATCHES=0` - Disable auto-apply schema patches (default: enabled)
+- `DBLESS=1` - Run without database (testing mode)
+
+**Automatic Migration Check:**
+
+The bot will automatically check for pending schema patches on startup:
+- ✓ Normal patches → **Applied automatically** on startup (disable with `AUTO_APPLY_PATCHES=0`)
+- ⚠ Dangerous patches (filename contains `manually`) → **Bot refuses to start** until manually applied
+  - Example: `patch-002-drop-table-manually.sql`
+- See [sql/README.md](sql/README.md) for patch guidelines
+
+**See detailed migration guide:** [docs/POSTGRES-MIGRATION.md](docs/POSTGRES-MIGRATION.md)
+
+---
+
+## Upgrade History
+
+> **Note:** Commands below are for MongoDB → PostgreSQL migration only.
+> If you're on PostgreSQL (v2.1.0+), these are no longer needed.
+
+### version 2.0.2 edit the illust collection in local database
+
+    node mongodb-update update_db_2021_june
+
+Version 2.0.3 has changed the file storage directory
+
+    node mongodb-update move_ugoira_folder_and_index_2022_nov
+
 Version 2.0.4 remove hard hostname `i-cf.pximg.net` and prefix will auto generate by handle_pximg_url function
 
-    node update set_imgs_without_i_cf_2023_may
+    node mongodb-update set_imgs_without_i_cf_2023_may
 
-Version 2.0.4 user settings' `album` mirgate to `album_one`
+Version 2.0.4 user settings' `album` migrate to `album_one`
 
-    node update override_user_setting_album_2024_may
+    node mongodb-update override_user_setting_album_2024_may
 
 and changed ugoira url in config.json (without /mp4/), you need modify the config.json.
 
 Version 2.0.5 user format's version update to v2, v1(legacy) will still working at this time
 
-    node update update_user_format_format_2025_april
+    node mongodb-update update_user_format_format_2025_april
 
 Version 2.0.6 (January 2025) removed deprecated fields from database to improve performance
 
-    node update remove_fsize_field_2025_january
-    node update remove_storage_endpoint_2025_january
+    node mongodb-update remove_fsize_field_2025_january
+    node mongodb-update remove_storage_endpoint_2025_january
 
 Version 2.0.6 (February 2026) added tags index for faster inline search and fixed ugoira type mismatch bug
 
-    node update create_tags_index_2026_february
-    node update fix_ugoira_type_mismatch_2026_february
+    node mongodb-update create_tags_index_2026_february
+    node mongodb-update fix_ugoira_type_mismatch_2026_february
 
 ## config
 ### cookie

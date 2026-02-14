@@ -1,4 +1,4 @@
-import db from '../../db.js'
+import db, { getIllust } from '../../db.js'
 import { honsole, asyncForEach } from '../common.js'
 import { r_p_ajax } from './request.js'
 import { thumb_to_all } from './tools.js'
@@ -82,6 +82,11 @@ export async function ranking(page = 1, mode = 'daily', date = false, filter_typ
             author_id: p.user_id,
             type: parseInt(p.illust_type),
             rank: p.rank,
+            // Ranking illusts are always SFW (Pixiv doesn't include R18 in public rankings)
+            restrict: 0,
+            x_restrict: 0,
+            sl: null,       // SL not provided by ranking API
+            ai_type: null,  // AI type not provided by ranking API
             // Use standard imgs_ structure (same as handle_illust)
             imgs_: {
                 size: [{
@@ -147,7 +152,7 @@ async function processRankingIllusts(illusts) {
         await asyncForEach(batch, async (illust) => {
             try {
                 // Check if illust already exists in DB with complete data
-                const existingIllust = await db.collection.illust.findOne({ id: illust.id })
+                const existingIllust = await getIllust(illust.id)
 
                 // Only process if not exists or missing imgs_ data
                 if (!existingIllust || !existingIllust.imgs_ || !existingIllust.imgs_.size || !existingIllust.imgs_.size[0]) {

@@ -1,6 +1,7 @@
 import { run as grammyjsRun } from '@grammyjs/runner'
 import { loadAndValidateConfig, checkSystemDependencies } from '#handlers/utils/config-validator'
-import db from '#db'
+import db, { db_close, getPool } from '#db'
+import { checkAndApplyMigrations } from './db-migration-check.js'
 
 // Load and validate configuration at startup
 let config
@@ -790,6 +791,11 @@ export async function tg_sender(ctx) {
 
             honsole.dev(`[batched files] Completed: ${successCount} success, ${failedCount} failed`)
         }
+
+        // Clear arrays to help garbage collection
+        illusts.length = 0
+        mgs.length = 0
+        files.length = 0
     }
 
     if (ids.novel.length > 0) {
@@ -982,23 +988,30 @@ bot.on('inline_query', async (ctx) => {
                 tags: searchTerm
             }
 
-            // Calculate which batch of 100 illusts to fetch based on offset
-            const ILLUSTS_PER_BATCH = 100
-            const batchIndex = Math.floor(offset / 5)  // 5 pages per batch (100 illusts ≈ 100-300 images, 20 per page)
+            // MEMORY FIX: Reduce batch size from 100 to 30 illusts to prevent memory spikes
+            // Each illust can have 1-20 pages, so 30 illusts = 30-300+ result objects
+            const ILLUSTS_PER_BATCH = 30
+            const batchIndex = Math.floor(offset / 2)  // 2 pages per batch (30 illusts, 20 items per page)
             const skip = batchIndex * ILLUSTS_PER_BATCH
 
-            // Fetch up to 100 illusts (pagination applied later)
+            // Fetch up to 30 illusts (pagination applied later)
             const illusts = await col.find(searchQuery)
                 .sort({ id: -1 }) // Newest first
                 .skip(skip)
                 .limit(ILLUSTS_PER_BATCH)
                 .toArray()
 
-            // Build inline results from search results
+            // Build inline results from search results (limit to prevent memory overflow)
+            let resultCount = 0
+            const MAX_RESULTS_PER_BATCH = 200 // Limit total result objects
+
             for (const illust of illusts) {
+                if (resultCount >= MAX_RESULTS_PER_BATCH) break
+
                 if (illust.type <= 1 && illust.imgs_ && illust.imgs_.regular_urls) {
                     // Photo/Manga
                     illust.imgs_.size.forEach((size, pid) => {
+                        if (resultCount >= MAX_RESULTS_PER_BATCH) return
                         if (illust.imgs_.regular_urls[pid]) {
                             res.push({
                                 type: 'photo',
@@ -1012,6 +1025,7 @@ bot.on('inline_query', async (ctx) => {
                                 show_caption_above_media: ctx.us.caption_above,
                                 ...k_os(illust.id, ctx.us)
                             })
+                            resultCount++
                         }
                     })
                 } else if (illust.type === 2 && illust.tg_file_id) {
@@ -1025,8 +1039,13 @@ bot.on('inline_query', async (ctx) => {
                         show_caption_above_media: ctx.us.caption_above,
                         ...k_os(illust.id, ctx.us)
                     })
+                    resultCount++
                 }
             }
+
+            // Clear illusts array to free memory immediately
+            illusts.length = 0
+
         } catch (error) {
             honsole.error('[inline_query] Search failed:', error)
         }
@@ -1034,7 +1053,7 @@ bot.on('inline_query', async (ctx) => {
 
     // Universal pagination: slice to 20 items per page
     // For search mode, use offset within current batch; for other modes, use global offset
-    const PAGES_PER_BATCH = 5  // Each batch of 100 illusts ≈ 5 pages of 20 items
+    const PAGES_PER_BATCH = 2  // Each batch of 30 illusts ≈ 2 pages of 20 items (memory optimized)
     const isSearchMode = !process.env.DBLESS && query.trim()
     const offsetInBatch = isSearchMode ? offset % PAGES_PER_BATCH : offset
     const startIndex = offsetInBatch * ITEMS_PER_PAGE
@@ -1053,7 +1072,7 @@ bot.on('inline_query', async (ctx) => {
     const duration = Date.now() - startTime
     honsole.dev(`[inline_query] Answering query: "${query}" | offset: ${offset} | results: ${res.length} | duration: ${duration}ms`)
 
-    await ctx.answerInlineQuery(res, res_options).catch(async (e) => {
+    const answerPromise = ctx.answerInlineQuery(res, res_options).catch(async (e) => {
         // Ignore "query is too old" errors as they're expected when processing takes too long
         if (e.description && e.description.includes('query is too old')) {
             honsole.warn(`[inline_query] Query expired before answer could be sent | query: "${query}" | offset: ${offset} | duration: ${duration}ms`)
@@ -1063,6 +1082,10 @@ bot.on('inline_query', async (ctx) => {
         honsole.error(`[inline_query] Error answering query: "${query}" | offset: ${offset}`, e)
         await catchily(e, config.tg.master_id, ctx.l)
     })
+
+    // Wait for answer to be sent, then clear results to free memory
+    await answerPromise
+    res.length = 0
 })
 
 bot.catch(async (e) => {
@@ -1073,6 +1096,17 @@ bot.catch(async (e) => {
 })
 
 db.db_initial().then(async () => {
+    // Check and apply database migrations
+    if (!process.env.DBLESS) {
+        const pool = getPool()
+        const autoApply = process.env.AUTO_APPLY_PATCHES !== '0'  // Default: enabled (set =0 to disable)
+        const migrationOk = await checkAndApplyMigrations(pool, autoApply)
+        if (!migrationOk) {
+            console.error('✗ Database migration check failed. Exiting.')
+            process.exit(1)
+        }
+    }
+
     // Check system dependencies
     if (!process.env.DEPENDIONLESS && !process.env.dev) {
         try {
@@ -1120,6 +1154,17 @@ db.db_initial().then(async () => {
         import('./web.js')
     }
 })
+
+// Graceful shutdown
+async function shutdown(signal) {
+    console.log(`${signal} received, shutting down gracefully...`)
+    bot.stop(signal)
+    await db_close()
+    process.exit(0)
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
 
 /**
  * when user is chat's administrator / creator, return true

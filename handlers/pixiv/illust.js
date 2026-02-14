@@ -1,5 +1,5 @@
 import { r_p_ajax } from '#handlers/pixiv/request'
-import db from '#db'
+import { getIllust, updateIllust, deleteIllust } from '#db'
 import { honsole, sleep, memoryMonitor } from '#handlers/common'
 import { thumb_to_all } from '#handlers/pixiv/tools'
 
@@ -153,7 +153,7 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0, l
     try {
         let illust = null
         if (!fresh && !raw) {
-            illust = await db.collection.illust.findOne({ id })
+            illust = await getIllust(id)
             if (illust) {
                 delete illust._id
                 // Check if illust is marked as deleted
@@ -188,16 +188,10 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0, l
                     
                     // Mark illust as deleted in database for future reference
                     try {
-                        await db.collection.illust.updateOne(
-                            { id: id },
-                            { 
-                                $set: { 
-                                    deleted: true,
-                                    deleted_at: new Date()
-                                }
-                            },
-                            { upsert: true }
-                        )
+                        await updateIllust(id, {
+                            deleted: true,
+                            deleted_at: new Date()
+                        }, null, { upsert: true })
                         honsole.dev('marked illust as deleted in DB', id)
                     } catch (dbError) {
                         honsole.warn('Failed to mark illust as deleted', id, dbError)
@@ -352,16 +346,10 @@ export async function update_illust(illust, extra_data = false, id_update_flag =
                 console.warn(illust.id, 'deleted')
                 // Mark as deleted in database
                 try {
-                    await db.collection.illust.updateOne(
-                        { id: illust.id },
-                        {
-                            $set: {
-                                deleted: true,
-                                deleted_at: new Date()
-                            }
-                        },
-                        { upsert: true }
-                    )
+                    await updateIllust(illust.id, {
+                        deleted: true,
+                        deleted_at: new Date()
+                    }, null, { upsert: true })
                     honsole.dev('marked illust as deleted in update_illust', illust.id)
                 } catch (dbError) {
                     honsole.warn('Failed to mark illust as deleted in update_illust', illust.id, dbError)
@@ -370,7 +358,7 @@ export async function update_illust(illust, extra_data = false, id_update_flag =
             }
         }
     }
-    ['id', 'title', 'type', 'comment', 'description', 'author_id', 'author_name', 'imgs_', 'tags', 'sl', 'restrict', 'x_restrict', /* 'create_date',*/ 'ai_type', 'tg_file_id'].forEach(x => {
+    ['id', 'title', 'type', 'comment', 'description', 'author_id', 'author_name', 'imgs_', 'tags', 'sl', 'restrict', 'x_restrict', 'ai_type', 'tg_file_id'].forEach(x => {
         // I think pixiv isn't pass me a object?
         if (illust[x] !== undefined) {
             real_illust[x] = illust[x]
@@ -384,24 +372,14 @@ export async function update_illust(illust, extra_data = false, id_update_flag =
     }
     if (!id_update_flag) {
         try {
-            await db.collection.illust.deleteOne({
-                id: illust.id
-            })
-            await db.collection.illust.deleteOne({
-                id: illust.id.toString()
-            })
+            // Delete old record before inserting new one with correct ID
+            await deleteIllust(illust.id)
         }
         catch (error) {
             console.warn(error)
         }
     }
-    await db.collection.illust.updateOne({
-        id: illust.id,
-    }, {
-        $set: real_illust
-    }, {
-        upsert: true
-    })
+    await updateIllust(illust.id, real_illust, null, { upsert: true })
     honsole.dev('real_illust', real_illust)
 
     return real_illust

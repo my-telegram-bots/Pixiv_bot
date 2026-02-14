@@ -1,6 +1,6 @@
 import { r_p, r_p_ajax } from './request.js'
 import { asyncForEach, sleep, honsole } from '../common.js'
-import db from '../../db.js'
+import { findManyIllusts } from '../../db.js'
 import { ugoira_to_mp4 } from './tools.js'
 import { update_illust } from './illust.js'
 let csrf = null
@@ -56,13 +56,7 @@ export async function get_user_illusts(author_id, page = 0, try_time = 0) {
         }
         let illusts = illusts_id
         // query from local database
-        let local_illust_data = await (db.collection.illust.find({
-            $or: illusts_id.map(id => {
-                return {
-                    id: id
-                }
-            })
-        })).toArray()
+        let local_illust_data = await findManyIllusts(illusts_id)
         local_illust_data.forEach(illust => {
             // s**t code
             illusts[illusts_id.indexOf(illust.id)] = illust
@@ -262,15 +256,11 @@ export async function get_user_bookmarks(author_id, page = 1, try_time = 0) {
             let illusts = data.body.works
             let illusts_id = []
             // query from local database
-            let local_illust_data = await (db.collection.illust.find({
-                $or: illusts.map(illust => {
-                    let id = parseInt(illust.id)
-                    illusts_id.push(id)
-                    return {
-                        id: id
-                    }
-                })
-            })).toArray()
+            // Build IDs array first
+            illusts.forEach(illust => {
+                illusts_id.push(parseInt(illust.id))
+            })
+            let local_illust_data = await findManyIllusts(illusts_id)
             local_illust_data.forEach(illust => {
                 // s**t code
                 illusts[illusts_id.indexOf(illust.id)] = {

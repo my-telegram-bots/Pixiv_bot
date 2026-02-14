@@ -58,14 +58,14 @@ export function format_v1(td, flag, mode = 'message', p, mid) {
     } else {
         let splited_template = template.replaceAll('\\%', '\uff69').split('%') // 迫真转义 这个符号不会有人打出来把！！！
         let replace_list = [
-            ['title', td.title.trim()],
+            ['title', td.title ? td.title.trim() : ''],
             ['id', flag.show_id ? td.id : false],
             ['url', `https://www.pixiv.net/artworks/${td.id}`],
             ['NSFW', td.nsfw],
             ['AI', td.ai],
             ['author_id', td.author_id],
             ['author_url', `https://www.pixiv.net/users/${td.author_id}`],
-            ['author_name', td.author_name.trim()]
+            ['author_name', td.author_name ? td.author_name.trim() : '']
         ]
         if (td) {
             if (td.imgs_ && td.imgs_.size && td.imgs_.size.length > 1 && p !== -1) {
@@ -73,7 +73,7 @@ export function format_v1(td, flag, mode = 'message', p, mid) {
             } else {
                 replace_list.push(['p', ''])
             }
-            if (flag.description && td.description.trim()) {
+            if (flag.description && td.description && td.description.trim()) {
                 replace_list.description = new JSDOM(`<body>${td.description.replaceAll('<br />', '\n')}</body>`).window.document.body.textContent
             }
             if (flag.tags && td.tags && td.tags.length > 0) {
@@ -144,13 +144,13 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
     } else {
         template = template.replaceAll('\\|', '\uff69')
         replace_list = {
-            title: td.title.trim(),
+            title: td.title ? td.title.trim() : '',
             url: `https://www.pixiv.net/artworks/${td.id}`,
             NSFW: td.nsfw,
             AI: td.ai,
             author_id: td.author_id,
             author_url: `https://www.pixiv.net/users/${td.author_id}`,
-            author_name: td.author_name.trim()
+            author_name: td.author_name ? td.author_name.trim() : ''
         }
 
         if (flag.show_id) {

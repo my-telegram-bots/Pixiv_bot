@@ -1,0 +1,31 @@
+-- Patch Example: Manual execution required (filename contains 'manually')
+-- Date: 2025-02-15
+-- Description: Example of a patch that requires manual review and execution
+--              Filename contains 'manually' keyword to prevent auto-apply
+--
+-- Use this format for dangerous operations:
+--   - DROP TABLE / DROP COLUMN
+--   - Large data migrations (>100K rows)
+--   - Breaking schema changes
+--   - Operations requiring downtime
+--
+-- This patch will be detected by app.js but will REFUSE to auto-apply.
+-- Bot will refuse to start until this patch is manually applied.
+--
+-- To apply manually:
+--   psql pixiv_bot < sql/patches/patch-XXX-manually.sql
+
+BEGIN;
+
+-- Example dangerous operation
+-- DROP TABLE old_table_name;
+
+-- Example large migration that needs monitoring
+-- UPDATE illust SET new_field = calculate_complex_value(old_field);
+
+-- Record this migration
+INSERT INTO schema_migrations (version, execution_time_ms, batch)
+VALUES ('patch-example-manual', 0, 1)
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;

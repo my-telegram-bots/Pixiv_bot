@@ -1,6 +1,6 @@
 {
   "name": "pixiv_bot",
-  "version": "2.0.6",
+  "version": "2.1.0",
   "description": "A telegram bot link pixiv and telegram",
   "main": "app.js",
   "repository": "https://github.com/my-telegram-bots/Pixiv_bot",
@@ -18,7 +18,9 @@
   "scripts": {
     "all": "node app.js",
     "bot": "WEBLESS=1 node app.js",
-    "web": "node web.js"
+    "web": "node web.js",
+    "test": "ava",
+    "test:watch": "ava --watch"
   },
   "dependencies": {
     "@grammyjs/auto-retry": "^2.0.2",
@@ -32,6 +34,11 @@
     "koa": "^3.1.1",
     "mongodb": "^7.0.0",
     "node-fetch": "^3.3.2",
+    "pg": "^8.18.0",
     "remove-markdown": "^0.6.3"
+  },
+  "devDependencies": {
+    "ava": "^6.4.1",
+    "pg-mem": "^3.0.12"
   }
 }

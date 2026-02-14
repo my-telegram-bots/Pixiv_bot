@@ -24,7 +24,7 @@ export async function get_novel(id) {
                 userId: novel.userId,
                 restrict: novel.restrict,
                 xRestrict: novel.xRestrict,
-                tags: novel.tags,
+                tags: novel.tags?.map(t => typeof t === 'string' ? t : t.tag).filter(Boolean) || [],
                 createDate: novel.createDate,
                 coverUrl: novel.coverUrl,
                 content: novel.content.replaceAll('\r\n', '\n').replaceAll('[newpage]\n', '')

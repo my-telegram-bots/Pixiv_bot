@@ -2,7 +2,7 @@
  * Illust Service - Orchestration Layer
  * Combines functions from all layers, handles queue, cache, and data flow
  */
-import db from '#db'
+import db, { getIllust, updateIllust } from '#db'
 import { honsole, sleep } from '../common.js'
 import { fetchIllustFromPixiv } from './api.js'
 import { normalizeIllustData, extractDbFields } from './normalizer.js'
@@ -51,12 +51,13 @@ class IllustService {
     constructor() {
         // Queue management (prevent Pixiv 429 rate limiting)
         this.queue = new Map() // id -> { timestamp, retries }
+        this.maxQueueSize = 200 // Prevent unbounded growth
 
         // 404 cache (10 minutes TTL)
         this.notFoundCache = new TTLCache(500, 600000)
 
-        // Periodic queue cleanup
-        setInterval(() => this._cleanupQueue(), 30000)
+        // Periodic queue cleanup (every 15 seconds instead of 30)
+        setInterval(() => this._cleanupQueue(), 15000)
     }
 
     /**
@@ -72,7 +73,7 @@ class IllustService {
 
         try {
             // 1. Try to get from database (must have complete imgs_ data)
-            let illust = await db.collection.illust.findOne({ id })
+            let illust = await getIllust(id)
             if (illust) {
                 // Check if imgs_ data is complete
                 const hasValidImgs = illust.imgs_ &&
@@ -114,11 +115,7 @@ class IllustService {
 
             // 5. Save to database
             const dbData = extractDbFields(illust)
-            await db.collection.illust.updateOne(
-                { id: illust.id },
-                { $set: dbData },
-                { upsert: true }
-            )
+            await updateIllust(illust.id, dbData, null, { upsert: true })
 
             this._releaseQueue(id)
             return illust
@@ -141,7 +138,7 @@ class IllustService {
 
         try {
             // 1. Try to get from database
-            let illust = await db.collection.illust.findOne({ id })
+            let illust = await getIllust(id)
             if (illust && illust.imgs_ && illust.imgs_.original_urls) {
                 delete illust._id
                 if (illust.deleted) {
@@ -175,11 +172,7 @@ class IllustService {
 
             // 5. Save to database
             const dbData = extractDbFields(illust)
-            await db.collection.illust.updateOne(
-                { id: illust.id },
-                { $set: dbData },
-                { upsert: true }
-            )
+            await updateIllust(illust.id, dbData, null, { upsert: true })
 
             this._releaseQueue(id)
             return illust
@@ -216,11 +209,7 @@ class IllustService {
             }
 
             const dbData = extractDbFields(illust)
-            await db.collection.illust.updateOne(
-                { id: illust.id },
-                { $set: dbData },
-                { upsert: true }
-            )
+            await updateIllust(illust.id, dbData, null, { upsert: true })
 
             this._releaseQueue(id)
             return illust
@@ -236,6 +225,12 @@ class IllustService {
     async _waitQueue(id) {
         let waitCount = 0
         const maxWaitCount = 20
+
+        // Check queue size limit before adding (prevent memory overflow)
+        if (this.queue.size >= this.maxQueueSize && !this.queue.has(id)) {
+            honsole.warn(`[IllustService] Queue full (${this.queue.size}), rejecting request for illust:`, id)
+            throw new Error(`Queue is full (${this.queue.size} requests). Please try again later.`)
+        }
 
         while (this.queue.has(id) && waitCount < maxWaitCount) {
             await sleep(300)
@@ -278,8 +273,18 @@ class IllustService {
             staleEntries.forEach(id => this.queue.delete(id))
         }
 
-        if (this.queue.size > 100) {
+        // Warn if queue is getting large (earlier threshold)
+        if (this.queue.size > 50) {
             honsole.warn(`[IllustService] Queue size is large: ${this.queue.size}`)
+        }
+
+        // Emergency cleanup: if queue exceeds 80% of max, clear oldest entries
+        if (this.queue.size > this.maxQueueSize * 0.8) {
+            const sortedEntries = Array.from(this.queue.entries())
+                .sort((a, b) => a[1].timestamp - b[1].timestamp)
+            const toRemove = sortedEntries.slice(0, Math.floor(this.queue.size * 0.3))
+            toRemove.forEach(([id]) => this.queue.delete(id))
+            honsole.warn(`[IllustService] Emergency queue cleanup: removed ${toRemove.length} oldest entries`)
         }
     }
 
@@ -305,16 +310,10 @@ class IllustService {
     }
 
     async _markAsDeleted(id) {
-        await db.collection.illust.updateOne(
-            { id: id },
-            {
-                $set: {
-                    deleted: true,
-                    deleted_at: new Date()
-                }
-            },
-            { upsert: true }
-        )
+        await updateIllust(id, {
+            deleted: true,
+            deleted_at: new Date()
+        }, null, { upsert: true })
         honsole.dev('[IllustService] Marked as deleted:', id)
     }
 }

@@ -53,9 +53,9 @@ class MemoryMonitor {
         this.bot = null
         this.masterId = null
         this.thresholds = {
-            warning: 800,  // MB - send warning
-            critical: 1000, // MB - send critical alert
-            gc: 700        // MB - trigger GC
+            warning: 1400,  // MB - send warning (70% of 2GB heap)
+            critical: 1700, // MB - send critical alert (85% of 2GB heap)
+            gc: 1200        // MB - trigger GC (60% of 2GB heap)
         }
     }
 
@@ -254,23 +254,51 @@ class DownloadQueue {
     }
 }
 
+// TTL Cache for failed URLs (prevents unbounded growth)
+class FailedURLCache {
+    constructor(maxSize = 500, ttl = 600000) { // 10 minutes TTL
+        this.cache = new Map()
+        this.maxSize = maxSize
+        this.ttl = ttl
+    }
+
+    add(key) {
+        if (this.cache.size >= this.maxSize) {
+            const firstKey = this.cache.keys().next().value
+            this.cache.delete(firstKey)
+        }
+        this.cache.set(key, Date.now())
+    }
+
+    has(key) {
+        const timestamp = this.cache.get(key)
+        if (!timestamp) return false
+
+        // Check if expired
+        if (Date.now() - timestamp > this.ttl) {
+            this.cache.delete(key)
+            return false
+        }
+        return true
+    }
+
+    clear() {
+        this.cache.clear()
+    }
+
+    get size() {
+        return this.cache.size
+    }
+}
+
 const dw_queue = new DownloadQueue(9)
-// Cache for failed download URLs to prevent infinite loops
-const download_failed_cache = new Set()
-// Cache for fetch failed URLs to prevent infinite loops  
-const fetch_failed_cache = new Set()
+// Cache for failed download URLs to prevent infinite loops (with TTL)
+const download_failed_cache = new FailedURLCache(500, 600000)
+// Cache for fetch failed URLs to prevent infinite loops (with TTL)
+const fetch_failed_cache = new FailedURLCache(500, 600000)
 
-// Clear failed caches periodically to prevent memory leaks and monitor memory
+// Monitor memory and clean up periodically
 setInterval(async () => {
-    if (download_failed_cache.size > 1000) {
-        honsole.warn(`Download failed cache size is large: ${download_failed_cache.size}, clearing...`)
-        download_failed_cache.clear()
-    }
-    if (fetch_failed_cache.size > 1000) {
-        honsole.warn(`Fetch failed cache size is large: ${fetch_failed_cache.size}, clearing...`)
-        fetch_failed_cache.clear()
-    }
-
     // Monitor memory and cache sizes every 5 minutes
     const status = await memoryMonitor.logStatus({
         download_queue: dw_queue,
@@ -278,9 +306,10 @@ setInterval(async () => {
         fetch_failed_cache
     })
 
-    // Suggest GC if memory is getting high
+    // Trigger GC if available and memory is high
     if (status.shouldGC) {
-        honsole.warn(`[common.js] Memory usage high (${status.memory.heapUsed}MB), consider manual GC or restart`)
+        honsole.warn(`[common.js] Memory usage high (${status.memory.heapUsed}MB), triggering GC...`)
+        memoryMonitor.gc()
     }
 }, 300000) // Check every 5 minutes
 
