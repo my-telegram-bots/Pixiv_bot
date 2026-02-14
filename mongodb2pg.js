@@ -5,7 +5,7 @@
  *
  * Usage:
  *   node mongodb2pg.js [--force] [--skip-authors] [--skip-illusts]
- *   QUEUES=5 node mongodb2pg.js [--force]
+ *   QUEUES=10 BATCH_SIZE=2000 node mongodb2pg.js [--force]
  *
  * Options:
  *   --force         DROP all PostgreSQL tables and recreate schema before migration
@@ -14,7 +14,8 @@
  *   --skip-illusts  Skip illusts/images/ugoira migration (useful when re-running after failure)
  *
  * Environment Variables:
- *   QUEUES          Number of parallel write queues (default: 3, recommended: 5-8)
+ *   QUEUES          Number of parallel write queues (default: 3, recommended: 5-20 for large datasets)
+ *   BATCH_SIZE      Batch size for INSERT operations (default: 1000, recommended: 1000-2000 for large datasets)
  *
  * This script migrates all data from MongoDB to PostgreSQL using optimized
  * batch INSERT with parallel queues, pipelined read/write, and automatic constraint management.
@@ -57,8 +58,14 @@ const SKIP_AUTHORS = args.includes('--skip-authors')
 const SKIP_ILLUSTS = args.includes('--skip-illusts')
 
 // Number of parallel write queues for illusts
-// Recommended: 2-5 depending on PostgreSQL max_connections
-const PARALLEL_QUEUES = Math.min(Math.max(parseInt(process.env.QUEUES || 3), 1), 10)
+// Recommended: 5-10 for large datasets (2.2M+)
+const PARALLEL_QUEUES = Math.min(Math.max(parseInt(process.env.QUEUES || 3), 1), 20)
+
+// Batch size for INSERT operations
+// PostgreSQL supports up to 65535 parameters, illust has 14 fields
+// So max batch = 65535/14 = 4681, but we use conservative values
+// Recommended: 1000-2000 for large datasets
+const BATCH_SIZE = Math.min(Math.max(parseInt(process.env.BATCH_SIZE || 1000), 100), 4000)
 
 // MongoDB connection
 const mongoUri = config.mongodb.uri
@@ -116,10 +123,11 @@ async function connectDatabases() {
     console.log('✓ MongoDB connected')
 
     console.log('Connecting to PostgreSQL...')
+    const maxConnections = PARALLEL_QUEUES + 10  // Allow queues + buffer for operations
     pgPool = new Pool({
         connectionString: pgUri,
-        max: PARALLEL_QUEUES + 5,  // Allow parallel queues + buffer for other operations
-        min: 2,
+        max: maxConnections,
+        min: Math.min(5, PARALLEL_QUEUES),
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000
     })
@@ -128,8 +136,17 @@ async function connectDatabases() {
     // Disable synchronous commits for faster writes (safe for migration)
     await pgPool.query('SET synchronous_commit = OFF')
 
-    console.log(`✓ PostgreSQL connected (max ${PARALLEL_QUEUES + 5} connections)`)
-    console.log('✓ Performance mode enabled (synchronous_commit = OFF)')
+    // Increase work_mem for large batch operations
+    await pgPool.query('SET work_mem = \'256MB\'')
+
+    // Increase maintenance_work_mem for faster index building
+    await pgPool.query('SET maintenance_work_mem = \'1GB\'')
+
+    console.log(`✓ PostgreSQL connected (max ${maxConnections} connections, QUEUES=${PARALLEL_QUEUES}, BATCH_SIZE=${BATCH_SIZE})`)
+    console.log('✓ Performance mode enabled:')
+    console.log('  - synchronous_commit = OFF')
+    console.log('  - work_mem = 256MB')
+    console.log('  - maintenance_work_mem = 1GB')
 }
 
 async function checkTablesEmpty() {
@@ -192,7 +209,7 @@ async function dropAllTables() {
 
     // Drop all tables in reverse dependency order
     const tables = [
-        'telegraph', 'ranking', 'novel', 'chat_link',
+        'schema_migrations', 'telegraph', 'ranking', 'novel', 'chat_link',
         'chat_subscribe_bookmarks', 'chat_subscribe_author',
         'chat_setting', 'ugoira_meta', 'illust_image', 'illust', 'author'
     ]
@@ -247,14 +264,15 @@ async function dropIndexes() {
         'idx_telegraph_user'
     ]
 
-    for (const index of indexes) {
+    // Drop all indexes in parallel
+    await Promise.all(indexes.map(async (index) => {
         try {
             await pgPool.query(`DROP INDEX IF EXISTS ${index}`)
             console.log(`  Dropped ${index}`)
         } catch (error) {
             console.log(`  ⚠️  Failed to drop ${index}: ${error.message}`)
         }
-    }
+    }))
 
     console.log('✓ Indexes dropped (will be rebuilt after migration)')
 }
@@ -302,14 +320,15 @@ async function rebuildForeignKeys() {
         }
     ]
 
-    for (const fk of foreignKeyDefinitions) {
+    // Create all foreign keys in parallel
+    await Promise.all(foreignKeyDefinitions.map(async (fk) => {
         try {
             console.log(`  Creating ${fk.constraint}...`)
             await pgPool.query(fk.sql)
         } catch (error) {
             console.log(`  ⚠️  Failed to create ${fk.constraint}: ${error.message}`)
         }
-    }
+    }))
 
     const duration = Date.now() - startTime
     console.log(`✓ Foreign keys rebuilt in ${formatDuration(duration)}`)
@@ -387,10 +406,16 @@ async function rebuildIndexes() {
 }
 
 async function setTablesUnlogged() {
-    console.log('\n🚀 Setting illust tables to UNLOGGED for maximum speed...')
+    console.log('\n🚀 Setting tables to UNLOGGED for maximum speed...')
 
-    // Only set illust-related tables to UNLOGGED (large data volume)
+    // IMPORTANT: Must drop foreign keys first, otherwise cannot set UNLOGGED
+    // because PostgreSQL prevents UNLOGGED tables from referencing LOGGED tables
+    console.log('  Temporarily dropping foreign keys for UNLOGGED conversion...')
+    await dropForeignKeys()
+
+    // Set tables to UNLOGGED (order doesn't matter now that FKs are dropped)
     const tables = [
+        'author',
         'illust',
         'illust_image',
         'ugoira_meta'
@@ -405,7 +430,7 @@ async function setTablesUnlogged() {
         }
     }
 
-    console.log('✓ Illust tables set to UNLOGGED (no WAL writes, 2-3x faster)')
+    console.log('✓ Tables set to UNLOGGED (no WAL writes, 2-3x faster)')
     console.log('  ⚠️  Data will NOT survive PostgreSQL crash until migration completes')
 }
 
@@ -413,13 +438,13 @@ async function setTablesLogged() {
     console.log('\n🛡️  Setting tables back to LOGGED for safety...')
     const startTime = Date.now()
 
-    // Set all tables that might be UNLOGGED back to LOGGED
-    // Include author table to ensure foreign keys can be created
+    // Set tables back to LOGGED in reverse dependency order (child tables first)
+    // This ensures foreign key constraints are not violated
     const tables = [
-        'author',
-        'illust',
-        'illust_image',
-        'ugoira_meta'
+        'ugoira_meta',   // References illust (set LOGGED first)
+        'illust_image',  // References illust
+        'illust',        // References author
+        'author'         // No dependencies (set LOGGED last)
     ]
 
     for (const table of tables) {
@@ -532,7 +557,7 @@ async function migrateAuthors() {
  * Process a chunk of illusts with a dedicated PostgreSQL connection
  */
 async function processIllustChunk(docs) {
-    const BATCH_SIZE = 200  // Reduced to avoid "too many parameters" error (was 500)
+    // Use global BATCH_SIZE (configurable via BATCH_SIZE env var)
     const localStats = { illusts: 0, illust_images: 0, ugoira_meta: 0 }
 
     let illustBatch = []
@@ -1211,14 +1236,13 @@ async function main() {
 
         // Illust migration with optimizations (UNLOGGED, drop indexes/FKs)
         if (!SKIP_ILLUSTS) {
-            // In FORCE mode, schema was just recreated, so indexes/FKs don't exist yet
-            // In normal mode, drop them for better migration performance
-            if (!FORCE_MODE) {
-                await dropForeignKeys()
-                await dropIndexes()
-            }
+            // Drop indexes for faster migration (will rebuild after)
+            // In FORCE mode, schema.sql created indexes, so drop them
+            // In normal mode, drop them if they exist
+            await dropIndexes()
 
             // Set illust tables to UNLOGGED for maximum speed (no WAL writes)
+            // This will DROP foreign keys automatically (required for UNLOGGED conversion)
             await setTablesUnlogged()
 
             await migrateIllusts()
@@ -1226,18 +1250,12 @@ async function main() {
             // Set tables back to LOGGED before rebuilding indexes (required for data safety)
             await setTablesLogged()
 
-            // In FORCE mode, indexes and FKs already exist from schema.sql
-            // In normal mode, need to rebuild them
-            if (!FORCE_MODE) {
-                // Start rebuilding indexes in background (don't wait)
-                rebuildIndexesPromise = rebuildIndexes()
-                console.log('  ℹ️  Index rebuilding started in background...')
+            // Rebuild indexes in background (parallel, much faster than incremental)
+            rebuildIndexesPromise = rebuildIndexes()
+            console.log('  ℹ️  Index rebuilding started in background...')
 
-                // Rebuild foreign keys (fast, only 3 FKs)
-                await rebuildForeignKeys()
-            } else {
-                console.log('  ℹ️  Indexes and foreign keys already created by schema.sql')
-            }
+            // Rebuild foreign keys (they were dropped by setTablesUnlogged)
+            await rebuildForeignKeys()
         }
 
         // Migrate other tables while indexes are rebuilding in background
@@ -1290,3 +1308,4 @@ async function main() {
 }
 
 main()
+
