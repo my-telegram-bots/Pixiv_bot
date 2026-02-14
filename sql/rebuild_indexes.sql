@@ -23,7 +23,7 @@ DROP INDEX IF EXISTS idx_illust_x_restrict;
 DROP INDEX IF EXISTS idx_illust_type_deleted;
 DROP INDEX IF EXISTS idx_illust_author_created;
 DROP INDEX IF EXISTS idx_illust_tags_trgm;
-DROP INDEX IF EXISTS idx_ugoira_random;
+DROP INDEX IF EXISTS idx_illust_random;
 
 -- Rebuild indexes
 CREATE INDEX idx_author_name ON author(author_name);
@@ -49,8 +49,8 @@ CREATE INDEX idx_illust_author_created ON illust(author_id, created_at DESC);
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE INDEX idx_illust_tags_trgm ON illust USING GIN(tags gin_trgm_ops);
 
--- Fast random sampling for ugoira
-CREATE INDEX idx_ugoira_random ON ugoira_meta(random_value);
+-- Fast random sampling for all illusts
+CREATE INDEX idx_illust_random ON illust(random_value);
 
 -- ============================================
 -- 2. Rebuild Foreign Keys

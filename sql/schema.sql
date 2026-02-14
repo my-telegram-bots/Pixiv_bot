@@ -50,6 +50,7 @@ CREATE TABLE illust (
     page_count SMALLINT DEFAULT 1,
     deleted BOOLEAN DEFAULT FALSE,
     deleted_at TIMESTAMPTZ,
+    random_value FLOAT DEFAULT random(), -- For fast random sampling
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -63,6 +64,7 @@ CREATE INDEX idx_illust_deleted ON illust(deleted) WHERE deleted = TRUE;
 CREATE INDEX idx_illust_x_restrict ON illust(x_restrict);
 CREATE INDEX idx_illust_type_deleted ON illust(type, deleted) WHERE deleted = FALSE;
 CREATE INDEX idx_illust_author_created ON illust(author_id, created_at DESC);
+CREATE INDEX idx_illust_random ON illust(random_value);
 
 -- Fast tag search with trigram
 CREATE EXTENSION IF NOT EXISTS pg_trgm;

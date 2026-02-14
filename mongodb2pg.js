@@ -42,8 +42,12 @@
 import { MongoClient } from 'mongodb'
 import pg from 'pg'
 import config from './config.js'
+import { readFileSync, readdirSync } from 'fs'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 
 const { Pool } = pg
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // Parse command line arguments
 const args = process.argv.slice(2)
@@ -208,8 +212,14 @@ async function dropIndexes() {
         'idx_author_name',
         'idx_author_status',
         'idx_illust_author',
+        'idx_illust_type',
+        'idx_illust_x_restrict',
+        'idx_illust_type_deleted',
+        'idx_illust_author_created',
         'idx_illust_tags',
+        'idx_illust_tags_trgm',
         'idx_illust_deleted',
+        'idx_illust_random',
         'idx_illust_image_illust',
         'idx_subscribe_author_chat',
         'idx_subscribe_author_author',
@@ -295,6 +305,11 @@ async function rebuildIndexes() {
         'CREATE INDEX idx_author_name ON author(author_name)',
         'CREATE INDEX idx_author_status ON author(status)',
         'CREATE INDEX idx_illust_author ON illust(author_id)',
+        'CREATE INDEX idx_illust_type ON illust(type)',
+        'CREATE INDEX idx_illust_x_restrict ON illust(x_restrict)',
+        'CREATE INDEX idx_illust_type_deleted ON illust(type, deleted) WHERE deleted = FALSE',
+        'CREATE INDEX idx_illust_author_created ON illust(author_id, created_at DESC)',
+        'CREATE INDEX idx_illust_random ON illust(random_value)',
         'CREATE INDEX idx_illust_tags ON illust USING GIN(tags)',
         'CREATE INDEX idx_illust_deleted ON illust(deleted) WHERE deleted = TRUE',
         'CREATE INDEX idx_illust_image_illust ON illust_image(illust_id)',
@@ -376,6 +391,53 @@ async function setTablesLogged() {
     const duration = Date.now() - startTime
     console.log(`✓ Tables set back to LOGGED in ${formatDuration(duration)}`)
     console.log('  ✓ Data is now safe and will survive crashes')
+}
+
+async function applyPatches() {
+    console.log('\n🩹 Applying database patches...')
+    const startTime = Date.now()
+
+    const patchesDir = join(__dirname, 'sql', 'patches')
+
+    let patchFiles
+    try {
+        patchFiles = readdirSync(patchesDir)
+            .filter(f => f.endsWith('.sql'))
+            .sort() // Apply in alphabetical order (patch-001, patch-002, etc.)
+    } catch (error) {
+        console.log('  ℹ️  No patches directory found, skipping patches')
+        return
+    }
+
+    if (patchFiles.length === 0) {
+        console.log('  ℹ️  No patch files found')
+        return
+    }
+
+    console.log(`  Found ${patchFiles.length} patch file(s)`)
+
+    for (const patchFile of patchFiles) {
+        try {
+            console.log(`  Applying ${patchFile}...`)
+            const patchPath = join(patchesDir, patchFile)
+            const patchSql = readFileSync(patchPath, 'utf-8')
+
+            // Execute patch SQL
+            await pgPool.query(patchSql)
+            console.log(`  ✓ Applied ${patchFile}`)
+        } catch (error) {
+            // Ignore if patch already applied (ON CONFLICT DO NOTHING)
+            if (error.message.includes('already exists') ||
+                error.message.includes('duplicate')) {
+                console.log(`  ⚠️  Skipped ${patchFile} (already applied)`)
+            } else {
+                console.log(`  ⚠️  Failed to apply ${patchFile}: ${error.message}`)
+            }
+        }
+    }
+
+    const duration = Date.now() - startTime
+    console.log(`✓ Patches applied in ${formatDuration(duration)}`)
 }
 
 async function migrateAuthors() {
@@ -1135,6 +1197,9 @@ async function main() {
             console.log('\n⏳ Waiting for background index rebuilding to complete...')
             await rebuildIndexesPromise
         }
+
+        // Apply patches (e.g., add random_value column, new indexes, etc.)
+        await applyPatches()
 
         const totalDuration = Date.now() - totalStartTime
 
