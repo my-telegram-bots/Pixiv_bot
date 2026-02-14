@@ -119,7 +119,10 @@ export async function get_illust(id, fresh = false, raw = false, try_time = 0, l
         return id
     }
     id = parseInt(id.toString())
-    if (isNaN(id) || id.length > 9) {
+    // Only reject obviously invalid IDs (NaN or negative)
+    // Keep validation loose to maintain backward compatibility
+    if (isNaN(id) || id < 0 || id.length > 9) {
+        honsole.warn('[get_illust] Invalid illust ID:', id)
         return false
     }
 

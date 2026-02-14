@@ -574,6 +574,11 @@ async function processIllustChunk(docs) {
                 continue
             }
 
+            // Skip invalid IDs (negative numbers or invalid values)
+            if (!doc.id || doc.id < 0) {
+                continue
+            }
+
             // Collect illust row
             illustBatch.push({
                 id: doc.id,
