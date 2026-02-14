@@ -1,6 +1,6 @@
 // there is no comment in this file
 // may be next version will be added
-import { Markup } from 'telegraf'
+import { InlineKeyboard } from 'grammy'
 import db from '../../db.js'
 import { honsole } from '../common.js'
 import { _l } from './i18n.js'
@@ -411,10 +411,8 @@ export async function handle_new_configuration(bot, ctx, default_extra) {
         delete ctx.us.setting.dbless
         await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'setting_open_link'), {
             ...default_extra,
-            ...Markup.inlineKeyboard(
-                [
-                    Markup.button.url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.us.setting), 'utf8').toString('base64')}`.replace('/en', '').replace('/undefined', ''))
-                ]),
+            reply_markup: new InlineKeyboard()
+                .url('open', `https://pixiv-bot.pages.dev/${_l(ctx.l)}/s#${Buffer.from(JSON.stringify(ctx.us.setting), 'utf8').toString('base64')}`.replace('/en', '').replace('/undefined', '')),
             reply_to_message_id: ctx.message.message_id
         }).catch((e) => {
             honsole.warn(e)

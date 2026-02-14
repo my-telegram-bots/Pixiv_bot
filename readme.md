@@ -45,7 +45,17 @@ and changed ugoira url in config.json (without /mp4/), you need modify the confi
 Version 2.0.5 user format's version update to v2, v1(legacy) will still working at this time
 
     node update update_user_format_format_2025_april
-    
+
+Version 2.0.6 (January 2025) removed deprecated fields from database to improve performance
+
+    node update remove_fsize_field_2025_january
+    node update remove_storage_endpoint_2025_january
+
+Version 2.0.6 (February 2026) added tags index for faster inline search and fixed ugoira type mismatch bug
+
+    node update create_tags_index_2026_february
+    node update fix_ugoira_type_mismatch_2026_february
+
 ## config
 ### cookie
 To subscribe author and popular search.  

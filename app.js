@@ -186,7 +186,7 @@ bot.on('callback_query', async (ctx) => {
                     await update_setting({
                         add_link_chat: link_setting
                     }, chat_id)
-                    await ctx.editMessageReplyMarkup(k_link_setting(ctx.l, link_setting))
+                    await ctx.editMessageReplyMarkup(k_link_setting(ctx.l, link_setting).reply_markup)
                     apply_flag = true
                 }
                 catch (error) {
