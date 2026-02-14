@@ -569,6 +569,11 @@ async function processIllustChunk(docs) {
         await client.query('BEGIN')
 
         for (const doc of docs) {
+            // Skip invalid data: deleted records with no actual content
+            if (doc.deleted && !doc.title && !doc.author_id) {
+                continue
+            }
+
             // Collect illust row
             illustBatch.push({
                 id: doc.id,

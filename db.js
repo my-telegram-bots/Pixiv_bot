@@ -164,11 +164,24 @@ export async function updateIllust(id, data, testPool = null, options = {}) {
                 .join(', ')
 
             if (updateClauses) {
-                await queryPool.query(`
-                    INSERT INTO illust (${columns.join(', ')})
-                    VALUES (${placeholders})
-                    ON CONFLICT (id) DO UPDATE SET ${updateClauses}, updated_at = NOW()
-                `, values)
+                if (upsert) {
+                    // INSERT with ON CONFLICT - create if not exists
+                    await queryPool.query(`
+                        INSERT INTO illust (${columns.join(', ')})
+                        VALUES (${placeholders})
+                        ON CONFLICT (id) DO UPDATE SET ${updateClauses}, updated_at = NOW()
+                    `, values)
+                } else {
+                    // UPDATE only - don't create new record
+                    const result = await queryPool.query(`
+                        UPDATE illust SET ${updateClauses}, updated_at = NOW()
+                        WHERE id = $1
+                    `, values)
+
+                    if (result.rowCount === 0) {
+                        throw new Error(`Record not exist: illust ${id}`)
+                    }
+                }
             } else if (upsert) {
                 await queryPool.query(`
                     INSERT INTO illust (id, title) VALUES ($1, $2)

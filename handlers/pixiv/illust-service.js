@@ -2,7 +2,7 @@
  * Illust Service - Orchestration Layer
  * Combines functions from all layers, handles queue, cache, and data flow
  */
-import db, { getIllust, updateIllust } from '#db'
+import { getIllust, updateIllust } from '#db'
 import { honsole, sleep } from '../common.js'
 import { fetchIllustFromPixiv } from './api.js'
 import { normalizeIllustData, extractDbFields } from './normalizer.js'
@@ -310,11 +310,22 @@ class IllustService {
     }
 
     async _markAsDeleted(id) {
-        await updateIllust(id, {
-            deleted: true,
-            deleted_at: new Date()
-        }, null, { upsert: true })
-        honsole.dev('[IllustService] Marked as deleted:', id)
+        // Only mark as deleted if record already exists
+        // Don't create empty records for 404/deleted illusts
+        try {
+            await updateIllust(id, {
+                deleted: true,
+                deleted_at: new Date()
+            }, null, { upsert: false })
+            honsole.dev('[IllustService] Marked as deleted:', id)
+        } catch (error) {
+            // Skip if record doesn't exist, warn for other errors
+            if (error.message && error.message.includes('Record not exist')) {
+                honsole.dev('[IllustService] Skip marking deleted (not exist):', id)
+            } else {
+                honsole.warn('[IllustService] Failed to mark as deleted:', id, error.message)
+            }
+        }
     }
 }
 
