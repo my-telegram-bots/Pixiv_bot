@@ -8,7 +8,8 @@
  *   QUEUES=5 node mongodb2pg.js [--force]
  *
  * Options:
- *   --force         Truncate all PostgreSQL tables before migration
+ *   --force         DROP all PostgreSQL tables and recreate schema before migration
+ *                   (This completely resets the database structure to latest schema)
  *   --skip-authors  Skip author migration (useful when continuing after failure)
  *   --skip-illusts  Skip illusts/images/ugoira migration (useful when re-running after failure)
  *
@@ -26,17 +27,17 @@
  *   - Automatic index and FK rebuilding after migration (batch rebuild is 10-100x faster)
  *   - Parallel write queues (3 by default) for concurrent PostgreSQL writes
  *   - Pipelined read/write (reads next batch while writing current batch)
- *   - Large batch size (500 rows per batch)
+ *   - Large batch size (200 rows per batch)
  *   - Transaction-based commits (reduces commit overhead)
  *   - Expected time for 2.3M illusts: ~1-2 minutes with 5 queues + ~1 min rebuild
  *   - Tables are automatically set back to LOGGED after migration for data safety
  *
  * This script should be run while the bot is stopped.
  * By default, the script checks if tables are empty and refuses to run if data exists.
- * Use --force to truncate tables before migration.
+ * Use --force to completely reset database and recreate from schema.sql.
  *
- * Note: If migration fails, indexes/foreign keys may need to be rebuilt manually:
- *   psql -d your_database -f rebuild_indexes.sql
+ * Note: If migration fails in non-force mode, indexes/foreign keys may need to be rebuilt manually:
+ *   psql -d your_database -f sql/rebuild_indexes.sql
  */
 
 import { MongoClient } from 'mongodb'
@@ -159,7 +160,8 @@ async function checkTablesEmpty() {
         if (count > 0) {
             console.error(`\n❌ Table "${table}" contains ${count} rows!`)
             console.error('Database is not empty. Migration aborted.')
-            console.error('\nTo force migration and truncate all tables, use:')
+            console.error('\n⚠️  WARNING: --force mode will DROP ALL TABLES and recreate schema!')
+            console.error('To force migration and completely reset database, use:')
             console.error('  node mongodb2pg.js --force')
             if (!SKIP_AUTHORS) {
                 console.error('To skip author migration, add:')
@@ -176,33 +178,49 @@ async function checkTablesEmpty() {
     console.log('✓ All checked tables are empty')
 }
 
-async function truncateTables() {
-    console.log('\n⚠️  FORCE MODE: Truncating PostgreSQL tables...')
+async function dropAllTables() {
+    console.log('\n⚠️  FORCE MODE: Dropping all PostgreSQL tables and recreating schema...')
+    console.log('⚠️  WARNING: This will DELETE ALL DATA in the database!')
+    console.log('')
 
-    let tables = [
+    // Give user 10 seconds to cancel
+    for (let i = 10; i > 0; i--) {
+        process.stdout.write(`\r  Starting in ${i} seconds... (Press Ctrl+C to cancel)`)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+    console.log('\n')
+
+    // Drop all tables in reverse dependency order
+    const tables = [
         'telegraph', 'ranking', 'novel', 'chat_link',
         'chat_subscribe_bookmarks', 'chat_subscribe_author',
         'chat_setting', 'ugoira_meta', 'illust_image', 'illust', 'author'
     ]
 
-    // Skip author truncation if --skip-authors is specified
-    if (SKIP_AUTHORS) {
-        tables = tables.filter(t => t !== 'author')
-        console.log('  (Preserving author table)')
-    }
-
-    // Skip illust truncation if --skip-illusts is specified
-    if (SKIP_ILLUSTS) {
-        tables = tables.filter(t => !['illust', 'illust_image', 'ugoira_meta'].includes(t))
-        console.log('  (Preserving illust tables)')
-    }
-
+    console.log('  Dropping existing tables...')
     for (const table of tables) {
-        await pgPool.query(`TRUNCATE TABLE ${table} RESTART IDENTITY CASCADE`)
-        console.log(`  Truncated ${table}`)
+        try {
+            await pgPool.query(`DROP TABLE IF EXISTS ${table} CASCADE`)
+            console.log(`  Dropped ${table}`)
+        } catch (error) {
+            console.log(`  ⚠️  Failed to drop ${table}: ${error.message}`)
+        }
     }
 
-    console.log(`✓ Truncated ${tables.length} table${tables.length > 1 ? 's' : ''}`)
+    console.log('  ✓ All tables dropped')
+
+    // Recreate schema
+    console.log('  Recreating schema from schema.sql...')
+    const schemaPath = join(__dirname, 'sql', 'schema.sql')
+    const schemaSql = readFileSync(schemaPath, 'utf-8')
+
+    try {
+        await pgPool.query(schemaSql)
+        console.log('  ✓ Schema recreated successfully')
+    } catch (error) {
+        console.error(`  ❌ Failed to recreate schema: ${error.message}`)
+        throw error
+    }
 }
 
 async function dropIndexes() {
@@ -301,6 +319,30 @@ async function rebuildIndexes() {
     console.log('\n🔨 Rebuilding indexes (parallel)...')
     const startTime = Date.now()
 
+    // Ensure pg_trgm extension exists before creating trigram indexes
+    try {
+        await pgPool.query('CREATE EXTENSION IF NOT EXISTS pg_trgm')
+        console.log('  ✓ pg_trgm extension enabled')
+    } catch (error) {
+        console.log(`  ⚠️  Failed to create pg_trgm extension: ${error.message}`)
+    }
+
+    // Create IMMUTABLE wrapper function for array_to_string
+    try {
+        await pgPool.query(`
+            CREATE OR REPLACE FUNCTION immutable_array_to_string(text[], text)
+            RETURNS text
+            LANGUAGE sql
+            IMMUTABLE
+            AS $$
+                SELECT array_to_string($1, $2)
+            $$
+        `)
+        console.log('  ✓ Created immutable_array_to_string function')
+    } catch (error) {
+        console.log(`  ⚠️  Failed to create immutable_array_to_string: ${error.message}`)
+    }
+
     const indexDefinitions = [
         'CREATE INDEX idx_author_name ON author(author_name)',
         'CREATE INDEX idx_author_status ON author(status)',
@@ -311,6 +353,7 @@ async function rebuildIndexes() {
         'CREATE INDEX idx_illust_author_created ON illust(author_id, created_at DESC)',
         'CREATE INDEX idx_illust_random ON illust(random_value)',
         'CREATE INDEX idx_illust_tags ON illust USING GIN(tags)',
+        'CREATE INDEX idx_illust_tags_trgm ON illust USING GIN(immutable_array_to_string(tags, \' \') gin_trgm_ops)',
         'CREATE INDEX idx_illust_deleted ON illust(deleted) WHERE deleted = TRUE',
         'CREATE INDEX idx_illust_image_illust ON illust_image(illust_id)',
         'CREATE INDEX idx_subscribe_author_chat ON chat_subscribe_author(chat_id)',
@@ -1138,6 +1181,8 @@ async function main() {
 
     if (FORCE_MODE) {
         console.log('⚠️  Running in FORCE mode (--force)')
+        console.log('⚠️  This will DROP ALL TABLES and recreate from schema.sql!')
+        console.log('')
     }
     if (SKIP_AUTHORS) {
         console.log('⚠️  Skipping authors migration (--skip-authors)')
@@ -1152,7 +1197,7 @@ async function main() {
         await connectDatabases()
 
         if (FORCE_MODE) {
-            await truncateTables()
+            await dropAllTables()
         } else {
             await checkTablesEmpty()
         }
@@ -1166,9 +1211,12 @@ async function main() {
 
         // Illust migration with optimizations (UNLOGGED, drop indexes/FKs)
         if (!SKIP_ILLUSTS) {
-            // Drop foreign keys and indexes before migration for better performance
-            await dropForeignKeys()
-            await dropIndexes()
+            // In FORCE mode, schema was just recreated, so indexes/FKs don't exist yet
+            // In normal mode, drop them for better migration performance
+            if (!FORCE_MODE) {
+                await dropForeignKeys()
+                await dropIndexes()
+            }
 
             // Set illust tables to UNLOGGED for maximum speed (no WAL writes)
             await setTablesUnlogged()
@@ -1178,12 +1226,18 @@ async function main() {
             // Set tables back to LOGGED before rebuilding indexes (required for data safety)
             await setTablesLogged()
 
-            // Start rebuilding indexes in background (don't wait)
-            rebuildIndexesPromise = rebuildIndexes()
-            console.log('  ℹ️  Index rebuilding started in background...')
+            // In FORCE mode, indexes and FKs already exist from schema.sql
+            // In normal mode, need to rebuild them
+            if (!FORCE_MODE) {
+                // Start rebuilding indexes in background (don't wait)
+                rebuildIndexesPromise = rebuildIndexes()
+                console.log('  ℹ️  Index rebuilding started in background...')
 
-            // Rebuild foreign keys (fast, only 3 FKs)
-            await rebuildForeignKeys()
+                // Rebuild foreign keys (fast, only 3 FKs)
+                await rebuildForeignKeys()
+            } else {
+                console.log('  ℹ️  Indexes and foreign keys already created by schema.sql')
+            }
         }
 
         // Migrate other tables while indexes are rebuilding in background
@@ -1199,7 +1253,13 @@ async function main() {
         }
 
         // Apply patches (e.g., add random_value column, new indexes, etc.)
-        await applyPatches()
+        // In FORCE mode, schema.sql already includes latest schema, but patches are idempotent
+        // In normal mode, patches update existing schema
+        if (!FORCE_MODE) {
+            await applyPatches()
+        } else {
+            console.log('\n  ℹ️  Skipping patches (schema.sql already contains latest schema)')
+        }
 
         const totalDuration = Date.now() - totalStartTime
 

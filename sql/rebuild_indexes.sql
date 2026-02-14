@@ -45,9 +45,19 @@ CREATE INDEX idx_illust_x_restrict ON illust(x_restrict);
 CREATE INDEX idx_illust_type_deleted ON illust(type, deleted) WHERE deleted = FALSE;
 CREATE INDEX idx_illust_author_created ON illust(author_id, created_at DESC);
 
--- Fast tag search with trigram
+-- Fast tag search with trigram (requires IMMUTABLE function for indexing)
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE INDEX idx_illust_tags_trgm ON illust USING GIN(tags gin_trgm_ops);
+
+-- Create IMMUTABLE wrapper function for array_to_string
+CREATE OR REPLACE FUNCTION immutable_array_to_string(text[], text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+    SELECT array_to_string($1, $2)
+$$;
+
+CREATE INDEX idx_illust_tags_trgm ON illust USING GIN(immutable_array_to_string(tags, ' ') gin_trgm_ops);
 
 -- Fast random sampling for all illusts
 CREATE INDEX idx_illust_random ON illust(random_value);

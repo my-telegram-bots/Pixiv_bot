@@ -934,7 +934,7 @@ function createAuthorCollection() {
             return result.rows[0] || null
         },
 
-        updateOne: async (query, update, options = {}) => {
+        updateOne: async (query, update, _options = {}) => {
             const id = query.id || query.author_id
             const data = update.$set || {}
 
@@ -1089,10 +1089,12 @@ class PostgresCursor {
                     } else {
                         pattern = '%' + pattern + '%'
                     }
-                    conditions.push(`EXISTS (SELECT 1 FROM unnest(i.tags) AS tag WHERE tag ILIKE $${paramIndex})`)
+                    // Use trigram index on concatenated tags for fuzzy search
+                    conditions.push(`immutable_array_to_string(i.tags, ' ') ILIKE $${paramIndex}`)
                     params.push(pattern)
                     paramIndex++
                 } else if (typeof this.query.tags === 'string') {
+                    // Exact match uses GIN index on tags array
                     conditions.push(`$${paramIndex} = ANY(i.tags)`)
                     params.push(this.query.tags)
                     paramIndex++
@@ -1280,7 +1282,7 @@ class ChatSettingCursor {
 // ============================================
 // update_setting and delete_setting
 // ============================================
-export async function update_setting(value, chat_id, flag) {
+export async function update_setting(value, chat_id, _flag) {
     try {
         let s = {}
         let u = {}
