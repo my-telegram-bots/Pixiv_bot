@@ -28,7 +28,7 @@
     "@grammyjs/transformer-throttler": "^1.2.1",
     "@koa/bodyparser": "^6.1.0",
     "@koa/router": "^15.3.0",
-    "axios": "^1.13.4",
+    "axios": "^1.13.5",
     "grammy": "^1.39.3",
     "jsdom": "^26.1.0",
     "koa": "^3.1.1",
