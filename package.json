@@ -27,18 +27,18 @@
     "@grammyjs/runner": "^1.0.4",
     "@grammyjs/transformer-throttler": "^1.2.1",
     "@koa/bodyparser": "^6.1.0",
-    "@koa/router": "^15.3.0",
-    "axios": "^1.13.5",
-    "grammy": "^1.39.3",
+    "@koa/router": "^15.7.0",
+    "axios": "^1.19.0",
+    "grammy": "^1.45.1",
     "jsdom": "^26.1.0",
-    "koa": "^3.1.1",
-    "mongodb": "^7.0.0",
+    "koa": "^3.2.1",
+    "mongodb": "^7.5.0",
     "node-fetch": "^3.3.2",
-    "pg": "^8.18.0",
-    "remove-markdown": "^0.6.3"
+    "pg": "^8.23.0",
+    "remove-markdown": "^0.6.4"
   },
   "devDependencies": {
     "ava": "^6.4.1",
-    "pg-mem": "^3.0.12"
+    "pg-mem": "^3.0.14"
   }
 }
