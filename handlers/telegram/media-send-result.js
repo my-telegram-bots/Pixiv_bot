@@ -4,7 +4,7 @@ export const MediaSendKind = Object.freeze({
     FAILED: 'failed'
 })
 
-const staleTelegramDescriptions = [
+const telegramRemoteFetchDescriptions = [
     'failed to get http url content',
     'wrong file identifier/http url specified',
     'wrong type of the web page content',
@@ -18,11 +18,34 @@ const staleTelegramDescriptions = [
 export function classifyMediaSendError(error) {
     const description = (error?.description || error?.message || '').toLowerCase()
     const failedIndexMatch = description.match(/failed to send message #(\d+)/)
-    const stale = error?.code === 'PIXIV_MEDIA_STALE' ||
-        staleTelegramDescriptions.some(value => description.includes(value))
+    const stale = error?.code === 'PIXIV_MEDIA_STALE'
+    const retryLocal = !stale && telegramRemoteFetchDescriptions.some(value => description.includes(value))
     return {
         stale,
+        retryLocal,
         failedIndex: failedIndexMatch ? Number.parseInt(failedIndexMatch[1], 10) - 1 : null,
-        code: stale ? 'PIXIV_MEDIA_STALE' : 'TELEGRAM_MEDIA_SEND_FAILED'
+        code: stale
+            ? 'PIXIV_MEDIA_STALE'
+            : retryLocal
+                ? 'TELEGRAM_MEDIA_FETCH_FAILED'
+                : 'TELEGRAM_MEDIA_SEND_FAILED'
     }
+}
+
+export function queueLocalMediaRetry(mediaGroup, failedIndex, currentType, queue) {
+    if (!Array.isArray(mediaGroup) || failedIndex < 0 || failedIndex >= mediaGroup.length) {
+        return false
+    }
+    const item = mediaGroup[failedIndex]
+    if (!Array.isArray(item.invaild)) item.invaild = []
+    if (!item.invaild.includes(currentType)) item.invaild.push(currentType)
+    if (!queue.includes(currentType)) queue.unshift(currentType)
+    return true
+}
+
+export function selectMediaRetryType(item, requestedType) {
+    if (requestedType.startsWith('dl') || !item.invaild?.includes(requestedType)) {
+        return requestedType
+    }
+    return `dl${requestedType}`
 }

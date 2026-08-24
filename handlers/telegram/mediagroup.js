@@ -3,6 +3,7 @@ import { asyncForEach, fetch_tmp_file, honsole, isStaleMediaError } from '../com
 import { detect_ugpira_url, detect_ugpira_file, ugoira_to_mp4 } from '../pixiv/tools.js'
 import { InputFile } from 'grammy'
 import config from '../../config.js'
+import { selectMediaRetryType } from '#handlers/telegram/media-send-result'
 
 export async function mg_create(illust, us) {
     let mediagroups = []
@@ -149,7 +150,7 @@ export async function mg_filter(mg, type = 't') {
         }
 
         // Create local copy of type for this specific item
-        let itemType = type
+        let itemType = selectMediaRetryType(x, type)
 
         if (x.type == 'document') {
             xx.media = x.media_o
@@ -196,12 +197,6 @@ export async function mg_filter(mg, type = 't') {
                 }
             }
         } else {
-            // Smart retry: if current type failed before, try alternatives
-            if (x.invaild && x.invaild.includes(itemType)) {
-                const fallbackOrder = ['r', 'dlo', 'dlr']
-                itemType = fallbackOrder.find(t => !x.invaild.includes(t)) || itemType
-            }
-
             if (itemType.includes('dl') && !x.media_t) {
                 // dlo => download media_o file
                 // dlr => download media_r file

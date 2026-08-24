@@ -5,7 +5,11 @@ import { mg_filter } from './mediagroup.js'
 import { InputFile } from 'grammy'
 import config from '../../config.js'
 import axios from 'axios'
-import { MediaSendKind, classifyMediaSendError } from './media-send-result.js'
+import {
+    MediaSendKind,
+    classifyMediaSendError,
+    queueLocalMediaRetry
+} from './media-send-result.js'
 
 export { MediaSendKind, classifyMediaSendError }
 
@@ -123,26 +127,12 @@ export async function catchily(e, chat_id, language_code = 'en') {
  * @returns {boolean} Success status
  */
 export function markFailedMediaItem(mg, failed_index, current_type, mg_type_queue) {
-    if (failed_index < 0 || failed_index >= mg.length) {
+    if (!queueLocalMediaRetry(mg, failed_index, current_type, mg_type_queue)) {
         honsole.warn(`Invalid media index ${failed_index + 1}, media group has ${mg.length} items`)
         return false
     }
 
-    honsole.log(`Media item #${failed_index + 1} failed with ${current_type}, marking for retry`)
-
-    // Mark this specific item as invalid for current media type
-    if (!mg[failed_index].invaild) {
-        mg[failed_index].invaild = [current_type]
-    } else if (!mg[failed_index].invaild.includes(current_type)) {
-        mg[failed_index].invaild.push(current_type)
-    }
-
-    // For failed web URLs, try downloading locally first
-    const download_type = current_type.startsWith('dl') ? current_type : `dl${current_type}`;
-    if (!mg_type_queue.includes(download_type)) {
-        mg_type_queue.unshift(download_type);
-    }
-
+    honsole.log(`Media item #${failed_index + 1} failed with ${current_type}, retrying only that item as a local upload`)
     return true
 }
 

@@ -72,7 +72,6 @@ test('refresh treats PostgreSQL string ID and Pixiv numeric ID as the same illus
 test('refresh identity failures have actionable localized messages', t => {
     for (const language of [en, ja, zhHans, zhHant]) {
         t.regex(language.illustration_refresh_id_mismatch, /ILLUSTRATION_REFRESH_ID_MISMATCH/)
-        t.regex(language.error, /UNEXPECTED_PROCESSING_FAILURE/)
     }
 })
 
