@@ -41,13 +41,26 @@ const transitions = Object.freeze({
     [IllustrationLifecycleState.FAILED]: new Set()
 })
 
+function normalizeIllustrationIdentity(illust) {
+    const id = Number(illust?.id)
+    if (!Number.isSafeInteger(id) || id <= 0) return null
+    return {
+        ...illust,
+        id,
+        ...(Array.isArray(illust.mediagroup) && {
+            mediagroup: illust.mediagroup.map(item => ({ ...item, id }))
+        })
+    }
+}
+
 export function createIllustrationLifecycle(illust) {
-    if (!illust?.id) {
+    const normalized = normalizeIllustrationIdentity(illust)
+    if (!normalized) {
         throw new Error('Illustration lifecycle requires an illustration with an id')
     }
     return {
-        id: illust.id,
-        illust,
+        id: normalized.id,
+        illust: normalized,
         state: IllustrationLifecycleState.READY,
         refreshCount: 0,
         sentPages: new Set(),
@@ -122,11 +135,14 @@ export function beginIllustrationRefresh(lifecycle, failedPage = null) {
 }
 
 export function applyIllustrationRefresh(lifecycle, illust) {
-    if (!illust || illust.id !== lifecycle.id) {
-        throw new Error(`Refreshed illustration does not match lifecycle ${lifecycle.id}`)
+    const normalized = normalizeIllustrationIdentity(illust)
+    if (!normalized || normalized.id !== lifecycle.id) {
+        const error = new Error(`Refreshed illustration does not match lifecycle ${lifecycle.id}`)
+        error.code = 'ILLUSTRATION_REFRESH_ID_MISMATCH'
+        throw error
     }
     return transitionIllustration(lifecycle, IllustrationLifecycleState.RETRYING, {
-        illust,
+        illust: normalized,
         errorCode: null
     })
 }

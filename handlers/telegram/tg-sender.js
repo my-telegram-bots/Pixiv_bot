@@ -142,8 +142,8 @@ async function collectIllustrations(bot, config, runtime) {
 
 function addResolvedIllustration(runtime, illust) {
     const lifecycle = createIllustrationLifecycle(illust)
-    runtime.illusts.push(illust)
-    runtime.lifecycles.set(illust.id, lifecycle)
+    runtime.illusts.push(lifecycle.illust)
+    runtime.lifecycles.set(lifecycle.id, lifecycle)
 }
 
 async function refreshIllustration(runtime, lifecycle, failedPage) {
@@ -152,9 +152,15 @@ async function refreshIllustration(runtime, lifecycle, failedPage) {
     }
     const resolved = await handle_illust(lifecycle.id, runtime.ctx.us, false, 'refresh')
     if (resolved.kind === 'ready') {
-        applyIllustrationRefresh(lifecycle, resolved.illustration)
+        try {
+            applyIllustrationRefresh(lifecycle, resolved.illustration)
+        } catch (error) {
+            honsole.error('Illustration refresh identity mismatch:', error)
+            failIllustration(lifecycle, error.code || 'ILLUSTRATION_REFRESH_ID_MISMATCH')
+            return false
+        }
         const index = runtime.illusts.findIndex(illust => illust.id === lifecycle.id)
-        if (index >= 0) runtime.illusts[index] = resolved.illustration
+        if (index >= 0) runtime.illusts[index] = lifecycle.illust
         return true
     }
     failIllustration(
@@ -171,6 +177,8 @@ async function notifyIllustrationFailure(bot, runtime, lifecycle) {
     lifecycle.failureNotified = true
     const key = lifecycle.state === IllustrationLifecycleState.NOT_FOUND
         ? 'illust_404'
+        : lifecycle.errorCode === 'ILLUSTRATION_REFRESH_ID_MISMATCH'
+            ? 'illustration_refresh_id_mismatch'
         : lifecycle.errorCode === 'PIXIV_MEDIA_REFRESH_FAILED' || lifecycle.errorCode === 'PIXIV_DETAIL_REQUEST_FAILED'
             ? 'media_refresh_failed'
             : lifecycle.errorCode === 'PIXIV_MEDIA_STALE'

@@ -1,5 +1,9 @@
 import test from 'ava'
 import fs from 'node:fs'
+import en from '../lang/en.js'
+import ja from '../lang/ja.js'
+import zhHans from '../lang/zh-hans.js'
+import zhHant from '../lang/zh-hant.js'
 import {
     IllustrationLifecycleState,
     applyIllustrationRefresh,
@@ -44,6 +48,32 @@ test('refresh resumes only unsent direct pages', t => {
     })
 
     t.deepEqual(pendingIllustrationPages(lifecycle), [2])
+})
+
+test('refresh treats PostgreSQL string ID and Pixiv numeric ID as the same illustration', t => {
+    const lifecycle = createIllustrationLifecycle({
+        id: '148841251',
+        mediagroup: [{ id: '148841251', p: 0, media_r: 'stale' }]
+    })
+    beginIllustrationSend(lifecycle)
+    beginIllustrationRefresh(lifecycle, 0)
+
+    applyIllustrationRefresh(lifecycle, {
+        id: 148841251,
+        mediagroup: [{ id: 148841251, p: 0, media_r: 'fresh' }]
+    })
+
+    t.is(lifecycle.id, 148841251)
+    t.is(lifecycle.illust.id, 148841251)
+    t.is(lifecycle.illust.mediagroup[0].id, 148841251)
+    t.is(lifecycle.state, IllustrationLifecycleState.RETRYING)
+})
+
+test('refresh identity failures have actionable localized messages', t => {
+    for (const language of [en, ja, zhHans, zhHant]) {
+        t.regex(language.illustration_refresh_id_mismatch, /ILLUSTRATION_REFRESH_ID_MISMATCH/)
+        t.regex(language.error, /UNEXPECTED_PROCESSING_FAILURE/)
+    }
 })
 
 test('illustration not-found is terminal', t => {
