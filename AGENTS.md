@@ -115,8 +115,11 @@ remove superseded behavior when working in this area.
 - Name patches `patch-NNN-description.sql`. Include `-manually` in the filename
   for destructive operations, breaking schema changes, large data rewrites, or
   work requiring downtime or operator review.
-- Make patches transactional and idempotent where PostgreSQL permits it, and add
-  English comments explaining the reason and operational impact.
+- Make patches transactional and idempotent where PostgreSQL permits it. The
+  startup runner owns the transaction for automatic patches, so their SQL files
+  must not contain `BEGIN`, `COMMIT`, or `ROLLBACK`; manual patches own their
+  explicit operator-reviewed transaction. Add English comments explaining the
+  reason and operational impact.
 - Test migrations against a representative development database and take a
   verified backup before production application.
 - Normal patches are applied at startup by `db-migration-check.js` unless

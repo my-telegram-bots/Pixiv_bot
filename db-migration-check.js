@@ -6,11 +6,22 @@
 import { readFileSync, readdirSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { withTransaction } from './postgres-transaction.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 const PATCHES_DIR = join(__dirname, 'sql', 'patches')
+
+export function assertAutoPatchTransactionOwnership(sql, filename) {
+    if (/^\s*(?:BEGIN(?:\s+(?:WORK|TRANSACTION))?|START\s+TRANSACTION|COMMIT(?:\s+(?:WORK|TRANSACTION))?|ROLLBACK(?:\s+(?:WORK|TRANSACTION))?)\s*;/im.test(sql)) {
+        const error = new Error(
+            `Auto-apply patch ${filename} contains transaction control; the migration runner owns the transaction`
+        )
+        error.code = 'AUTO_PATCH_TRANSACTION_CONTROL'
+        throw error
+    }
+}
 
 /**
  * Ensure schema_migrations table exists
@@ -91,32 +102,28 @@ async function getManualPatches(pool) {
 /**
  * Apply a single patch
  */
-async function applyPatch(pool, filename) {
+export async function applyPatch(pool, filename) {
     const version = filename.replace('.sql', '')
     const filepath = join(PATCHES_DIR, filename)
     const sql = readFileSync(filepath, 'utf-8')
+    assertAutoPatchTransactionOwnership(sql, filename)
 
     console.log(`  Applying patch: ${version}`)
     const startTime = Date.now()
 
     try {
-        await pool.query('BEGIN')
-
-        // Execute patch SQL
-        await pool.query(sql)
-
-        // Record migration (if not already in the patch file)
-        await pool.query(`
-            INSERT INTO schema_migrations (version, execution_time_ms, batch)
-            VALUES ($1, $2, (SELECT COALESCE(MAX(batch), 0) + 1 FROM schema_migrations))
-            ON CONFLICT (version) DO NOTHING
-        `, [version, Date.now() - startTime])
-
-        await pool.query('COMMIT')
+        await withTransaction(pool, async (client) => {
+            // Patch SQL and its ledger entry must commit or roll back together.
+            await client.query(sql)
+            await client.query(`
+                INSERT INTO schema_migrations (version, execution_time_ms, batch)
+                VALUES ($1, $2, (SELECT COALESCE(MAX(batch), 0) + 1 FROM schema_migrations))
+                ON CONFLICT (version) DO NOTHING
+            `, [version, Date.now() - startTime])
+        })
         console.log(`  ✓ Applied ${version} (${Date.now() - startTime}ms)`)
         return true
     } catch (error) {
-        await pool.query('ROLLBACK')
         console.error(`  ✗ Failed to apply ${version}:`, error.message)
         throw error
     }
@@ -152,7 +159,7 @@ export async function checkAndApplyMigrations(pool, autoApply = true) {
             manualPatches.forEach(p => {
                 console.error(`    psql pixiv_bot < sql/patches/${p}`)
             })
-            console.error('\n  Reason: Marked with /* manually */ (dangerous operation)')
+            console.error('\n  Reason: Filename contains "manually" (dangerous operation)')
             console.error('  Please review, backup database, and apply manually before starting bot.\n')
             return false
         }
@@ -164,11 +171,8 @@ export async function checkAndApplyMigrations(pool, autoApply = true) {
 
             if (!autoApply) {
                 console.error('\n✗ Database schema is out of date!')
-                console.error('  Please apply pending patches manually:')
-                autoPatches.forEach(p => {
-                    console.error(`    psql pixiv_bot < sql/patches/${p}`)
-                })
-                console.error('\n  Or set AUTO_APPLY_PATCHES=1 to auto-apply on startup')
+                console.error('  Auto-apply patch files intentionally omit transaction and ledger SQL.')
+                console.error('  Set AUTO_APPLY_PATCHES=1 so the migration runner applies them atomically.')
                 return false
             }
 

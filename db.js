@@ -1,5 +1,6 @@
 import config from '#config'
 import pg from 'pg'
+import { withTransaction } from './postgres-transaction.js'
 const { Pool } = pg
 
 let pool = null
@@ -132,7 +133,7 @@ export async function updateIllust(id, data, testPool = null, options = {}) {
     const upsert = options.upsert || false
 
     try {
-        await queryPool.query('BEGIN')
+        return await withTransaction(queryPool, async (client) => {
 
         // Extract illust main fields
         const illustFields = ['title', 'type', 'comment', 'description', 'author_id',
@@ -146,7 +147,7 @@ export async function updateIllust(id, data, testPool = null, options = {}) {
 
         // Handle author - insert or update author_name
         if (data.author_id && data.author_name) {
-            await queryPool.query(`
+            await client.query(`
                 INSERT INTO author (author_id, author_name)
                 VALUES ($1, $2)
                 ON CONFLICT (author_id) DO UPDATE SET author_name = $2, updated_at = NOW()
@@ -166,14 +167,14 @@ export async function updateIllust(id, data, testPool = null, options = {}) {
             if (updateClauses) {
                 if (upsert) {
                     // INSERT with ON CONFLICT - create if not exists
-                    await queryPool.query(`
+                    await client.query(`
                         INSERT INTO illust (${columns.join(', ')})
                         VALUES (${placeholders})
                         ON CONFLICT (id) DO UPDATE SET ${updateClauses}, updated_at = NOW()
                     `, values)
                 } else {
                     // UPDATE only - don't create new record
-                    const result = await queryPool.query(`
+                    const result = await client.query(`
                         UPDATE illust SET ${updateClauses}, updated_at = NOW()
                         WHERE id = $1
                     `, values)
@@ -183,7 +184,7 @@ export async function updateIllust(id, data, testPool = null, options = {}) {
                     }
                 }
             } else if (upsert) {
-                await queryPool.query(`
+                await client.query(`
                     INSERT INTO illust (id, title) VALUES ($1, $2)
                     ON CONFLICT (id) DO NOTHING
                 `, [id, data.title || ''])
@@ -197,7 +198,7 @@ export async function updateIllust(id, data, testPool = null, options = {}) {
 
             if (type === 2 && imgs.cover_img_url) {
                 // Ugoira - update ugoira_meta
-                await queryPool.query(`
+                await client.query(`
                     INSERT INTO ugoira_meta (illust_id, cover_img_url, width, height)
                     VALUES ($1, $2, $3, $4)
                     ON CONFLICT (illust_id) DO UPDATE SET
@@ -211,11 +212,11 @@ export async function updateIllust(id, data, testPool = null, options = {}) {
             } else if (imgs.thumb_urls) {
                 // Regular illust - update illust_image
                 // Delete existing images first
-                await queryPool.query('DELETE FROM illust_image WHERE illust_id = $1', [id])
+                await client.query('DELETE FROM illust_image WHERE illust_id = $1', [id])
 
                 // Insert new images
                 for (let i = 0; i < imgs.thumb_urls.length; i++) {
-                    await queryPool.query(`
+                    await client.query(`
                         INSERT INTO illust_image (illust_id, page_index, thumb_url, regular_url, original_url, width, height)
                         VALUES ($1, $2, $3, $4, $5, $6, $7)
                     `, [
@@ -235,13 +236,13 @@ export async function updateIllust(id, data, testPool = null, options = {}) {
         if (data.tg_file_id !== undefined) {
             if (data.type === 2) {
                 // Ugoira - update ugoira_meta
-                await queryPool.query(`
+                await client.query(`
                     UPDATE ugoira_meta SET tg_file_id = $1, updated_at = NOW()
                     WHERE illust_id = $2
                 `, [data.tg_file_id, id])
             } else {
                 // Regular illust - update first image's tg_file_id
-                await queryPool.query(`
+                await client.query(`
                     UPDATE illust_image
                     SET tg_file_id = $1, updated_at = NOW()
                     WHERE illust_id = $2 AND page_index = 0
@@ -249,10 +250,9 @@ export async function updateIllust(id, data, testPool = null, options = {}) {
             }
         }
 
-        await queryPool.query('COMMIT')
-        return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
+            return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
+        })
     } catch (error) {
-        await queryPool.query('ROLLBACK')
         console.error('updateIllust error:', error)
         throw error
     }
@@ -269,19 +269,17 @@ export async function deleteIllust(id, testPool = null) {
     if (!queryPool) return { acknowledged: true, deletedCount: 0 }
 
     try {
-        await queryPool.query('BEGIN')
+        return await withTransaction(queryPool, async (client) => {
+            // Delete related data first (foreign keys cascade if set, but let's be explicit)
+            await client.query('DELETE FROM illust_image WHERE illust_id = $1', [id])
+            await client.query('DELETE FROM ugoira_meta WHERE illust_id = $1', [id])
 
-        // Delete related data first (foreign keys cascade if set, but let's be explicit)
-        await queryPool.query('DELETE FROM illust_image WHERE illust_id = $1', [id])
-        await queryPool.query('DELETE FROM ugoira_meta WHERE illust_id = $1', [id])
+            // Delete the main illust record
+            const result = await client.query('DELETE FROM illust WHERE id = $1', [id])
 
-        // Delete the main illust record
-        const result = await queryPool.query('DELETE FROM illust WHERE id = $1', [id])
-
-        await queryPool.query('COMMIT')
-        return { acknowledged: true, deletedCount: result.rowCount }
+            return { acknowledged: true, deletedCount: result.rowCount }
+        })
     } catch (error) {
-        await queryPool.query('ROLLBACK')
         console.error('deleteIllust error:', error)
         throw error
     }
@@ -399,7 +397,7 @@ function createIllustCollection() {
             const upsert = options.upsert || false
 
             try {
-                await pool.query('BEGIN')
+                return await withTransaction(pool, async (client) => {
 
                 // Extract illust main fields
                 const illustFields = ['title', 'type', 'comment', 'description', 'author_id',
@@ -413,7 +411,7 @@ function createIllustCollection() {
 
                 // Handle author - insert or update author_name
                 if (data.author_id && data.author_name) {
-                    await pool.query(`
+                    await client.query(`
                         INSERT INTO author (author_id, author_name)
                         VALUES ($1, $2)
                         ON CONFLICT (author_id) DO UPDATE SET author_name = $2, updated_at = NOW()
@@ -431,13 +429,13 @@ function createIllustCollection() {
                         .join(', ')
 
                     if (updateClauses) {
-                        await pool.query(`
+                        await client.query(`
                             INSERT INTO illust (${columns.join(', ')})
                             VALUES (${placeholders})
                             ON CONFLICT (id) DO UPDATE SET ${updateClauses}, updated_at = NOW()
                         `, values)
                     } else if (upsert) {
-                        await pool.query(`
+                        await client.query(`
                             INSERT INTO illust (id, title) VALUES ($1, $2)
                             ON CONFLICT (id) DO NOTHING
                         `, [id, data.title || ''])
@@ -451,7 +449,7 @@ function createIllustCollection() {
 
                     if (type === 2 && imgs.cover_img_url) {
                         // Ugoira - update ugoira_meta
-                        await pool.query(`
+                        await client.query(`
                             INSERT INTO ugoira_meta (illust_id, cover_img_url, width, height)
                             VALUES ($1, $2, $3, $4)
                             ON CONFLICT (illust_id) DO UPDATE SET
@@ -465,11 +463,11 @@ function createIllustCollection() {
                     } else if (imgs.thumb_urls) {
                         // Regular illust - update illust_image
                         // Delete existing images first
-                        await pool.query('DELETE FROM illust_image WHERE illust_id = $1', [id])
+                        await client.query('DELETE FROM illust_image WHERE illust_id = $1', [id])
 
                         // Insert new images
                         for (let i = 0; i < imgs.thumb_urls.length; i++) {
-                            await pool.query(`
+                            await client.query(`
                                 INSERT INTO illust_image (illust_id, page_index, thumb_url, regular_url, original_url, width, height)
                                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                             `, [
@@ -487,16 +485,15 @@ function createIllustCollection() {
 
                 // Handle tg_file_id update for ugoira
                 if (data.tg_file_id !== undefined && data.type === 2) {
-                    await pool.query(`
+                    await client.query(`
                         UPDATE ugoira_meta SET tg_file_id = $1, updated_at = NOW()
                         WHERE illust_id = $2
                     `, [data.tg_file_id, id])
                 }
 
-                await pool.query('COMMIT')
-                return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
+                    return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
+                })
             } catch (error) {
-                await pool.query('ROLLBACK')
                 console.error('updateOne error:', error)
                 throw error
             }
@@ -626,8 +623,7 @@ function createChatSettingCollection() {
             const upsert = options.upsert || false
 
             try {
-                // START TRANSACTION
-                await pool.query('BEGIN')
+                return await withTransaction(pool, async (client) => {
 
                 // Handle $set operations
                 if (Object.keys(setData).length > 0) {
@@ -657,14 +653,14 @@ function createChatSettingCollection() {
                     for (const key in setData) {
                         if (key.startsWith('subscribe_author_list.')) {
                             const authorId = key.split('.')[1]
-                            await pool.query(`
+                            await client.query(`
                                 INSERT INTO chat_subscribe_author (chat_id, author_id, subscribed_at)
                                 VALUES ($1, $2, to_timestamp($3 / 1000.0))
                                 ON CONFLICT DO NOTHING
                             `, [id, authorId, setData[key]])
                         } else if (key.startsWith('subscribe_author_bookmarks_list.')) {
                             const authorId = key.split('.')[1]
-                            await pool.query(`
+                            await client.query(`
                                 INSERT INTO chat_subscribe_bookmarks (chat_id, author_id, subscribed_at)
                                 VALUES ($1, $2, to_timestamp($3 / 1000.0))
                                 ON CONFLICT DO NOTHING
@@ -675,12 +671,12 @@ function createChatSettingCollection() {
                     // Update main table if there are columns to update
                     if (columns.length > 0 || upsert) {
                         if (columns.length > 0) {
-                            await pool.query(`
+                            await client.query(`
                                 INSERT INTO chat_setting (id) VALUES ($1)
                                 ON CONFLICT (id) DO UPDATE SET ${columns.join(', ')}, updated_at = NOW()
                             `, values)
                         } else if (upsert) {
-                            await pool.query(`
+                            await client.query(`
                                 INSERT INTO chat_setting (id) VALUES ($1)
                                 ON CONFLICT (id) DO NOTHING
                             `, [id])
@@ -693,19 +689,19 @@ function createChatSettingCollection() {
                     for (const key in unsetData) {
                         if (key.startsWith('subscribe_author_list.')) {
                             const authorId = key.split('.')[1]
-                            await pool.query(
+                            await client.query(
                                 'DELETE FROM chat_subscribe_author WHERE chat_id = $1 AND author_id = $2',
                                 [id, authorId]
                             )
                         } else if (key.startsWith('subscribe_author_bookmarks_list.')) {
                             const authorId = key.split('.')[1]
-                            await pool.query(
+                            await client.query(
                                 'DELETE FROM chat_subscribe_bookmarks WHERE chat_id = $1 AND author_id = $2',
                                 [id, authorId]
                             )
                         } else if (key === 'default') {
                             // Reset all default fields to null
-                            await pool.query(`
+                            await client.query(`
                                 UPDATE chat_setting SET
                                     default_tags = NULL, default_description = NULL, default_open = NULL,
                                     default_share = NULL, default_remove_keyboard = NULL, default_remove_caption = NULL,
@@ -720,7 +716,7 @@ function createChatSettingCollection() {
                             `, [id])
                         } else if (key === 'format') {
                             // Reset all format fields to null
-                            await pool.query(`
+                            await client.query(`
                                 UPDATE chat_setting SET
                                     format_message = NULL, format_mediagroup_message = NULL,
                                     format_inline = NULL, format_version = 'v2',
@@ -731,12 +727,9 @@ function createChatSettingCollection() {
                     }
                 }
 
-                // COMMIT TRANSACTION
-                await pool.query('COMMIT')
-                return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
+                    return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
+                })
             } catch (error) {
-                // ROLLBACK ON ERROR
-                await pool.query('ROLLBACK')
                 console.error('chat_setting updateOne error:', error)
                 throw error
             }

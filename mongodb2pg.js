@@ -44,9 +44,10 @@
 import { MongoClient } from 'mongodb'
 import pg from 'pg'
 import config from './config.js'
-import { readFileSync, readdirSync } from 'fs'
+import { readFileSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { checkAndApplyMigrations } from './db-migration-check.js'
 
 const { Pool } = pg
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -459,53 +460,6 @@ async function setTablesLogged() {
     const duration = Date.now() - startTime
     console.log(`✓ Tables set back to LOGGED in ${formatDuration(duration)}`)
     console.log('  ✓ Data is now safe and will survive crashes')
-}
-
-async function applyPatches() {
-    console.log('\n🩹 Applying database patches...')
-    const startTime = Date.now()
-
-    const patchesDir = join(__dirname, 'sql', 'patches')
-
-    let patchFiles
-    try {
-        patchFiles = readdirSync(patchesDir)
-            .filter(f => f.endsWith('.sql'))
-            .sort() // Apply in alphabetical order (patch-001, patch-002, etc.)
-    } catch (error) {
-        console.log('  ℹ️  No patches directory found, skipping patches')
-        return
-    }
-
-    if (patchFiles.length === 0) {
-        console.log('  ℹ️  No patch files found')
-        return
-    }
-
-    console.log(`  Found ${patchFiles.length} patch file(s)`)
-
-    for (const patchFile of patchFiles) {
-        try {
-            console.log(`  Applying ${patchFile}...`)
-            const patchPath = join(patchesDir, patchFile)
-            const patchSql = readFileSync(patchPath, 'utf-8')
-
-            // Execute patch SQL
-            await pgPool.query(patchSql)
-            console.log(`  ✓ Applied ${patchFile}`)
-        } catch (error) {
-            // Ignore if patch already applied (ON CONFLICT DO NOTHING)
-            if (error.message.includes('already exists') ||
-                error.message.includes('duplicate')) {
-                console.log(`  ⚠️  Skipped ${patchFile} (already applied)`)
-            } else {
-                console.log(`  ⚠️  Failed to apply ${patchFile}: ${error.message}`)
-            }
-        }
-    }
-
-    const duration = Date.now() - startTime
-    console.log(`✓ Patches applied in ${formatDuration(duration)}`)
 }
 
 async function migrateAuthors() {
@@ -1284,7 +1238,10 @@ async function main() {
         // In FORCE mode, schema.sql already includes latest schema, but patches are idempotent
         // In normal mode, patches update existing schema
         if (!FORCE_MODE) {
-            await applyPatches()
+            const migrationsApplied = await checkAndApplyMigrations(pgPool, true)
+            if (!migrationsApplied) {
+                throw new Error('Database patches require operator action before migration can complete')
+            }
         } else {
             console.log('\n  ℹ️  Skipping patches (schema.sql already contains latest schema)')
         }
@@ -1318,4 +1275,3 @@ async function main() {
 }
 
 main()
-

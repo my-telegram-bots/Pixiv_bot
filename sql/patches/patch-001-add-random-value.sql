@@ -6,8 +6,6 @@
 --
 -- Performance improvement: 10s → <200ms for random queries
 
-BEGIN;
-
 -- Add random_value column with random default to illust table
 ALTER TABLE illust ADD COLUMN IF NOT EXISTS random_value FLOAT DEFAULT random();
 
@@ -17,5 +15,3 @@ CREATE INDEX IF NOT EXISTS idx_illust_random ON illust(random_value);
 -- Initialize values for existing rows (batched to avoid long locks)
 -- This will be fast since we're just setting a random value
 UPDATE illust SET random_value = random() WHERE random_value IS NULL;
-
-COMMIT;

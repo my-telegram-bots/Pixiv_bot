@@ -60,26 +60,23 @@ patch-002-drop-old-table-manually.sql  ← Bot refuses to start until applied
 ```sql
 -- Patch 001: Add random_value column for fast random sampling
 -- Date: 2025-02-15
--- Description: Adds indexed random_value column to ugoira_meta table for O(1) random queries
-
-BEGIN;
+-- Description: Adds indexed random_value column to illust table for O(1) random queries
 
 -- Add random_value column
-ALTER TABLE ugoira_meta ADD COLUMN IF NOT EXISTS random_value FLOAT DEFAULT random();
+ALTER TABLE illust ADD COLUMN IF NOT EXISTS random_value FLOAT DEFAULT random();
 
 -- Create index
-CREATE INDEX IF NOT EXISTS idx_ugoira_random ON ugoira_meta(random_value);
+CREATE INDEX IF NOT EXISTS idx_illust_random ON illust(random_value);
 
 -- Initialize values for existing rows
-UPDATE ugoira_meta SET random_value = random() WHERE random_value IS NULL;
-
--- Record migration
-INSERT INTO schema_migrations (version, execution_time_ms, batch)
-VALUES ('patch-001-add-random-value', 0, 1)
-ON CONFLICT (version) DO NOTHING;
-
-COMMIT;
+UPDATE illust SET random_value = random() WHERE random_value IS NULL;
 ```
+
+Auto-apply patch files contain only migration SQL. The startup migration runner
+checks out one PostgreSQL client, wraps the patch and its `schema_migrations`
+record in the same transaction, rolls back on failure, and always releases the
+client. Do not put `BEGIN`, `COMMIT`, `ROLLBACK`, or a migration tracking insert
+inside an auto-apply patch.
 
 **Manual patch** (`patch-002-drop-old-table-manually.sql`):
 
@@ -102,15 +99,19 @@ COMMIT;
 
 ### Applying Patches
 
-**Manual execution (required):**
+**Auto-apply patches:** start the bot with `AUTO_APPLY_PATCHES=1` (the default).
+Do not pipe an auto-apply patch directly into `psql`: its transaction and ledger
+entry intentionally live in the migration runner.
+
+**Manual patches (filename contains `manually`):**
 
 ```bash
-# Apply a specific patch
-psql pixiv_bot < sql/patches/patch-001-xxx.sql
+# Apply the reviewed manual patch, which owns its transaction and ledger entry
+psql pixiv_bot < sql/patches/patch-002-xxx-manually.sql
 
 # Or connect and run interactively
 psql pixiv_bot
-pixiv_bot=# \i sql/patches/patch-001-xxx.sql
+pixiv_bot=# \i sql/patches/patch-002-xxx-manually.sql
 ```
 
 **Always:**
@@ -200,7 +201,7 @@ ORDER BY idx_scan DESC;
    ```bash
    pg_dump pixiv_bot > backup_$(date +%Y%m%d).sql
    ```
-3. **Use transactions in patches** (BEGIN/COMMIT)
+3. **Use the transaction owner for the patch type**: the startup runner owns auto-apply patch transactions; manual patches must own an explicit reviewed transaction
 4. **Add English comments** explaining what and why
 5. **Keep patches idempotent** when possible (IF NOT EXISTS, etc.)
 6. **Document breaking changes** in patch comments
