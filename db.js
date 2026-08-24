@@ -612,13 +612,7 @@ function createChatSettingCollection() {
                 [id]
             )
 
-            // Query linked chats
-            const linksResult = await pool.query(
-                'SELECT * FROM chat_link WHERE source_chat_id = $1',
-                [id]
-            )
-
-            return rebuildSettingObject(setting, subscribeAuthorsResult.rows, subscribeBookmarksResult.rows, linksResult.rows)
+            return rebuildSettingObject(setting, subscribeAuthorsResult.rows, subscribeBookmarksResult.rows)
         },
 
         find: (query) => {
@@ -675,15 +669,6 @@ function createChatSettingCollection() {
                                 VALUES ($1, $2, to_timestamp($3 / 1000.0))
                                 ON CONFLICT DO NOTHING
                             `, [id, authorId, setData[key]])
-                        } else if (key.startsWith('link_chat_list.')) {
-                            const linkedChatId = key.split('.')[1]
-                            const linkData = setData[key]
-                            await pool.query(`
-                                INSERT INTO chat_link (source_chat_id, linked_chat_id, sync, administrator_only, repeat, chat_type, mediagroup_count)
-                                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                                ON CONFLICT (source_chat_id, linked_chat_id) DO UPDATE SET
-                                    sync = $3, administrator_only = $4, repeat = $5, chat_type = $6, mediagroup_count = $7, updated_at = NOW()
-                            `, [id, linkedChatId, linkData.sync || 0, linkData.administrator_only || 0, linkData.repeat || 0, linkData.type, linkData.mediagroup_count || 1])
                         }
                     }
 
@@ -717,12 +702,6 @@ function createChatSettingCollection() {
                             await pool.query(
                                 'DELETE FROM chat_subscribe_bookmarks WHERE chat_id = $1 AND author_id = $2',
                                 [id, authorId]
-                            )
-                        } else if (key.startsWith('link_chat_list.')) {
-                            const linkedChatId = key.split('.')[1]
-                            await pool.query(
-                                'DELETE FROM chat_link WHERE source_chat_id = $1 AND linked_chat_id = $2',
-                                [id, linkedChatId]
                             )
                         } else if (key === 'default') {
                             // Reset all default fields to null
@@ -828,7 +807,7 @@ function createChatSettingCollection() {
 /**
  * Rebuild MongoDB-style setting object from PostgreSQL data
  */
-function rebuildSettingObject(setting, subscribeAuthors, subscribeBookmarks, links) {
+function rebuildSettingObject(setting, subscribeAuthors, subscribeBookmarks) {
     // Rebuild format object
     const format = {}
     if (setting.format_message) format.message = setting.format_message
@@ -864,25 +843,12 @@ function rebuildSettingObject(setting, subscribeAuthors, subscribeBookmarks, lin
         subscribe_author_bookmarks_list[s.author_id] = new Date(s.subscribed_at).getTime()
     }
 
-    // Rebuild link_chat_list
-    const link_chat_list = {}
-    for (const link of links) {
-        link_chat_list[link.linked_chat_id] = {
-            sync: link.sync,
-            administrator_only: link.administrator_only,
-            repeat: link.repeat,
-            type: link.chat_type,
-            mediagroup_count: link.mediagroup_count
-        }
-    }
-
     return {
         id: setting.id,
         format: Object.keys(format).length > 0 ? format : undefined,
         default: Object.keys(defaultSettings).length > 0 ? defaultSettings : undefined,
         subscribe_author_list,
-        subscribe_author_bookmarks_list,
-        link_chat_list
+        subscribe_author_bookmarks_list
     }
 }
 
@@ -1280,12 +1246,7 @@ class ChatSettingCursor {
                 'SELECT author_id, subscribed_at FROM chat_subscribe_bookmarks WHERE chat_id = $1',
                 [row.id]
             )
-            const linksResult = await this.pool.query(
-                'SELECT * FROM chat_link WHERE source_chat_id = $1',
-                [row.id]
-            )
-
-            settings.push(rebuildSettingObject(row, subscribeAuthorsResult.rows, subscribeBookmarksResult.rows, linksResult.rows))
+            settings.push(rebuildSettingObject(row, subscribeAuthorsResult.rows, subscribeBookmarksResult.rows))
         }
 
         return settings
@@ -1359,21 +1320,9 @@ export async function update_setting(value, chat_id, _flag) {
                 index = value[i]
             }
 
-            if (['link_chat'].includes(ii)) {
-                if (typeof value[i] === 'string') {
-                    index = value[i]
-                } else {
-                    index = value[i].chat_id
-                }
-                v = {
-                    sync: parseInt(value[i].sync),
-                    administrator_only: parseInt(value[i].administrator_only),
-                    repeat: parseInt(value[i].repeat),
-                    type: value[i].type,
-                    mediagroup_count: 1
-                }
+            if (!['subscribe_author', 'subscribe_author_bookmarks'].includes(ii)) {
+                continue
             }
-
             if (action === 'add') {
                 s[`${ii}_list.${index}`] = v
             } else if (action === 'del') {

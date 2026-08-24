@@ -1,10 +1,13 @@
 import { getBot } from '../../bot.js'
 import { _l } from './i18n.js'
-import { honsole, fetch_tmp_file } from '../common.js'
+import { honsole, fetch_tmp_file, isStaleMediaError } from '../common.js'
 import { mg_filter } from './mediagroup.js'
 import { InputFile } from 'grammy'
 import config from '../../config.js'
 import axios from 'axios'
+import { MediaSendKind, classifyMediaSendError } from './media-send-result.js'
+
+export { MediaSendKind, classifyMediaSendError }
 
 /**
  * catch error report && reply
@@ -155,67 +158,62 @@ export function markFailedMediaItem(mg, failed_index, current_type, mg_type_queu
  * @param {*} extra Extra options for Telegram API
  * @param {*} mg_type Array of media types to try (e.g., ['r', 'o', 'dlr', 'dlo'])
  * @param {*} retryCount Current retry attempt count (internal use)
- * @returns Promise<MediaGroup|false> Returns sent media group or false on failure
+ * @returns Promise<object> Structured sent, stale_media, or failed result
  */
-export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type = [], retryCount = 0) {
+export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type = []) {
     const bot = getBot()
-    // Prevent infinite retries (reduced from 10 to 5)
-    if (retryCount > 5) {
-        honsole.warn('Max retry attempts (5) reached for media group', chat_id, mg.length, 'items')
-        return false
-    }
-
-    if (mg_type.length === 0) {
-        honsole.warn('No more media types to try', chat_id, mg.length, 'items')
-        return false
-    }
-    let current_mg_type = mg_type.shift();
-
-    honsole.dev(`[Retry ${retryCount + 1}/5] Media type: ${current_mg_type}, remaining: [${mg_type.join(', ')}]`);
-
-    // Validate media URLs before attempting to send
     const hasInvalidMedia = mg.some(m => !m.media && !m.media_o && !m.media_r && !m.media_t)
     if (hasInvalidMedia) {
         honsole.warn('Media group contains invalid URLs, skipping send')
-        return false
+        return { kind: MediaSendKind.FAILED, code: 'TELEGRAM_MEDIA_INVALID' }
     }
-
-    // Send appropriate chat action based on media type
     const chatAction = mg[0].type === 'document' ? 'upload_document' :
                       (mg[0].type === 'video' ? 'upload_video' : 'upload_photo')
     bot.api.sendChatAction(chat_id, chatAction, extra.message_thread_id ? {
         message_thread_id: extra.message_thread_id
     } : {}).catch(() => { })
 
-    try {
-        const result = await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], current_mg_type), extra)
-        if (retryCount > 0) {
-            honsole.log(`Media group succeeded after ${retryCount + 1} attempts with type: ${current_mg_type}`)
-        }
-        return result
-    } catch (e) {
-        let status = await catchily(e, chat_id, language_code)
-
-        // Handle specific media item failure (WEBPAGE_MEDIA_EMPTY, WEBPAGE_CURL_FAILED, etc.)
-        const failed_index_match = e.description?.match(/failed to send message #(\d+)/);
-        if (failed_index_match) {
-            status = 'redo'
-            const failed_index = parseInt(failed_index_match[1]) - 1;
-            markFailedMediaItem(mg, failed_index, current_mg_type, mg_type)
-        }
-
-        if (status) {
-            if (status === 'redo') {
-                // Don't re-add the same type if we detected specific item failures
-                if (!failed_index_match) {
-                    mg_type.unshift(current_mg_type)
+    const queue = [...mg_type]
+    let lastError
+    for (let attempt = 0; attempt < 5 && queue.length > 0; attempt++) {
+        const currentType = queue.shift()
+        honsole.dev(`[MediaGroup ${attempt + 1}/5] type=${currentType}, remaining=[${queue.join(', ')}]`)
+        try {
+            const result = await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], currentType), extra)
+            return { kind: MediaSendKind.SENT, result }
+        } catch (error) {
+            lastError = error
+            const classification = classifyMediaSendError(error)
+            const catchStatus = isStaleMediaError(error)
+                ? false
+                : await catchily(error, chat_id, language_code)
+            if (classification.stale) {
+                return {
+                    kind: MediaSendKind.STALE_MEDIA,
+                    code: classification.code,
+                    failedIndex: classification.failedIndex,
+                    error
                 }
             }
-            return await sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type, retryCount + 1)
-        } else {
-            honsole.warn('error send mg', chat_id, mg, e.description || e.message)
-            return false
+            if (classification.failedIndex !== null) {
+                markFailedMediaItem(mg, classification.failedIndex, currentType, queue)
+            } else if (catchStatus === 'redo') {
+                queue.unshift(currentType)
+            } else if (catchStatus === false) {
+                return {
+                    kind: MediaSendKind.FAILED,
+                    code: classification.code,
+                    error,
+                    userNotified: true
+                }
+            }
         }
+    }
+    honsole.warn('Media group retry budget exhausted', chat_id, mg.length, 'items')
+    return {
+        kind: MediaSendKind.FAILED,
+        code: 'TELEGRAM_MEDIA_RETRY_EXHAUSTED',
+        error: lastError
     }
 }
 
@@ -231,31 +229,47 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
     const bot = getBot()
     if (photo_urls.length === 0) {
         honsole.warn('error send photo', chat_id, photo_urls)
-        return false
+        return { kind: MediaSendKind.FAILED, code: 'TELEGRAM_MEDIA_FALLBACK_EXHAUSTED' }
     }
     // Send upload_photo action
     bot.api.sendChatAction(chat_id, 'upload_photo', extra.message_thread_id ? {
         message_thread_id: extra.message_thread_id
     } : {}).catch(() => { })
 
-    let raw_photo_url = photo_urls.shift()
-    let photo_url = raw_photo_url
-    try {
-        if (photo_url.substring(0, 3) === 'dl-') {
-            photo_url = new InputFile(await fetch_tmp_file(photo_url.substring(3)))
-        }
-        return await bot.api.sendPhoto(chat_id, photo_url, extra)
-    } catch (e) {
-        const status = await catchily(e, chat_id, language_code)
-        if (status) {
-            if (status === 'redo') {
-                photo_urls.unshift(raw_photo_url)
+    let lastError
+    let userNotified = false
+    for (const candidate of photo_urls) {
+        try {
+            const photo = candidate.startsWith('dl-')
+                ? new InputFile(await fetch_tmp_file(candidate.substring(3)))
+                : candidate
+            const result = await bot.api.sendPhoto(chat_id, photo, extra)
+            return { kind: MediaSendKind.SENT, result }
+        } catch (error) {
+            lastError = error
+            const classification = classifyMediaSendError(error)
+            const catchStatus = isStaleMediaError(error)
+                ? false
+                : await catchily(error, chat_id, language_code)
+            if (classification.stale) {
+                return {
+                    kind: MediaSendKind.STALE_MEDIA,
+                    code: classification.code,
+                    error
+                }
             }
-            return await sendPhotoWithRetry(chat_id, language_code, photo_urls, extra)
-        } else {
-            honsole.warn('error send photo', chat_id, photo_urls)
-            return false
+            if (catchStatus === false) {
+                userNotified = true
+                break
+            }
         }
+    }
+    honsole.warn('error send photo', chat_id, photo_urls)
+    return {
+        kind: MediaSendKind.FAILED,
+        code: 'TELEGRAM_MEDIA_SEND_FAILED',
+        error: lastError,
+        userNotified
     }
 }
 
@@ -273,87 +287,30 @@ export async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
         message_thread_id: extra.message_thread_id
     } : {}).catch(() => { })
 
-    let reply_to_message_id = null
     extra = {
         ...extra,
         disable_content_type_detection: true
     }
-    let file = null
     try {
-        // Check if media_o is local path or HTTP URL
-        if (media_o.includes('tmp/')) {
-            // Local file - read directly
-            file = new InputFile(media_o, media_o.slice(media_o.lastIndexOf('/') + 1))
-        } else {
-            // HTTP URL - download first
-            file = new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1))
-        }
+        const file = media_o.includes('tmp/')
+            ? new InputFile(media_o, media_o.slice(media_o.lastIndexOf('/') + 1))
+            : new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1))
+        const result = await bot.api.sendDocument(chat_id, file, extra)
+        return { kind: MediaSendKind.SENT, result }
     } catch (error) {
-        honsole.warn('[sendDocumentWithRetry] File fetch failed:', error.message)
-
-        // Check if it's a deletion case or file too large case
-        // Create message-specific extra by filtering out document-specific fields
-        const messageExtra = {
-            parse_mode: extra.parse_mode,
-            reply_to_message_id: extra.reply_to_message_id,
-            message_thread_id: extra.message_thread_id,
-            allow_sending_without_reply: extra.allow_sending_without_reply
-        }
-
-        if (error.message.includes('File and illust not found') || error.message.includes('Illust not found')) {
-            // Case 2: Entire artwork deleted - mark as deleted
-            await bot.api.sendMessage(chat_id, _l(l, 'deleted'), messageExtra).then(x => {
-                reply_to_message_id = x.message_id
-            }).catch(() => { })
-            return reply_to_message_id
-        } else if (media_o) {
-            // Case: File too large or other fetch error
-            await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), messageExtra).then(x => {
-                reply_to_message_id = x.message_id
-            }).catch(() => { })
-            return reply_to_message_id
-        } else {
-            // Case: No media_o provided or other unexpected error
-            await bot.api.sendMessage(chat_id, _l(l, 'error'), messageExtra).then(x => {
-                reply_to_message_id = x.message_id
-            }).catch(() => { })
-            return reply_to_message_id
-        }
+        const classification = classifyMediaSendError(error)
+        const catchStatus = isStaleMediaError(error) ? false : await catchily(error, chat_id, l)
+        return classification.stale
+            ? {
+                kind: MediaSendKind.STALE_MEDIA,
+                code: classification.code,
+                error
+            }
+            : {
+                kind: MediaSendKind.FAILED,
+                code: classification.code,
+                error,
+                userNotified: catchStatus === false
+            }
     }
-
-    // Only proceed if file is successfully fetched
-    if (file) {
-        await bot.api.sendDocument(
-            chat_id,
-            file,
-            extra).then(x => {
-                reply_to_message_id = x.message_id
-            }).catch(async (e) => {
-                if (await catchily(e, chat_id, l)) {
-                    try {
-                        // Retry logic - handle local path vs HTTP URL
-                        let retryFile
-                        if (media_o.includes('tmp/')) {
-                            retryFile = new InputFile(media_o, media_o.slice(media_o.lastIndexOf('/') + 1))
-                        } else {
-                            retryFile = new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1))
-                        }
-                        await bot.api.sendDocument(chat_id, retryFile, extra).then(x => {
-                            reply_to_message_id = x.message_id
-                        })
-                    } catch (retryError) {
-                        const messageExtra = {
-                            parse_mode: extra.parse_mode,
-                            reply_to_message_id: extra.reply_to_message_id,
-                            message_thread_id: extra.message_thread_id,
-                            allow_sending_without_reply: extra.allow_sending_without_reply
-                        }
-                        await bot.api.sendMessage(chat_id, _l(l, 'file_too_large', media_o.replace('i.pximg.net', config.pixiv.pximgproxy)), messageExtra).then(x => {
-                            reply_to_message_id = x.message_id
-                        }).catch(() => { })
-                    }
-                }
-            })
-    }
-    return reply_to_message_id
 }

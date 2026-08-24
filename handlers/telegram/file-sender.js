@@ -9,7 +9,7 @@
  * - User error notification fallback
  */
 
-import { sendDocumentWithRetry, sendMediaGroupWithRetry } from './sender.js'
+import { MediaSendKind, sendDocumentWithRetry, sendMediaGroupWithRetry } from './sender.js'
 import { _l } from './i18n.js'
 import { honsole, sleep } from '../common.js'
 import { getBot } from '../../bot.js'
@@ -26,7 +26,7 @@ import { getBot } from '../../bot.js'
  * @param {number} [options.reply_to_message_id] - Reply to message ID
  * @param {Object} [options.default_extra] - Default extra for error notification
  * @param {boolean} [options.silent_error=false] - Silent error (no user notification)
- * @returns {Promise<number|null>} Returns new message_id, null on failure
+ * @returns {Promise<object>} Structured sent, stale_media, or failed result
  */
 export async function sendDocumentWithChain(options) {
     const {
@@ -57,12 +57,7 @@ export async function sendDocumentWithChain(options) {
             lang
         )
 
-        // Return new message_id
-        if (result) {
-            return result.message_id || result || null
-        }
-
-        throw new Error('sendDocumentWithRetry returned null/undefined')
+        return result
     } catch (error) {
         honsole.error('[sendDocumentWithChain] Failed:', {
             chat_id,
@@ -80,7 +75,7 @@ export async function sendDocumentWithChain(options) {
             ).catch(() => { })
         }
 
-        return null
+        return { kind: MediaSendKind.FAILED, code: 'TELEGRAM_DOCUMENT_SEND_FAILED', error }
     }
 }
 
@@ -96,7 +91,7 @@ export async function sendDocumentWithChain(options) {
  * @param {Array<string>} [options.url_fallbacks=['o', 'dlo']] - URL fallback strategy
  * @param {Object} [options.default_extra] - Default extra for error notification
  * @param {boolean} [options.silent_error=false] - Silent error (no user notification)
- * @returns {Promise<number|null>} Returns first message_id, null on failure
+ * @returns {Promise<object>} Structured sent, stale_media, or failed result
  */
 export async function sendMediaGroupDocuments(options) {
     const {
@@ -127,12 +122,7 @@ export async function sendMediaGroupDocuments(options) {
             url_fallbacks
         )
 
-        // Return first message_id
-        if (result && result[0] && result[0].message_id) {
-            return result[0].message_id
-        }
-
-        throw new Error('sendMediaGroupWithRetry returned null or invalid result')
+        return result
     } catch (error) {
         honsole.error('[sendMediaGroupDocuments] Failed:', {
             chat_id,
@@ -150,7 +140,7 @@ export async function sendMediaGroupDocuments(options) {
             ).catch(() => { })
         }
 
-        return null
+        return { kind: MediaSendKind.FAILED, code: 'TELEGRAM_DOCUMENT_GROUP_SEND_FAILED', error }
     }
 }
 

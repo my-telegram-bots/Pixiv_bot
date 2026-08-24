@@ -1,5 +1,5 @@
 import { format } from './format.js'
-import { asyncForEach, fetch_tmp_file, honsole } from '../common.js'
+import { asyncForEach, fetch_tmp_file, honsole, isStaleMediaError } from '../common.js'
 import { detect_ugpira_url, detect_ugpira_file, ugoira_to_mp4 } from '../pixiv/tools.js'
 import { InputFile } from 'grammy'
 import config from '../../config.js'
@@ -164,6 +164,7 @@ export async function mg_filter(mg, type = 't') {
                     }
                     xx.media = new InputFile(fileData, url.slice(url.lastIndexOf('/') + 1))
                 } catch (error) {
+                    if (isStaleMediaError(error)) throw error
                     honsole.warn(`[mg_filter] Failed to download ${itemType} for document:`, error.message)
                     // Re-throw to trigger retry mechanism
                     throw new Error(`Failed to download ${itemType}: ${error.message}`)
@@ -188,6 +189,7 @@ export async function mg_filter(mg, type = 't') {
                         }
                         xx.media = new InputFile(fileData, source.slice(source.lastIndexOf('/') + 1))
                     } catch (error) {
+                        if (isStaleMediaError(error)) throw error
                         honsole.warn(`[mg_filter] Failed to download video:`, error.message)
                         throw new Error(`Failed to download video: ${error.message}`)
                     }

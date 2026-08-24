@@ -1,6 +1,8 @@
 import db from './db.js'
 import { sleep, asyncForEach } from './handlers/index.js'
 import fs from 'fs'
+import { update_illust } from './handlers/pixiv/illust.js'
+import { resolveIllustration } from './handlers/pixiv/illust-service.js'
 
 process.env.dev = 1
 async function update_original_file_extension() {
@@ -138,7 +140,11 @@ async function update_ugoira_1st_image_url() {
     await asyncForEach(d, async (illust, i) => {
         try {
             if (!illust.imgs_.cover_img_url) {
-                let new_illust = await get_illust(illust.id, true)
+                const resolved = await resolveIllustration(illust.id, { mode: 'refresh' })
+                if (resolved.kind !== 'ready') {
+                    throw new Error(`Unable to refresh illustration ${illust.id}: ${resolved.code}`)
+                }
+                const new_illust = resolved.illustration
                 console.log(i, new_illust.id, new_illust.imgs_.cover_img_url)
                 await sleep(1000)
             }

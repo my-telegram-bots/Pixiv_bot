@@ -3,8 +3,7 @@ import { r_p_ajax } from '#handlers/pixiv/request'
 import fs from 'fs'
 import { promises as fsPromises } from 'fs'
 import config from '#config'
-import { download_file, sleep, honsole, asyncForEach, exec } from '#handlers/common'
-import { get_illust } from '#handlers/pixiv/illust'
+import { download_file, sleep, honsole, asyncForEach, exec, isStaleMediaError } from '#handlers/common'
 // ugoira queue
 // Use Set for O(1) lookup and automatic deduplication
 let ugoira_mp4_queue = new Set()
@@ -200,7 +199,7 @@ export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
         await fsPromises.mkdir('./tmp/mp4', { recursive: true })
         await fsPromises.writeFile(`./tmp/timecode/${id}`, timecode)
         // download ugoira.zip
-        await download_file(ud.originalSrc, id, force, 0, true) // skip_refetch=true to prevent loops
+        await download_file(ud.originalSrc, id, force)
         // windows:
         // choco install ffmpeg unzip
         await exec(`unzip -n './tmp/file/${id}.zip' -d './tmp/ugoira/${id}'`)
@@ -223,8 +222,9 @@ export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
     } catch (error) {
         honsole.warn(error)
         ugoira_mp4_queue.delete(id)
+        if (isStaleMediaError(error)) throw error
         await sleep(2000)
-        await ugoira_to_mp4(id, force, retry_time + 1)
+        return ugoira_to_mp4(id, force, retry_time + 1)
     }
     // return await detect_ugpira_url(id, 'mp4')
     return config.pixiv.ugoiraurl + no_tmp_path
@@ -367,7 +367,7 @@ export async function ugoira_to_gif(illust, quality = 'large', real_width = 0, r
         mp4_path = get_ugoira_path(id, 'mp4')
     } else {
         // if not in local, download it
-        mp4_path = await download_file(mp4_url, id, false, 0, true) // skip_refetch=true
+        mp4_path = await download_file(mp4_url, id)
     }
     try {
         // get width and height
@@ -407,6 +407,7 @@ export async function ugoira_to_gif(illust, quality = 'large', real_width = 0, r
     catch (error) {
         honsole.warn(error)
         ugoira_gif_queue.delete(id)
+        if (isStaleMediaError(error)) throw error
         await sleep(500)
         return await ugoira_to_gif(id, quality, real_width, real_height, force, retry_time + 1)
     }

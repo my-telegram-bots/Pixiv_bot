@@ -12,21 +12,44 @@ try {
     console.error('✗ Configuration validation failed:', error.message)
     process.exit(1)
 }
-import { update_setting } from '#db'
-import { asyncForEach, handle_illust, handle_ranking, handle_novel, get_pixiv_ids, get_user_illusts, ugoira_to_mp4, _l, k_os, k_link_setting, mg_albumize, mg2telegraph, read_user_setting, honsole, handle_new_configuration, reescape_strings, format, memoryMonitor } from '#handlers/index'
+import { handle_ranking, _l, k_os, honsole, format, memoryMonitor } from '#handlers/index'
+import { extractPixivIds } from '#handlers/telegram/input-parser'
+import { createSettingsLifecycle } from '#handlers/telegram/settings-lifecycle'
+import { createChatLinkStore } from '#handlers/telegram/chat-link-store'
+import { createLinkLifecycle } from '#handlers/telegram/link-lifecycle'
 import { detect_ugpira_url } from '#handlers/pixiv/tools'
-import { sendPhotoWithRetry, sendMediaGroupWithRetry, catchily } from '#handlers/telegram/sender'
-import { sendDocumentWithChain, sendMediaGroupDocuments, updateReplyChain, rateLimit } from '#handlers/telegram/file-sender'
+import { catchily } from '#handlers/telegram/sender'
+import { createTgSender } from '#handlers/telegram/tg-sender'
+import {
+    createInlineDeadline,
+    createInlineQueryHandler,
+    createInlineSettingsResolver
+} from '#handlers/telegram/inline-query'
 import { createBot, getBot } from './bot.js'
 import { FileCleaner } from '#handlers/utils/file-cleaner'
-import { InputFile } from 'grammy'
 import illustService from '#handlers/pixiv/illust-service'
-import { ugoira_to_mp4 as ugoiraConverter } from '#handlers/pixiv/tools'
 import { rankingScheduler } from '#handlers/pixiv/ranking-scheduler'
 
 // Create bot instance with validated configuration
 createBot(config)
 const bot = getBot()
+const settingsLifecycle = createSettingsLifecycle({ bot, store: db, logger: honsole })
+const { resolveUserSettings, handleSettingsCommand } = settingsLifecycle
+const resolveInlineSettings = createInlineSettingsResolver({ resolveUserSettings, logger: honsole })
+const tg_sender = createTgSender({ bot, config, resolveUserSettings })
+const linkStore = createChatLinkStore({ getPool })
+const linkLifecycle = createLinkLifecycle({ bot, linkStore, tgSender: tg_sender, logger: honsole })
+const inlineQueryHandler = createInlineQueryHandler({
+    illustService,
+    detectUgoiraUrl: detect_ugpira_url,
+    handleRanking: handle_ranking,
+    db,
+    format,
+    keyboard: k_os,
+    localize: _l,
+    logger: honsole,
+    reportError: (error, ctx) => catchily(error, config.tg.master_id, ctx.l)
+})
 console.log('✓ Telegram bot instance created')
 
 // Initialize file cleaner for temporary files only
@@ -41,6 +64,9 @@ console.log('✓ File cleanup scheduler started (temp files only, MP4 files pres
 
 // step 0 initial some necessary variables
 bot.use(async (ctx, next) => {
+    if (ctx.inlineQuery) {
+        ctx.inlineDeadline = createInlineDeadline(Date.now())
+    }
     // simple i18n
     ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code
     ctx.text = ''
@@ -129,23 +155,32 @@ bot.command('id', async (ctx) => {
     })
 })
 
+bot.command('link', ctx => linkLifecycle.handleCommand(ctx))
+
+bot.on('callback_query', async (ctx, next) => {
+    if (!await linkLifecycle.handleCallback(ctx)) return next()
+})
+
+bot.on([':text', ':caption'], async (ctx, next) => {
+    if (!await linkLifecycle.handleReplyCandidate(ctx)) return next()
+})
+
 // step1 initial config
 bot.use(async (ctx, next) => {
-    if ((ctx.command === 's' || ctx.text.substring(0, 3) === 'eyJ') ||
-        (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.from && ctx.message.reply_to_message.from.id === bot.botInfo.id &&
-            ctx.message.reply_to_message.text && ctx.message.reply_to_message.text.substring(0, 5) === '#link')) {
+    if (ctx.command === 's' || ctx.text.substring(0, 3) === 'eyJ') {
     } else {
-        ctx.ids = get_pixiv_ids(ctx.text)
+        ctx.ids = extractPixivIds(ctx.text)
         if (!ctx.callbackQuery && !ctx.inlineQuery
             && JSON.stringify(ctx.ids).length === 36 // have horrible bug in the feature LOL.
-            && !['link'].includes(ctx.command)
             && !ctx.text.includes('fanbox.cc')) {
             // bot have nothing to do.
             return
         }
     }
     // read configuration
-    ctx.us = await read_user_setting(bot, ctx)
+    ctx.us = ctx.inlineQuery
+        ? await resolveInlineSettings(ctx)
+        : await resolveUserSettings(ctx)
     honsole.dev('input ->', ctx.chat, ctx.text, ctx.us)
     if (ctx.us === 'error') {
         honsole.warn('Get user setting error', ctx.text)
@@ -155,155 +190,10 @@ bot.use(async (ctx, next) => {
     }
 })
 
-bot.on('callback_query', async (ctx) => {
-    let chat_id = ctx.chat_id
-    let message_id = ctx.callbackQuery.message.message_id
-    let user_id = ctx.user_id
-    let stext = ctx.callbackQuery.data.split('|')
-    let linked_chat_id = parseInt(stext[2])
-    let apply_flag = false
-    // let action = stext[0].replace('_','∏').split('∏')
-    if (stext[0] === 'l') {
-        if ((chat_id > 0 || await is_chat_admin(chat_id, user_id)) && await is_chat_admin(linked_chat_id, user_id)) {
-            if (stext[1] === 'link_unlink') {
-                await update_setting({
-                    del_link_chat: {
-                        chat_id: linked_chat_id
-                    }
-                }, chat_id)
-                await bot.api.editMessageText(chat_id, message_id, false, _l(ctx.l, 'link_unlink_done'), {
-                    reply_markup: {}
-                }).catch(e => {
-                    honsole.warn('Failed to edit message:', e.description || e.message)
-                })
-                apply_flag = true
-            } else {
-                try {
-                    let link_setting = {
-                        chat_id: stext[2],
-                        ...ctx.us.setting.link_chat_list[stext[2]]
-                    }
-                    link_setting[stext[1].replace('link_', '')] = stext[4]
-                    await update_setting({
-                        add_link_chat: link_setting
-                    }, chat_id)
-                    await ctx.editMessageReplyMarkup(k_link_setting(ctx.l, link_setting).reply_markup)
-                    apply_flag = true
-                }
-                catch (error) {
-                    console.warn(error)
-                }
-            }
-        } else {
-            await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error_not_a_gc_administrator')), {
-                show_alert: true
-            }).catch(() => { })
-            return
-        }
-    }
-    if (apply_flag) {
-        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'saved'))).catch(() => { })
-    } else {
-        await ctx.answerCallbackQuery(reescape_strings(_l(ctx.l, 'error'))).catch(() => { })
-    }
-})
-
-bot.command('link', async (ctx) => {
-    // link this chat to another chat / channel
-    let chat_id = ctx.message.chat.id
-    let user_id = ctx.from.id
-    if (ctx.from.id === 1087968824) {
-        await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_anonymous'), ctx.default_extra).catch(e => {
-            honsole.warn('Failed to send anonymous error message:', e.description || e.message)
-        })
-    } else {
-        if (chat_id > 0 || await is_chat_admin(chat_id, user_id)) {
-            // if (ctx.us.setting.link_chat_list && JSON.stringify(ctx.us.setting.link_chat_list).length > 2) {
-            let new_flag = true
-            if (ctx.us.setting.link_chat_list) {
-                for (const linked_chat_id in ctx.us.setting.link_chat_list) {
-                    // support muilt linked chat
-                    // It's hard think permission
-                    // So only link 1
-                    if (await is_chat_admin(linked_chat_id, user_id)) {
-                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'link_setting'), {
-                            ...ctx.default_extra,
-                            ...k_link_setting(ctx.l, {
-                                chat_id: linked_chat_id,
-                                ...ctx.us.setting.link_chat_list[linked_chat_id]
-                            })
-                        }).catch(e => {
-                            honsole.warn('Failed to send link setting message:', e.description || e.message)
-                        })
-                    } else {
-                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra).catch(e => {
-                            honsole.warn('Failed to send admin check error message:', e.description || e.message)
-                        })
-                    }
-                    new_flag = false
-                }
-            }
-            if (new_flag) {
-                await bot.api.sendMessage(chat_id, '\\#link ' + _l(ctx.l, 'link_start'), {
-                    ...ctx.default_extra,
-                    reply_markup: {
-                        force_reply: true,
-                        selective: true
-                    }
-                }).catch(e => {
-                    honsole.warn('Failed to send link start message:', e.description || e.message)
-                })
-            }
-        } else {
-            await bot.api.sendMessage(chat_id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra).catch(e => {
-                honsole.warn('Failed to send admin check error message:', e.description || e.message)
-            })
-        }
-    }
-})
-
 bot.on([':text', ':caption'], async (ctx) => {
     let chat_id = ctx.chat_id
-    let user_id = ctx.user_id
     if (ctx.command === 's' || ctx.text.substring(0, 3) === 'eyJ') {
-        await handle_new_configuration(bot, ctx, ctx.default_extra)
-        return
-    }
-    // @link
-    if (ctx.message && ctx.message.reply_to_message && ctx.message.reply_to_message.text && ctx.message.reply_to_message.text.substring(0, 5) === '#link') {
-        if (ctx.from.id === 1087968824) {
-            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_anonymous'), ctx.default_extra).catch(e => {
-                honsole.warn('Failed to send anonymous error message:', e.description || e.message)
-            })
-        }
-        if ((ctx.chat.id > 0 || await is_chat_admin(ctx.chat.id, ctx.from.id)) && await is_chat_admin(ctx.text, ctx.from.id)) {
-            let linked_chat = await bot.api.getChat(ctx.text).catch(e => {
-                honsole.warn('Failed to get chat info:', e.description || e.message)
-                return null
-            })
-            if (!linked_chat) return
-            let default_linked_setting = {
-                chat_id: linked_chat.id,
-                type: linked_chat.type,
-                sync: 0,
-                administrator_only: 0,
-                repeat: 0
-            }
-            // if(
-            await update_setting({
-                add_link_chat: default_linked_setting
-            }, ctx.chat.id)
-            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'link_done', linked_chat.title, linked_chat.id) + _l(ctx.l, 'link_setting'), {
-                ...ctx.default_extra,
-                ...k_link_setting(ctx.l, default_linked_setting)
-            }).catch(e => {
-                honsole.warn('Failed to send link done message:', e.description || e.message)
-            })
-        } else {
-            await bot.api.sendMessage(ctx.chat.id, _l(ctx.l, 'error_not_a_gc_administrator'), ctx.default_extra).catch(e => {
-                honsole.warn('Failed to send admin check error message:', e.description || e.message)
-            })
-        }
+        await handleSettingsCommand(ctx, ctx.default_extra)
         return
     }
     if (chat_id > 0) {
@@ -315,42 +205,8 @@ bot.on([':text', ':caption'], async (ctx) => {
         })()
     }
     let direct_flag = (ctx.message.caption && !ctx.us.caption_extraction) ? false : true
-    for (const linked_chat_id in ctx.us.setting.link_chat_list) {
-        let link_setting = ctx.us.setting.link_chat_list[linked_chat_id]
-        if (ctx.message.sender_chat && ctx.message.sender_chat.id === linked_chat_id) {
-            direct_flag = false
-            // sync mode
-        } else if ((ctx.type !== 'channel') && (chat_id > 0 || link_setting.sync === 0 || (link_setting.sync === 1 && ctx.message.text.includes('@' + bot.botInfo.username)))) {
-            // admin only
-            if (chat_id > 0 || link_setting.administrator_only === 0 || (link_setting.administrator_only === 1 && await is_chat_admin(chat_id, user_id))) {
-                let new_ctx = {
-                    ...ctx,
-                    chat_id: linked_chat_id,
-                    user_id: user_id,
-                    default_extra: {
-                        parse_mode: 'MarkdownV2'
-                    },
-                    type: link_setting.type
-                }
-                delete new_ctx.us
-                // Non-blocking processing for linked chats
-                tg_sender(new_ctx).catch(error => {
-                    honsole.error('Error processing linked chat message:', error)
-                })
-                if (link_setting.repeat < 2) {
-                    direct_flag = false
-                    if (link_setting.repeat === 1) {
-                        // feature request:
-                        // return message id
-                        await ctx.reply(_l(ctx.l, 'sent'), {
-                            ...ctx.default_extra,
-                            reply_to_message_id: ctx.message.message_id
-                        })
-                    }
-                }
-            }
-        }
-    }
+    const linkDispatch = await linkLifecycle.dispatchLinkedMessage(ctx)
+    direct_flag = direct_flag && linkDispatch.sendSource
     if (direct_flag) {
         // Check if this message contains Pixiv IDs that need processing
         if (ctx.ids && (ctx.ids.illust.length > 0 || ctx.ids.novel.length > 0)) {
@@ -390,703 +246,7 @@ bot.on([':text', ':caption'], async (ctx) => {
     }
     return
 })
-
-
-/**
- * build ctx object can send illust / novel manually (subscribe / auto push)
- * @param {*} ctx
- */
-export async function tg_sender(ctx) {
-    let chat_id = ctx.chat_id || ctx.message.chat.id
-    let user_id = ctx.user_id || ctx.from.id
-    let text = ctx.text || ''
-    let default_extra = ctx.default_extra
-    if (!ctx.us) {
-        ctx.us = await read_user_setting(bot, ctx)
-    }
-    default_extra.show_caption_above_media = ctx.us.caption_above
-    let ids = ctx.ids
-    let illusts = []
-    // fetch authors' all illusts
-    // alpha version (owner only)
-    if (ids.author.length > 0) {
-        if (user_id === config.tg.master_id) {
-            (async () => {
-                await bot.api.sendChatAction(chat_id, 'upload_photo', ctx.default_extra.message_thread_id ? {
-                    message_thread_id: ctx.default_extra.message_thread_id
-                } : {}).catch(() => { })
-            })();
-            await asyncForEach(ids.author, async (id) => {
-                illusts = [...illusts, ...await get_user_illusts(id)]
-            });
-        }
-    }
-    if (ids.illust.length > 0) {
-        // Parallel processing for better performance (40-60% faster for multiple IDs)
-        const results = await Promise.allSettled(
-            ids.illust.map(id => handle_illust(id, ctx.us))
-        )
-
-        // Process results
-        let has404 = false
-        let hasError = false
-
-        for (const result of results) {
-            if (result.status === 'fulfilled') {
-                const d = result.value
-                if (d === 404) {
-                    has404 = true
-                } else if (d === false) {
-                    hasError = true
-                } else if (d) {
-                    illusts.push(d)
-                }
-            } else {
-                // Promise rejected
-                honsole.error('Failed to handle illust:', result.reason)
-                hasError = true
-            }
-        }
-
-        // Send error notifications only in private chats
-        if (chat_id > 0) {
-            if (has404 && illusts.length === 0) {
-                await bot.api.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra).catch(() => { })
-            }
-            if (hasError && illusts.length === 0) {
-                await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
-            }
-        }
-    }
-    if (illusts.length > 0) {
-        let mgs = []
-        let files = []
-        await asyncForEach(ctx.us.desc ? illusts.reverse() : illusts, async (illust) => {
-            // telegraph
-            ctx.us.q_id += 1
-            let mg = illust.mediagroup
-            if (!ctx.us.telegraph &&
-                (
-                    !ctx.us.album ||
-                    (illusts.length == 1 && mg.length === 1) ||
-                    (!ctx.us.album_one && mg.length === 1)
-                )) {
-                // see https://core.telegram.org/bots/api#inlinekeyboardbutton
-                // Especially useful when combined with switch_pm… actions – in this case the user will be automatically returned to the chat they switched from, skipping the chat selection screen.
-                // So we need inline share button to switch chat window even if user don't want share button
-                if (illust.type === 2 && ctx.match) {
-                    ctx.us.share = true
-                }
-                let extra = {
-                    ...default_extra,
-                    ...k_os(illust.id, ctx.us)
-                }
-                if (ctx.us.spoiler) {
-                    extra.has_spoiler = ctx.us.spoiler
-                }
-                if (ctx.us.caption_above) {
-                    extra.show_caption_above_media = ctx.us.caption_above
-                }
-                if (illust.type <= 1) {
-                    let { reply_to_message_id } = extra
-                    let file_reply_to_message_id = reply_to_message_id
-                    await asyncForEach(illust.mediagroup, async (o, i) => {
-                        let photo_urls = [o.media_r, `dl-${o.media_r}`]
-                        let extra_one = {
-                            ...extra,
-                            caption: ctx.us.single_caption ? format(illust, {
-                                ...ctx.us,
-                                single_caption: false
-                            }, 'message', i) : o.caption
-                        }
-                        if (!ctx.us.asfile) {
-                            let result = await sendPhotoWithRetry(chat_id, ctx.l, photo_urls, {
-                                ...extra_one,
-                                reply_to_message_id
-                            })
-                            if (result && result.message_id) {
-                                reply_to_message_id = result.message_id
-                            } else {
-                                honsole.warn('Failed to send photo for illust', illust.id, 'page', i)
-                                // Notify user of failure
-                                await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
-                            }
-                        }
-                        // Send as file (asfile mode or append_file_immediate mode)
-                        if (ctx.us.asfile || ctx.us.append_file_immediate) {
-                            const targetReplyId = ctx.us.append_file_immediate ? reply_to_message_id : file_reply_to_message_id
-
-                            const newMessageId = await sendDocumentWithChain({
-                                chat_id,
-                                media_url: o.media_o,
-                                extra: extra_one,
-                                lang: ctx.l,
-                                reply_to_message_id: targetReplyId,
-                                default_extra
-                            })
-
-                            // Update reply chain for append_file_immediate
-                            if (ctx.us.append_file_immediate && newMessageId) {
-                                reply_to_message_id = newMessageId
-                                file_reply_to_message_id = newMessageId
-                            }
-                        }
-
-                        // Queue for delayed batch send (append_file non-immediate mode)
-                        if (ctx.us.append_file && !ctx.us.append_file_immediate) {
-                            files.push([chat_id, o.media_o, extra_one, ctx.l])
-                        }
-                    })
-                } else if (illust.type === 2) {
-                    // Ugoira - send upload_video action
-                    bot.api.sendChatAction(chat_id, 'upload_video', ctx.default_extra.message_thread_id ? {
-                        message_thread_id: ctx.default_extra.message_thread_id
-                    } : {}).catch(() => { })
-
-                    let media = mg[0].media_t
-                    if (!media) {
-                        if (mg[0].media_o) {
-                            media = mg[0].media_o
-                        } else {
-                            media = await ugoira_to_mp4(illust)
-                        }
-                    }
-                    if (media.includes('tmp/')) {
-                        media = new InputFile(media)
-                    }
-                    if (!ctx.us.asfile) {
-                        let result
-                        try {
-                            // First try: send external URL
-                            result = await bot.api.sendAnimation(chat_id, media, {
-                                ...extra,
-                                caption: mg[0].caption
-                            })
-                        } catch (e) {
-                            // Retry: download from ugoira server to memory and send as arraybuffer
-                            if (typeof media === 'string' && media.includes(config.pixiv.ugoiraurl)) {
-                                honsole.warn('External ugoira URL failed, downloading to memory:', media)
-                                try {
-                                    // Download directly to memory as arraybuffer
-                                    const arrayBuffer = await fetch_tmp_file(media, 0, true)
-                                    if (arrayBuffer) {
-                                        honsole.log('Downloaded ugoira to memory, retrying send')
-                                        // Create InputFile from arraybuffer
-                                        result = await bot.api.sendAnimation(chat_id, new InputFile(arrayBuffer, `${illust.id}.mp4`), {
-                                            ...extra,
-                                            caption: mg[0].caption
-                                        })
-                                    } else {
-                                        throw new Error('Failed to download ugoira to memory')
-                                    }
-                                } catch (downloadError) {
-                                    honsole.error('Failed to download and send ugoira:', downloadError)
-                                    if (await catchily(e, chat_id, ctx.l)) {
-                                        bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
-                                    }
-                                }
-                            } else {
-                                if (await catchily(e, chat_id, ctx.l)) {
-                                    bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
-                                }
-                            }
-                        }
-                        // save ugoira file_id and next time bot can reply without send file
-                        if (!illust.tg_file_id && result?.document) {
-                            let col = db.collection.illust
-                            await col.updateOne({
-                                id: illust.id
-                            }, {
-                                $set: {
-                                    tg_file_id: result.document.file_id
-                                }
-                            })
-                        }
-                        if (result) {
-                            extra.reply_to_message_id = result.message_id
-                        } else {
-                            honsole.warn('Failed to send ugoira animation for illust', illust.id)
-                            // Error already notified by catch blocks above
-                        }
-                    }
-                    // Send ugoira as file (asfile mode or append_file_immediate mode)
-                    if (ctx.us.asfile || ctx.us.append_file_immediate) {
-                        const newMessageId = await sendDocumentWithChain({
-                            chat_id,
-                            media_url: mg[0].media_o,
-                            extra: {
-                                ...extra,
-                                caption: mg[0].caption,
-                                disable_content_type_detection: true
-                            },
-                            lang: ctx.l,
-                            reply_to_message_id: extra.reply_to_message_id,
-                            default_extra
-                        })
-
-                        // Update reply chain for append_file_immediate
-                        if (ctx.us.append_file_immediate && newMessageId) {
-                            extra.reply_to_message_id = newMessageId
-                        }
-                    }
-
-                    // Queue ugoira for delayed batch send (append_file non-immediate mode)
-                    if (ctx.us.append_file && !ctx.us.append_file_immediate) {
-                        files.push([chat_id, mg[0].media_o, extra, ctx.l])
-                    }
-                }
-            } else {
-                // handle mediagroup
-                if (ctx.us.telegraph || ctx.us.album_one) {
-                    if (mgs.length === 0) {
-                        mgs.push([])
-                    }
-                    mgs[0] = [...mgs[0], ...mg]
-                } else {
-                    mgs = [...mgs, mg]
-                }
-            }
-        })
-        let mg_extra = {}
-        if (ctx.message.message_thread_id) {
-            mg_extra.message_thread_id = ctx.message.message_thread_id
-        }
-        if (mgs.length > 0) {
-            if (ctx.us.telegraph) {
-                // when not have title provided and 1 illust only
-                if (!ctx.us.telegraph_title && illusts.length === 1) {
-                    ctx.us.telegraph_title = illusts[0].title
-                    if (!ctx.us.telegraph_author_name) {
-                        ctx.us.telegraph_author_name = illusts[0].author_name
-                        ctx.us.telegraph_author_url = `https://www.pixiv.net/artworks/${illusts[0].id}`
-                    }
-                }
-                try {
-                    // Telegraph conversion - use typing action for text processing
-                    bot.api.sendChatAction(chat_id, 'typing', ctx.default_extra.message_thread_id ? {
-                        message_thread_id: ctx.default_extra.message_thread_id
-                    } : {}).catch(() => { })
-
-                    let res_data = await mg2telegraph(mgs[0], ctx.us.telegraph_title, user_id, ctx.us.telegraph_author_name, ctx.us.telegraph_author_url)
-                    if (res_data) {
-                        await asyncForEach(res_data, async (d) => {
-                            await bot.api.sendMessage(chat_id, d.ids.join('\n') + '\n' + d.telegraph_url, default_extra).catch(() => { })
-                        })
-                        await bot.api.sendMessage(chat_id, _l(ctx.l, 'telegraph_iv'), default_extra).catch(() => { })
-                    }
-                } catch (error) {
-                    console.warn(error)
-                }
-            } else {
-                // Bad Request: document can't be mixed with other media types
-                // if (ctx.us.append_file_immediate) {
-                //     const mgs_f = mgs.map(mg => {
-                //         return {
-                //             ...mg,
-                //             type: 'document'
-                //         }
-                //     })
-                //     mgs = mgs.flatMap((value, index) => [value, mgs_f[index]])
-                // }
-                await asyncForEach(mgs, async mgsi => {
-                    await asyncForEach(mg_albumize(mgsi, ctx.us), async (mg, i) => {
-                        let single_caption = ''
-                        if (ctx.us.single_caption) {
-                            if (mg.every(m => m.id === mg[0].id)) {
-                                single_caption = format(illusts.find((illust) => illust.id === mg[0].id), {
-                                    ...ctx.us,
-                                    single_caption: false
-                                }, 'message', -1, false)
-                            } else {
-                                mg.forEach((m, mid) => {
-                                    single_caption += format(illusts.find((illust) => illust.id === m.id), ctx.us, 'mediagroup_message', m.p, mid + 1)
-                                    if (mg.length - 1 !== i) {
-                                        single_caption += '\n'
-                                    }
-                                })
-                            }
-                            mg[0].caption = single_caption
-                        }
-                        let result = await sendMediaGroupWithRetry(chat_id, ctx.l, mg, mg_extra, ['r', 'o', 'dlr', 'dlo'])
-                        if (result) {
-                            if (result[0] && result[0].message_id) {
-                                mg_extra.reply_to_message_id = result[0].message_id
-                            } else {
-                                delete mg_extra.reply_to_message_id
-                            }
-                        } else {
-                            honsole.warn('error send mg', result)
-                            // Notify user of failure so they know to retry
-                            await bot.api.sendMessage(chat_id, _l(ctx.l, 'error'), default_extra).catch(() => { })
-                        }
-                        // Rate limiting to avoid "Too Many Requests"
-                        await rateLimit(i)
-
-                        // Send MediaGroup as documents immediately (append_file_immediate mode)
-                        if (ctx.us.append_file_immediate) {
-                            const newMessageId = await sendMediaGroupDocuments({
-                                chat_id,
-                                lang: ctx.l,
-                                mediagroup: mg,
-                                extra: mg_extra,
-                                url_fallbacks: ['o', 'dlo'],
-                                default_extra
-                            })
-
-                            // Update reply chain
-                            updateReplyChain(mg_extra, newMessageId)
-
-                            // Rate limiting
-                            await rateLimit(i)
-                        }
-                    })
-                })
-                // Send MediaGroups as documents in delayed batch (append_file non-immediate mode)
-                if (ctx.us.append_file && !ctx.us.append_file_immediate) {
-                    await asyncForEach(mgs, async mgsi => {
-                        await asyncForEach(mg_albumize(mgsi, ctx.us), async (mg, i) => {
-                            const newMessageId = await sendMediaGroupDocuments({
-                                chat_id,
-                                lang: ctx.l,
-                                mediagroup: mg,
-                                extra: mg_extra,
-                                url_fallbacks: ['o', 'dlo'],
-                                default_extra
-                            })
-
-                            // Update reply chain
-                            updateReplyChain(mg_extra, newMessageId)
-
-                            // Rate limiting
-                            await rateLimit(i)
-                        })
-                    })
-                }
-            }
-        }
-
-        // Send batched files (delayed append_file mode)
-        if (files.length > 0) {
-            let successCount = 0
-            let failedCount = 0
-
-            await asyncForEach(files, async (f, i) => {
-                const [file_chat_id, media_url, extra, lang] = f
-
-                const newMessageId = await sendDocumentWithChain({
-                    chat_id: file_chat_id,
-                    media_url,
-                    extra,
-                    lang,
-                    default_extra
-                })
-
-                if (newMessageId) {
-                    successCount++
-                } else {
-                    failedCount++
-                    honsole.warn('[batched files] Failed to send file', i, media_url?.substring?.(0, 100))
-                }
-            })
-
-            honsole.dev(`[batched files] Completed: ${successCount} success, ${failedCount} failed`)
-        }
-
-        // Clear arrays to help garbage collection
-        illusts.length = 0
-        mgs.length = 0
-        files.length = 0
-    }
-
-    if (ids.novel.length > 0) {
-        await asyncForEach(ids.novel, async (id) => {
-            // Novel - use typing action for text content
-            bot.api.sendChatAction(chat_id, 'typing', ctx.default_extra.message_thread_id ? {
-                message_thread_id: ctx.default_extra.message_thread_id
-            } : {}).catch(() => { })
-
-            let d = await handle_novel(id)
-            if (d) {
-                let extra = { ...default_extra }
-                delete extra.parse_mode
-                await bot.api.sendMessage(chat_id, `${d.telegraph_url}`, extra).catch(e => {
-                    if (e.error_code === 400 && e.description === 'Bad Request: TOPIC_CLOSED') {
-                        console.log('Topic is closed, skipping message')
-                        return
-                    }
-                    console.warn(e)
-                })
-            } else {
-                await bot.api.sendMessage(chat_id, _l(ctx.l, 'illust_404'), default_extra).catch(() => { })
-            }
-        })
-    }
-    if (text.includes('fanbox.cc/') && chat_id > 0) {
-        await bot.api.sendMessage(chat_id, _l(ctx.l, 'fanbox_not_support'), default_extra).catch(() => { })
-    }
-    return true
-}
-
-bot.on('inline_query', async (ctx) => {
-    const startTime = Date.now()
-    const TIMEOUT = 21000
-    const ITEMS_PER_PAGE = 20
-
-    const offset = parseInt(ctx.inlineQuery.offset) || 0
-    const query = ctx.text
-    const ids = ctx.ids
-
-    let res = []
-    const res_options = {
-        cache_time: 20,
-        is_personal: !ctx.us.setting.dbless // personal result
-    }
-
-    if (ids.illust.length > 0) {
-        // Deduplicate and reverse (newest first)
-        const uniqueIds = [...new Set(ids.illust)]
-
-        // Parallel processing with IllustService
-        const illustPromises = uniqueIds.map(async (id) => {
-            try {
-                if (Date.now() - startTime > TIMEOUT) {
-                    honsole.warn('[inline_query] Timeout approaching, skipping illust', id)
-                    return null
-                }
-
-                // Use IllustService.getQuick() for fast inline response
-                const illust = await illustService.getQuick(id)
-                if (!illust || illust === 404) {
-                    return null
-                }
-
-                // Build inline results (with URL validation)
-                const inline = []
-                if (illust.type <= 1) {
-                    illust.imgs_.size.forEach((size, pid) => {
-                        // Skip if URLs are missing
-                        if (!illust.imgs_.regular_urls[pid]) {
-                            honsole.warn('[inline_query] Missing URLs for illust', illust.id, 'pid', pid)
-                            return
-                        }
-                        const regular_url = illust.imgs_.regular_urls[pid]
-
-                        inline[pid] = {
-                            type: 'photo',
-                            id: 'p_' + illust.id + '-' + pid,
-                            photo_url: regular_url,
-                            thumbnail_url: regular_url,  // Use same URL for thumbnail to avoid URL issues
-                            caption: format(illust, ctx.us, 'inline', pid),
-                            photo_width: size.width,
-                            photo_height: size.height,
-                            parse_mode: 'MarkdownV2',
-                            show_caption_above_media: ctx.us.caption_above,
-                            ...k_os(illust.id, ctx.us)
-                        }
-                    })
-                } else if (illust.type === 2) {
-                    // Ugoira - check if URL is available
-                    const ugoiraUrl = await detect_ugpira_url(illust, 'mp4')
-
-                    if (illust.tg_file_id) {
-                        // Use Telegram file_id if available (fastest)
-                        inline[0] = {
-                            type: 'mpeg4_gif',
-                            id: 'p' + illust.id,
-                            mpeg4_file_id: illust.tg_file_id,
-                            caption: format(illust, ctx.us, 'inline', 1),
-                            parse_mode: 'MarkdownV2',
-                            show_caption_above_media: ctx.us.caption_above,
-                            ...k_os(illust.id, ctx.us)
-                        }
-                        if (ctx.us.spoiler) {
-                            inline[0].has_spoiler = true
-                        }
-                    } else if (ugoiraUrl) {
-                        // Use URL if file exists or remote conversion enabled
-                        inline[0] = {
-                            type: 'mpeg4_gif',
-                            id: 'p' + illust.id,
-                            mpeg4_url: ugoiraUrl,
-                            thumbnail_url: illust.imgs_.cover_img_url,
-                            caption: format(illust, ctx.us, 'inline', 1),
-                            parse_mode: 'MarkdownV2',
-                            show_caption_above_media: ctx.us.caption_above,
-                            ...k_os(illust.id, ctx.us)
-                        }
-                        if (ctx.us.spoiler) {
-                            inline[0].has_spoiler = true
-                        }
-                    } else {
-                        // Not converted yet - mark for redirect
-                        ugoiraConverter(illust.id)
-                        return { type: 'ugoira_redirect', id }
-                    }
-                }
-
-                // Filter out undefined elements (from skipped URLs)
-                return inline.filter(Boolean)
-            } catch (error) {
-                honsole.error('[inline_query] Failed to handle illust', id, error)
-                return null
-            }
-        })
-
-        // Wait for all illusts to be fetched (in parallel)
-        const results = await Promise.allSettled(illustPromises)
-
-        // Collect results
-        const ugoiraRedirectIds = []
-        for (const result of results) {
-            if (result.status === 'fulfilled' && result.value) {
-                if (result.value.type === 'ugoira_redirect') {
-                    ugoiraRedirectIds.push(result.value.id)
-                } else if (Array.isArray(result.value)) {
-                    res = res.concat(result.value)
-                }
-            }
-        }
-
-        // If any ugoira needs conversion, redirect to PM
-        if (ugoiraRedirectIds.length > 0) {
-            await ctx.answerInlineQuery([], {
-                switch_pm_text: _l(ctx.l, 'pm_to_generate_ugoira'),
-                switch_pm_parameter: ugoiraRedirectIds.join('-_-'),
-                cache_time: 0
-            }).catch(async (e) => {
-                await catchily(e, config.tg.master_id, ctx.l)
-            })
-            return
-        }
-
-        // Add "Get all" button if total results > 1 and within deeplink limit
-        if (res.length > 1 && uniqueIds.length < 8) {
-            res_options.switch_pm_text = _l(ctx.l, 'pm_to_get_all_illusts')
-            res_options.switch_pm_parameter = uniqueIds.join('-')
-        }
-    } else if (query.trim() === '') {
-        // Empty query: show ranking
-        try {
-            const data = await handle_ranking([offset], ctx.us)
-            if (data) {
-                res = data.data || []
-                if (data.next_offset) {
-                    res_options.next_offset = data.next_offset
-                }
-            }
-        } catch (error) {
-            honsole.error('[inline_query] Ranking failed:', error)
-        }
-    } else if (!process.env.DBLESS && query.trim()) {
-        // Search query: search local database
-        try {
-            const searchTerm = query.trim()
-            const col = db.collection.illust
-
-            // Build search query (exact match on tags for performance)
-            const searchQuery = {
-                tags: searchTerm
-            }
-
-            // MEMORY FIX: Reduce batch size from 100 to 30 illusts to prevent memory spikes
-            // Each illust can have 1-20 pages, so 30 illusts = 30-300+ result objects
-            const ILLUSTS_PER_BATCH = 30
-            const batchIndex = Math.floor(offset / 2)  // 2 pages per batch (30 illusts, 20 items per page)
-            const skip = batchIndex * ILLUSTS_PER_BATCH
-
-            // Fetch up to 30 illusts (pagination applied later)
-            const illusts = await col.find(searchQuery)
-                .sort({ id: -1 }) // Newest first
-                .skip(skip)
-                .limit(ILLUSTS_PER_BATCH)
-                .toArray()
-
-            // Build inline results from search results (limit to prevent memory overflow)
-            let resultCount = 0
-            const MAX_RESULTS_PER_BATCH = 200 // Limit total result objects
-
-            for (const illust of illusts) {
-                if (resultCount >= MAX_RESULTS_PER_BATCH) break
-
-                if (illust.type <= 1 && illust.imgs_ && illust.imgs_.regular_urls) {
-                    // Photo/Manga
-                    illust.imgs_.size.forEach((size, pid) => {
-                        if (resultCount >= MAX_RESULTS_PER_BATCH) return
-                        if (illust.imgs_.regular_urls[pid]) {
-                            res.push({
-                                type: 'photo',
-                                id: `p_${illust.id}-${pid}`,
-                                photo_url: illust.imgs_.regular_urls[pid],
-                                thumbnail_url: illust.imgs_.regular_urls[pid],
-                                caption: format(illust, ctx.us, 'inline', pid),
-                                photo_width: size.width,
-                                photo_height: size.height,
-                                parse_mode: 'MarkdownV2',
-                                show_caption_above_media: ctx.us.caption_above,
-                                ...k_os(illust.id, ctx.us)
-                            })
-                            resultCount++
-                        }
-                    })
-                } else if (illust.type === 2 && illust.tg_file_id) {
-                    // Ugoira (only if already converted)
-                    res.push({
-                        type: 'mpeg4_gif',
-                        id: `p${illust.id}`,
-                        mpeg4_file_id: illust.tg_file_id,
-                        caption: format(illust, ctx.us, 'inline', 1),
-                        parse_mode: 'MarkdownV2',
-                        show_caption_above_media: ctx.us.caption_above,
-                        ...k_os(illust.id, ctx.us)
-                    })
-                    resultCount++
-                }
-            }
-
-            // Clear illusts array to free memory immediately
-            illusts.length = 0
-
-        } catch (error) {
-            honsole.error('[inline_query] Search failed:', error)
-        }
-    }
-
-    // Universal pagination: slice to 20 items per page
-    // For search mode, use offset within current batch; for other modes, use global offset
-    const PAGES_PER_BATCH = 2  // Each batch of 30 illusts ≈ 2 pages of 20 items (memory optimized)
-    const isSearchMode = !process.env.DBLESS && query.trim()
-    const offsetInBatch = isSearchMode ? offset % PAGES_PER_BATCH : offset
-    const startIndex = offsetInBatch * ITEMS_PER_PAGE
-    const endIndex = startIndex + ITEMS_PER_PAGE
-
-    if (res.length > endIndex) {
-        res_options.next_offset = (offset + 1).toString()
-    }
-
-    if (res.length > ITEMS_PER_PAGE || startIndex > 0) {
-        honsole.dev(`[inline_query] Paginating: ${res.length} total in batch, showing ${startIndex}-${Math.min(endIndex, res.length)}`)
-        res = res.slice(startIndex, endIndex)
-    }
-
-    // Return results (empty array if no results found)
-    const duration = Date.now() - startTime
-    honsole.dev(`[inline_query] Answering query: "${query}" | offset: ${offset} | results: ${res.length} | duration: ${duration}ms`)
-
-    const answerPromise = ctx.answerInlineQuery(res, res_options).catch(async (e) => {
-        // Ignore "query is too old" errors as they're expected when processing takes too long
-        if (e.description && e.description.includes('query is too old')) {
-            honsole.warn(`[inline_query] Query expired before answer could be sent | query: "${query}" | offset: ${offset} | duration: ${duration}ms`)
-            return
-        }
-        // Report other errors to master
-        honsole.error(`[inline_query] Error answering query: "${query}" | offset: ${offset}`, e)
-        await catchily(e, config.tg.master_id, ctx.l)
-    })
-
-    // Wait for answer to be sent, then clear results to free memory
-    await answerPromise
-    res.length = 0
-})
+bot.on('inline_query', inlineQueryHandler)
 
 bot.catch(async (e) => {
     honsole.warn('gg', e)
@@ -1158,6 +318,7 @@ db.db_initial().then(async () => {
 // Graceful shutdown
 async function shutdown(signal) {
     console.log(`${signal} received, shutting down gracefully...`)
+    linkLifecycle.dispose()
     bot.stop(signal)
     await db_close()
     process.exit(0)
@@ -1165,21 +326,3 @@ async function shutdown(signal) {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'))
 process.on('SIGINT', () => shutdown('SIGINT'))
-
-/**
- * when user is chat's administrator / creator, return true
- * @param {*} chat_id
- * @param {*} user_id
- * @returns Boolean
- */
-async function is_chat_admin(chat_id, user_id) {
-    try {
-        let { status } = await bot.api.getChatMember(chat_id, user_id)
-        if (status === 'administrator' || status === 'creator') {
-            return true
-        }
-    }
-    catch (e) {
-    }
-    return false
-}

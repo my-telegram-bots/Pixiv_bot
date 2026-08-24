@@ -33,7 +33,7 @@
 - [x] `ugoira_meta` → `imgs_` 对象（rebuildIllustObject）
 - [x] 扁平化字段 → 嵌套对象（rebuildSettingObject）
 - [x] 订阅关系表 → `subscribe_author_list` 对象
-- [x] 链接聊天表 → `link_chat_list` 对象
+- [x] 链接聊天表 → 独立 `chat-link-store` 查询
 
 ### ✅ 特殊功能
 - [x] DBLESS 模式兼容
