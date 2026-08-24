@@ -266,6 +266,7 @@ function searchResults(illusts, ctx, dependencies, maximum) {
     const results = []
     for (const illust of illusts) {
         if (results.length >= maximum) break
+        if (!illust || typeof illust !== 'object') continue
         if (illust.type <= 1) {
             results.push(...photoResults(illust, ctx, dependencies).slice(0, maximum - results.length))
         } else if (illust.type === 2 && illust.tg_file_id) {

@@ -146,6 +146,32 @@ test('ugoira redirect preserves ready sibling results and never starts conversio
     t.is(ctx.answers[0].options.cache_time, 0)
 })
 
+test('malformed cached media is isolated and private parameters stay within Telegram limits', async t => {
+    const ids = Array.from({ length: 7 }, (_, index) => 123456780 + index)
+    const ctx = context({
+        ids: { illust: ids },
+        inlineDeadline: {
+            receivedAt: Date.now(),
+            workDeadlineAt: Date.now() + 500,
+            answerDeadlineAt: Date.now() + 1000
+        }
+    })
+    const handler = createInlineQueryHandler(dependencies({
+        illustService: {
+            resolve: async id => {
+                const value = illustration(id)
+                if (id === ids[0]) value.imgs_.regular_urls[0] = 'not a URL'
+                return { kind: 'ready', illustration: value }
+            }
+        }
+    }))
+
+    await handler(ctx)
+    t.is(ctx.answers[0].results.length, 6)
+    t.false(ctx.answers[0].results.some(result => result.id === `p_${ids[0]}-0`))
+    t.true(Buffer.byteLength(ctx.answers[0].options.switch_pm_parameter, 'utf8') <= 64)
+})
+
 test('a timed-out direct lookup offers the private recovery path', async t => {
     const ctx = context({
         ids: { illust: [7] },
