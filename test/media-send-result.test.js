@@ -55,3 +55,20 @@ test('album retry swaps only the failed remote item for a local upload', t => {
     t.is(selectMediaRetryType(mediaGroup[1], 'r'), 'dlr')
     t.is(selectMediaRetryType(mediaGroup[2], 'r'), 'r')
 })
+
+test('document album remote fetch failure selects only that item for local upload', t => {
+    const mediaGroup = [
+        { type: 'document', id: 1, media_o: 'https://example/1.jpg' },
+        { type: 'document', id: 2, media_o: 'https://example/2.jpg' }
+    ]
+    const classification = classifyMediaSendError({
+        description: "Bad Request: failed to send message #2 with the error message 'WEBPAGE_CURL_FAILED'"
+    })
+    const queue = ['dlo']
+
+    t.true(classification.retryLocal)
+    t.true(queueLocalMediaRetry(mediaGroup, classification.failedIndex, 'o', queue))
+    t.deepEqual(queue, ['o', 'dlo'])
+    t.is(selectMediaRetryType(mediaGroup[0], 'o'), 'o')
+    t.is(selectMediaRetryType(mediaGroup[1], 'o'), 'dlo')
+})

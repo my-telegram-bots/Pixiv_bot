@@ -10,6 +10,7 @@
  */
 
 import { MediaSendKind, sendDocumentWithRetry, sendMediaGroupWithRetry } from './sender.js'
+import { documentFailureMessage } from '#handlers/telegram/document-delivery'
 import { _l } from './i18n.js'
 import { honsole, sleep } from '../common.js'
 import { getBot } from '../../bot.js'
@@ -53,9 +54,22 @@ export async function sendDocumentWithChain(options) {
         const result = await sendDocumentWithRetry(
             chat_id,
             media_url,
-            cleanExtra,
-            lang
+            cleanExtra
         )
+
+        if (result.kind === MediaSendKind.FAILED && !silent_error && default_extra) {
+            const message = documentFailureMessage(result)
+            if (message) {
+                const [key, ...values] = message
+                const bot = getBot()
+                await bot.api.sendMessage(
+                    chat_id,
+                    _l(lang, key, ...values),
+                    default_extra
+                ).catch(() => { })
+                result.userNotified = true
+            }
+        }
 
         return result
     } catch (error) {

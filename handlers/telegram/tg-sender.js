@@ -29,6 +29,12 @@ import {
     updateReplyChain
 } from '#handlers/telegram/file-sender'
 import {
+    deliverConfiguredDocument,
+    deliverDocumentWithRefresh,
+    staticDeliveryPlan
+} from '#handlers/telegram/static-document-delivery'
+import { documentFailureMessage } from '#handlers/telegram/document-delivery'
+import {
     createTgSenderMachine,
     runTgSenderStateMachine,
     summarizeTgSenderResult
@@ -41,6 +47,7 @@ import {
     completeIllustration,
     createIllustrationLifecycle,
     failIllustration,
+    markIllustrationOutputQueued,
     markIllustrationOutputSent,
     markIllustrationPageSent,
     replaceRefreshedAlbumItems
@@ -175,20 +182,32 @@ async function refreshIllustration(runtime, lifecycle, failedPage) {
 async function notifyIllustrationFailure(bot, runtime, lifecycle) {
     if (lifecycle.failureNotified) return
     lifecycle.failureNotified = true
-    const key = lifecycle.state === IllustrationLifecycleState.NOT_FOUND
-        ? 'illust_404'
-        : lifecycle.errorCode === 'ILLUSTRATION_REFRESH_ID_MISMATCH'
-            ? 'illustration_refresh_id_mismatch'
-        : lifecycle.errorCode === 'PIXIV_MEDIA_REFRESH_FAILED' || lifecycle.errorCode === 'PIXIV_DETAIL_REQUEST_FAILED'
-            ? 'media_refresh_failed'
-            : lifecycle.errorCode === 'PIXIV_MEDIA_STALE'
-                ? 'media_send_failed'
-                : 'media_delivery_failed'
+    const messages = {
+        ILLUSTRATION_REFRESH_ID_MISMATCH: ['illustration_refresh_id_mismatch'],
+        PIXIV_MEDIA_REFRESH_FAILED: ['media_refresh_failed'],
+        PIXIV_DETAIL_REQUEST_FAILED: ['media_refresh_failed'],
+        PIXIV_MEDIA_STALE: ['media_send_failed']
+    }
+    const documentMessage = documentFailureMessage({
+        code: lifecycle.errorCode,
+        recoveryUrl: lifecycle.recoveryUrl
+    })
+    const [key, ...values] = lifecycle.state === IllustrationLifecycleState.NOT_FOUND
+        ? ['illust_404']
+        : documentMessage || messages[lifecycle.errorCode] || ['media_delivery_failed']
     await bot.api.sendMessage(
         runtime.chatId,
-        _l(runtime.ctx.l, key),
+        _l(runtime.ctx.l, key, ...values),
         runtime.defaultExtra
     ).catch(() => { })
+}
+
+function failDelivery(lifecycle, result) {
+    failIllustration(lifecycle, result.code, {
+        recoveryUrl: result.recoveryUrl,
+        deliveryAttempts: result.attempts
+    })
+    if (result.userNotified) lifecycle.failureNotified = true
 }
 
 function createMediaExtra(ctx, defaultExtra, illust) {
@@ -218,8 +237,9 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
 
     for (let page = 0; page < lifecycle.illust.mediagroup.length; page++) {
         if (terminalIllustrationStates.has(lifecycle.state)) break
-        const needsPhoto = !ctx.us.asfile
-        const needsImmediateDocument = ctx.us.asfile || ctx.us.append_file_immediate
+        const deliveryPlan = staticDeliveryPlan(ctx.us)
+        const needsPhoto = deliveryPlan.sendPhoto
+        const needsImmediateDocument = Boolean(deliveryPlan.immediateDocumentMode)
         const photoDone = !needsPhoto || lifecycle.sentPages.has(page)
         const documentDone = !needsImmediateDocument || lifecycle.sentOutputs.has(`document:${page}`)
         if (photoDone && documentDone) continue
@@ -263,41 +283,52 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
             }
         }
 
-        if (needsImmediateDocument && !lifecycle.sentOutputs.has(`document:${page}`)) {
-            const targetReplyId = ctx.us.append_file_immediate
-                ? replyToMessageId
-                : fileReplyToMessageId
-            const documentResult = await sendDocumentWithChain({
-                chat_id: chatId,
-                media_url: item.media_o,
-                extra: extraOne,
-                lang: ctx.l,
-                reply_to_message_id: targetReplyId,
-                default_extra: defaultExtra,
-                silent_error: true
+        const configuredDocument = await deliverConfiguredDocument({
+            settings: ctx.us,
+            alreadySent: lifecycle.sentOutputs.has(`document:${page}`),
+            sendDocument: () => deliverDocumentWithRefresh({
+                sendDocument: () => {
+                    const targetReplyId = ctx.us.append_file_immediate
+                        ? replyToMessageId
+                        : fileReplyToMessageId
+                    return sendDocumentWithChain({
+                        chat_id: chatId,
+                        media_url: item.media_o,
+                        extra: extraOne,
+                        lang: ctx.l,
+                        reply_to_message_id: targetReplyId,
+                        default_extra: defaultExtra,
+                        silent_error: true
+                    })
+                },
+                refresh: async () => {
+                    if (!await refreshIllustration(runtime, lifecycle, page)) return false
+                    illust = lifecycle.illust
+                    item = illust.mediagroup[page]
+                    return true
+                }
             })
+        })
+        if (configuredDocument.result) {
+            const documentResult = configuredDocument.result
             if (documentResult.kind === MediaSendKind.SENT) {
                 markIllustrationOutputSent(lifecycle, `document:${page}`)
                 if (ctx.us.append_file_immediate) {
                     replyToMessageId = documentResult.result.message_id
                     fileReplyToMessageId = documentResult.result.message_id
                 }
-            } else if (documentResult.kind === MediaSendKind.STALE_MEDIA && await refreshIllustration(runtime, lifecycle, page)) {
-                page--
-                continue
             } else {
-                if (!terminalIllustrationStates.has(lifecycle.state)) failIllustration(lifecycle, documentResult.code)
-                if (documentResult.userNotified) lifecycle.failureNotified = true
+                if (!terminalIllustrationStates.has(lifecycle.state)) failDelivery(lifecycle, documentResult)
                 await notifyIllustrationFailure(bot, runtime, lifecycle)
                 break
             }
         }
 
-        if (ctx.us.append_file && !ctx.us.append_file_immediate) {
+        if (deliveryPlan.queueDocument) {
             const queuedKey = `queued-document:${page}`
-            if (!lifecycle.sentOutputs.has(queuedKey)) {
+            if (!lifecycle.queuedOutputs.has(queuedKey)) {
                 files.push({ lifecycle, page, extra: extraOne })
-                markIllustrationOutputSent(lifecycle, queuedKey)
+                markIllustrationOutputQueued(lifecycle, queuedKey)
             }
         }
     }
@@ -420,23 +451,8 @@ async function sendUgoira(bot, config, runtime, lifecycle, extra) {
     }
 
     if (ctx.us.asfile || ctx.us.append_file_immediate) {
-        let documentResult = await sendDocumentWithChain({
-            chat_id: chatId,
-            media_url: item.media_o,
-            extra: {
-                ...extra,
-                caption: item.caption,
-                disable_content_type_detection: true
-            },
-            lang: ctx.l,
-            reply_to_message_id: extra.reply_to_message_id,
-            default_extra: defaultExtra,
-            silent_error: true
-        })
-        if (documentResult.kind === MediaSendKind.STALE_MEDIA && await refreshIllustration(runtime, lifecycle, 0)) {
-            illust = lifecycle.illust
-            item = illust.mediagroup[0]
-            documentResult = await sendDocumentWithChain({
+        const documentResult = await deliverDocumentWithRefresh({
+            sendDocument: () => sendDocumentWithChain({
                 chat_id: chatId,
                 media_url: item.media_o,
                 extra: { ...extra, caption: item.caption, disable_content_type_detection: true },
@@ -444,8 +460,14 @@ async function sendUgoira(bot, config, runtime, lifecycle, extra) {
                 reply_to_message_id: extra.reply_to_message_id,
                 default_extra: defaultExtra,
                 silent_error: true
-            })
-        }
+            }),
+            refresh: async () => {
+                if (!await refreshIllustration(runtime, lifecycle, 0)) return false
+                illust = lifecycle.illust
+                item = illust.mediagroup[0]
+                return true
+            }
+        })
         if (documentResult.kind === MediaSendKind.SENT) {
             sent = true
             markIllustrationOutputSent(lifecycle, 'document:0')
@@ -454,18 +476,23 @@ async function sendUgoira(bot, config, runtime, lifecycle, extra) {
             }
         } else {
             failureCode = documentResult.code
+            lifecycle.recoveryUrl = documentResult.recoveryUrl
+            lifecycle.deliveryAttempts = documentResult.attempts
         }
     }
 
     if (ctx.us.append_file && !ctx.us.append_file_immediate) {
         files.push({ lifecycle, page: 0, extra })
-        markIllustrationOutputSent(lifecycle, 'queued-document:0')
+        markIllustrationOutputQueued(lifecycle, 'queued-document:0')
         queued = true
     }
     if (terminalIllustrationStates.has(lifecycle.state)) {
         await notifyIllustrationFailure(bot, runtime, lifecycle)
     } else if (failureCode) {
-        failIllustration(lifecycle, failureCode)
+        failIllustration(lifecycle, failureCode, {
+            recoveryUrl: lifecycle.recoveryUrl,
+            deliveryAttempts: lifecycle.deliveryAttempts
+        })
         await notifyIllustrationFailure(bot, runtime, lifecycle)
     } else if (!sent && !queued) {
         failIllustration(lifecycle, 'TELEGRAM_MEDIA_SEND_FAILED')
@@ -691,12 +718,11 @@ async function failAlbum(bot, runtime, mediaGroup, result) {
     for (const id of new Set(mediaGroup.map(item => item.id))) {
         const lifecycle = runtime.lifecycles.get(id)
         if (!lifecycle) continue
-        if (result.userNotified) lifecycle.failureNotified = true
         if (terminalIllustrationStates.has(lifecycle.state)) {
             await notifyIllustrationFailure(bot, runtime, lifecycle)
             continue
         }
-        failIllustration(lifecycle, result.code)
+        failDelivery(lifecycle, result)
         await notifyIllustrationFailure(bot, runtime, lifecycle)
     }
 }
@@ -708,32 +734,27 @@ async function flushFiles(bot, runtime) {
         const { lifecycle, page, extra } = file
         if (terminalIllustrationStates.has(lifecycle.state)) return
         let item = lifecycle.illust.mediagroup[page]
-        let result = await sendDocumentWithChain({
-            chat_id: runtime.chatId,
-            media_url: item.media_o,
-            extra,
-            lang: runtime.ctx.l,
-            default_extra: runtime.defaultExtra,
-            silent_error: true
-        })
-        if (result.kind === MediaSendKind.STALE_MEDIA && await refreshIllustration(runtime, lifecycle, page)) {
-            item = lifecycle.illust.mediagroup[page]
-            result = await sendDocumentWithChain({
+        const result = await deliverDocumentWithRefresh({
+            sendDocument: () => sendDocumentWithChain({
                 chat_id: runtime.chatId,
                 media_url: item.media_o,
                 extra,
                 lang: runtime.ctx.l,
                 default_extra: runtime.defaultExtra,
                 silent_error: true
-            })
-        }
+            }),
+            refresh: async () => {
+                if (!await refreshIllustration(runtime, lifecycle, page)) return false
+                item = lifecycle.illust.mediagroup[page]
+                return true
+            }
+        })
         if (result.kind === MediaSendKind.SENT) {
             successCount++
             markIllustrationOutputSent(lifecycle, `delayed-document:${page}`)
         } else {
             failedCount++
-            if (!terminalIllustrationStates.has(lifecycle.state)) failIllustration(lifecycle, result.code)
-            if (result.userNotified) lifecycle.failureNotified = true
+            if (!terminalIllustrationStates.has(lifecycle.state)) failDelivery(lifecycle, result)
             await notifyIllustrationFailure(bot, runtime, lifecycle)
             honsole.warn('[batched files] Failed to send file', index, item.media_o?.substring?.(0, 100))
         }
@@ -753,9 +774,9 @@ async function sendIllustrations(bot, config, runtime) {
             await sendTelegraph(bot, runtime)
         } else {
             await sendAlbumBatch(bot, runtime, mediaGroups, false)
-            if (ctx.us.append_file && !ctx.us.append_file_immediate) {
-                await sendAlbumBatch(bot, runtime, mediaGroups, true)
-            }
+        }
+        if (staticDeliveryPlan(ctx.us).appendAlbumDocuments) {
+            await sendAlbumBatch(bot, runtime, mediaGroups, true)
         }
     }
     if (files.length > 0) {

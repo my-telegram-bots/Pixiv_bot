@@ -12,6 +12,8 @@ import {
     completeIllustration,
     createIllustrationLifecycle,
     failIllustration,
+    markIllustrationOutputQueued,
+    markIllustrationOutputSent,
     markIllustrationPageSent,
     pendingIllustrationPages
 } from '../handlers/telegram/illustration-lifecycle.js'
@@ -85,6 +87,18 @@ test('illustration not-found is terminal', t => {
     t.throws(() => completeIllustration(lifecycle), {
         message: 'Illegal illustration transition: not_found -> completed'
     })
+})
+
+test('queued documents are not recorded as sent output', t => {
+    const lifecycle = createIllustrationLifecycle({ id: 7, mediagroup: [{ p: 0 }] })
+    beginIllustrationSend(lifecycle)
+    markIllustrationOutputQueued(lifecycle, 'queued-document:0')
+
+    t.true(lifecycle.queuedOutputs.has('queued-document:0'))
+    t.false(lifecycle.sentOutputs.has('queued-document:0'))
+
+    markIllustrationOutputSent(lifecycle, 'delayed-document:0')
+    t.true(lifecycle.sentOutputs.has('delayed-document:0'))
 })
 
 test('download helpers cannot refresh or delete illustration metadata', t => {

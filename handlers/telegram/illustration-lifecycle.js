@@ -64,6 +64,7 @@ export function createIllustrationLifecycle(illust) {
         state: IllustrationLifecycleState.READY,
         refreshCount: 0,
         sentPages: new Set(),
+        queuedOutputs: new Set(),
         sentOutputs: new Set(),
         failedPage: null,
         errorCode: null,
@@ -105,6 +106,14 @@ export function markIllustrationOutputSent(lifecycle, output) {
         throw new Error(`Cannot record output in terminal state: ${lifecycle.state}`)
     }
     lifecycle.sentOutputs.add(output)
+    return lifecycle
+}
+
+export function markIllustrationOutputQueued(lifecycle, output) {
+    if (terminalStates.has(lifecycle.state)) {
+        throw new Error(`Cannot queue output in terminal state: ${lifecycle.state}`)
+    }
+    lifecycle.queuedOutputs.add(output)
     return lifecycle
 }
 
@@ -151,9 +160,9 @@ export function completeIllustration(lifecycle) {
     return transitionIllustration(lifecycle, IllustrationLifecycleState.COMPLETED)
 }
 
-export function failIllustration(lifecycle, errorCode = 'ILLUSTRATION_SEND_FAILED') {
+export function failIllustration(lifecycle, errorCode = 'ILLUSTRATION_SEND_FAILED', details = {}) {
     const terminal = errorCode === 'PIXIV_ILLUSTRATION_NOT_FOUND'
         ? IllustrationLifecycleState.NOT_FOUND
         : IllustrationLifecycleState.FAILED
-    return transitionIllustration(lifecycle, terminal, { errorCode })
+    return transitionIllustration(lifecycle, terminal, { errorCode, ...details })
 }

@@ -10,6 +10,11 @@ import {
     classifyMediaSendError,
     queueLocalMediaRetry
 } from './media-send-result.js'
+import {
+    classifyDocumentFailure,
+    deliverDocument,
+    publicDocumentRecoveryUrl
+} from '#handlers/telegram/document-delivery'
 
 export { MediaSendKind, classifyMediaSendError }
 
@@ -165,16 +170,35 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
 
     const queue = [...mg_type]
     let lastError
-    for (let attempt = 0; attempt < 5 && queue.length > 0; attempt++) {
+    let lastDocumentClassification = null
+    const attemptLimit = mg[0].type === 'document' ? 2 : 5
+    for (let attempt = 0; attempt < attemptLimit && queue.length > 0; attempt++) {
         const currentType = queue.shift()
-        honsole.dev(`[MediaGroup ${attempt + 1}/5] type=${currentType}, remaining=[${queue.join(', ')}]`)
+        honsole.dev(`[MediaGroup ${attempt + 1}/${attemptLimit}] type=${currentType}, remaining=[${queue.join(', ')}]`)
         try {
             const result = await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], currentType), extra)
             return { kind: MediaSendKind.SENT, result }
         } catch (error) {
             lastError = error
-            const classification = classifyMediaSendError(error)
-            const catchStatus = isStaleMediaError(error)
+            const documentMode = mg[0].type === 'document'
+            const mediaClassification = classifyMediaSendError(error)
+            const documentClassification = documentMode
+                ? classifyDocumentFailure(error, currentType.startsWith('dl') ? 'download' : 'send')
+                : null
+            lastDocumentClassification = documentClassification
+            const classification = documentMode
+                ? {
+                    stale: documentClassification.kind === MediaSendKind.STALE_MEDIA,
+                    retryLocal: mediaClassification.retryLocal,
+                    failedIndex: mediaClassification.failedIndex,
+                    code: mediaClassification.retryLocal
+                        ? mediaClassification.code
+                        : documentClassification.code
+                }
+                : mediaClassification
+            const catchStatus = documentMode
+                ? true
+                : isStaleMediaError(error)
                 ? false
                 : await catchily(error, chat_id, language_code)
             if (classification.stale) {
@@ -183,6 +207,19 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
                     code: classification.code,
                     failedIndex: classification.failedIndex,
                     error
+                }
+            }
+            if (documentMode && !classification.retryLocal &&
+                documentClassification.retryable === false) {
+                const failedItem = mg[classification.failedIndex ?? 0]
+                return {
+                    kind: MediaSendKind.FAILED,
+                    code: documentClassification.code,
+                    error,
+                    recoveryUrl: publicDocumentRecoveryUrl(
+                        failedItem?.media_o,
+                        config.pixiv.pximgproxy
+                    )
                 }
             }
             if (classification.failedIndex !== null) {
@@ -200,6 +237,19 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
         }
     }
     honsole.warn('Media group retry budget exhausted', chat_id, mg.length, 'items')
+    if (mg[0].type === 'document') {
+        return {
+            kind: MediaSendKind.FAILED,
+            code: lastDocumentClassification?.retryable
+                ? 'TELEGRAM_DOCUMENT_RETRY_EXHAUSTED'
+                : lastDocumentClassification?.code || 'TELEGRAM_DOCUMENT_SEND_FAILED',
+            error: lastError,
+            recoveryUrl: publicDocumentRecoveryUrl(
+                mg[0]?.media_o,
+                config.pixiv.pximgproxy
+            )
+        }
+    }
     return {
         kind: MediaSendKind.FAILED,
         code: 'TELEGRAM_MEDIA_RETRY_EXHAUSTED',
@@ -268,9 +318,8 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
  * @param {*} chat_id
  * @param {*} media_o - Can be URL or local file path
  * @param {*} extra
- * @param {*} l
  */
-export async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
+export async function sendDocumentWithRetry(chat_id, media_o, extra) {
     const bot = getBot()
     // Send upload_document action
     bot.api.sendChatAction(chat_id, 'upload_document', extra.message_thread_id ? {
@@ -281,26 +330,17 @@ export async function sendDocumentWithRetry(chat_id, media_o, extra, l) {
         ...extra,
         disable_content_type_detection: true
     }
-    try {
-        const file = media_o.includes('tmp/')
-            ? new InputFile(media_o, media_o.slice(media_o.lastIndexOf('/') + 1))
-            : new InputFile(await fetch_tmp_file(media_o), media_o.slice(media_o.lastIndexOf('/') + 1))
-        const result = await bot.api.sendDocument(chat_id, file, extra)
-        return { kind: MediaSendKind.SENT, result }
-    } catch (error) {
-        const classification = classifyMediaSendError(error)
-        const catchStatus = isStaleMediaError(error) ? false : await catchily(error, chat_id, l)
-        return classification.stale
-            ? {
-                kind: MediaSendKind.STALE_MEDIA,
-                code: classification.code,
-                error
-            }
-            : {
-                kind: MediaSendKind.FAILED,
-                code: classification.code,
-                error,
-                userNotified: catchStatus === false
-            }
-    }
+    const delivery = await deliverDocument({
+        mediaUrl: media_o,
+        extra,
+        createLocalInputFile: (path, filename) => new InputFile(path, filename),
+        fetchRemoteFile: fetch_tmp_file,
+        createBufferedInputFile: (data, filename) => new InputFile(data, filename),
+        sendDocument: (file, sendExtra) => bot.api.sendDocument(chat_id, file, sendExtra)
+    })
+    delivery.recoveryUrl = publicDocumentRecoveryUrl(
+        delivery.recoveryUrl,
+        config.pixiv.pximgproxy
+    )
+    return delivery
 }
