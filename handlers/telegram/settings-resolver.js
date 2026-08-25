@@ -113,6 +113,13 @@ export function resolveRequestSettings(base, parsedInput, type, chat) {
     if (resolved.append_file_immediate) {
         resolved.append_file = true
     }
+    const explicitlyRequestsFileOnly = hasPositiveDirective(parsedInput, 'asfile') &&
+        !hasPositiveDirective(parsedInput, 'append_file') &&
+        !hasPositiveDirective(parsedInput, 'append_file_immediate')
+    if (explicitlyRequestsFileOnly) {
+        resolved.append_file = false
+        resolved.append_file_immediate = false
+    }
     if (resolved.append_file) {
         resolved.asfile = false
     }
@@ -120,6 +127,7 @@ export function resolveRequestSettings(base, parsedInput, type, chat) {
         resolved.album = false
         resolved.album_one = false
         resolved.single_caption = false
+        resolved.telegraph = false
     }
     if (type === 'channel') {
         resolved.share = false

@@ -77,6 +77,19 @@ test('dependent settings normalize in the established order', t => {
     t.false(fileOnly.album_one)
     t.false(fileOnly.single_caption)
 
+    const storedAppend = createDefaultUserSettings()
+    storedAppend.setting.default.append_file = true
+    storedAppend.setting.default.append_file_immediate = true
+    const forcedFileOnly = resolveRequestSettings(
+        storedAppend,
+        parseSettingsInput('+file'),
+        'private',
+        { id: 1 }
+    )
+    t.true(forcedFileOnly.asfile)
+    t.false(forcedFileOnly.append_file)
+    t.false(forcedFileOnly.append_file_immediate)
+
     const channel = resolveRequestSettings(base, parseSettingsInput('+share'), 'channel', { id: -1 })
     t.false(channel.share)
     const inline = resolveRequestSettings(base, parseSettingsInput('+sc'), 'inline', null)

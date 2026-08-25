@@ -16,7 +16,7 @@ const telegramRemoteFetchDescriptions = [
 ]
 
 export function classifyMediaSendError(error) {
-    const description = (error?.description || error?.message || '').toLowerCase()
+    const description = telegramErrorDescription(error).toLowerCase()
     const failedIndexMatch = description.match(/failed to send message #(\d+)/)
     const stale = error?.code === 'PIXIV_MEDIA_STALE'
     const retryLocal = !stale && telegramRemoteFetchDescriptions.some(value => description.includes(value))
@@ -30,6 +30,15 @@ export function classifyMediaSendError(error) {
                 ? 'TELEGRAM_MEDIA_FETCH_FAILED'
                 : 'TELEGRAM_MEDIA_SEND_FAILED'
     }
+}
+
+export function telegramErrorDescription(error) {
+    return String(error?.description || error?.message || '')
+}
+
+export function telegramRetryAfter(error) {
+    const retryAfter = Number(error?.parameters?.retry_after)
+    return Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : null
 }
 
 export function queueLocalMediaRetry(mediaGroup, failedIndex, currentType, queue) {

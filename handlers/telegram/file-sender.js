@@ -84,7 +84,7 @@ export async function sendDocumentWithChain(options) {
             const bot = getBot()
             await bot.api.sendMessage(
                 chat_id,
-                _l(lang, 'error'),
+                _l(lang, 'document_delivery_failed', 'TELEGRAM_DOCUMENT_SEND_FAILED'),
                 default_extra
             ).catch(() => { })
         }
@@ -149,7 +149,7 @@ export async function sendMediaGroupDocuments(options) {
             const bot = getBot()
             await bot.api.sendMessage(
                 chat_id,
-                _l(lang, 'error'),
+                _l(lang, 'document_delivery_failed', 'TELEGRAM_DOCUMENT_GROUP_SEND_FAILED'),
                 default_extra
             ).catch(() => { })
         }

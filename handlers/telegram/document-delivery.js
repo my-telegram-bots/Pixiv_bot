@@ -37,7 +37,8 @@ const failureMessages = Object.freeze({
     TELEGRAM_DOCUMENT_FORMAT_INVALID: result => ['document_format_failed', result.code],
     TELEGRAM_DOCUMENT_TOPIC_UNAVAILABLE: result => ['document_topic_failed', result.code],
     TELEGRAM_DOCUMENT_RETRY_EXHAUSTED: result => ['document_retry_exhausted', result.code],
-    TELEGRAM_DOCUMENT_SEND_FAILED: result => ['document_delivery_failed', result.code]
+    TELEGRAM_DOCUMENT_SEND_FAILED: result => ['document_delivery_failed', result.code],
+    TELEGRAM_DOCUMENT_GROUP_SEND_FAILED: result => ['document_delivery_failed', result.code]
 })
 
 export function documentFailureMessage(result = {}) {

@@ -216,13 +216,19 @@ test('document mode distinguishes file-only, delayed append, and immediate appen
     t.is(immediateDocumentMode(immediate), 'append_immediate')
     t.is(immediateDocumentMode(delayed), null)
     t.true(delayed.append_file)
-    t.true(staticDeliveryPlan(immediate).appendAlbumDocuments)
+    t.false(staticDeliveryPlan(immediate).appendAlbumDocuments)
     t.true(staticDeliveryPlan(delayed).appendAlbumDocuments)
+    t.true(staticDeliveryPlan({
+        ...immediate,
+        telegraph: true
+    }).appendAlbumDocuments)
 })
 
-test('+file overrides a stored Telegraph output mode', t => {
+test('+file overrides stored Telegraph and append output modes', t => {
     const base = createDefaultUserSettings()
     base.setting.default.telegraph = true
+    base.setting.default.append_file = true
+    base.setting.default.append_file_immediate = true
     const settings = resolveRequestSettings(
         base,
         parseSettingsInput('+file'),
@@ -233,6 +239,8 @@ test('+file overrides a stored Telegraph output mode', t => {
     t.true(settings.asfile)
     t.false(settings.telegraph)
     t.false(settings.album)
+    t.false(settings.append_file)
+    t.false(settings.append_file_immediate)
 })
 
 test('document failure localization stays synchronized and exposes stable codes', t => {
@@ -269,6 +277,15 @@ test('document failure message preserves the manual recovery URL', t => {
     }), [
         'document_too_large',
         'https://proxy.example/42.png'
+    ])
+})
+
+test('unexpected document group failures retain a document-specific code', t => {
+    t.deepEqual(documentFailureMessage({
+        code: 'TELEGRAM_DOCUMENT_GROUP_SEND_FAILED'
+    }), [
+        'document_delivery_failed',
+        'TELEGRAM_DOCUMENT_GROUP_SEND_FAILED'
     ])
 })
 

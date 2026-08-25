@@ -8,8 +8,14 @@ import axios from 'axios'
 import {
     MediaSendKind,
     classifyMediaSendError,
-    queueLocalMediaRetry
+    queueLocalMediaRetry,
+    telegramErrorDescription,
+    telegramRetryAfter
 } from './media-send-result.js'
+import {
+    mediaGroupAttemptLog,
+    runMediaGroupAttempts
+} from '#handlers/telegram/media-group-retry'
 import {
     classifyDocumentFailure,
     deliverDocument,
@@ -39,12 +45,13 @@ export async function catchily(e, chat_id, language_code = 'en') {
             disable_web_page_preview: true
         }).catch(() => { })
         if (!e.ok) {
-            const description = e.description.toLowerCase()
+            const rawDescription = telegramErrorDescription(e)
+            const description = rawDescription.toLowerCase()
             if (description.includes('media_caption_too_long')) {
                 await bot.api.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra).catch(() => { })
                 return false
             } else if (description.includes('can\'t parse entities: character')) {
-                await bot.api.sendMessage(chat_id, _l(language_code, 'error_format', e.description)).catch(() => { })
+                await bot.api.sendMessage(chat_id, _l(language_code, 'error_format', rawDescription)).catch(() => { })
                 return false
                 // banned by user
             } else if (description.includes('forbidden:')) {
@@ -59,8 +66,7 @@ export async function catchily(e, chat_id, language_code = 'en') {
                 return false
                 // just a moment
             } else if (description.includes('too many requests')) {
-                console.log(chat_id, 'sleep', e.description.parameters.retry_after, 's')
-                // await sleep(e.description.parameters.retry_after * 1000)
+                console.log(chat_id, 'sleep', telegramRetryAfter(e), 's')
                 return 'redo'
             } else if (description.includes('failed to send message') && description.includes('#')) {
                 // Handle specific media item failure: "failed to send message #N with the error message 'WEBPAGE_MEDIA_EMPTY'"
@@ -168,13 +174,29 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
         message_thread_id: extra.message_thread_id
     } : {}).catch(() => { })
 
+    if (mg[0].type !== 'document') {
+        const result = await runMediaGroupAttempts({
+            mediaGroup: mg,
+            mediaTypes: mg_type,
+            buildMedia: (mediaGroup, currentType) => mg_filter(mediaGroup, currentType),
+            sendMedia: media => bot.api.sendMediaGroup(chat_id, media, extra),
+            classifyError: classifyMediaSendError,
+            reportError: error => catchily(error, chat_id, language_code),
+            logAttempt: attemptItems => honsole.log('[media-group-attempt]', attemptItems)
+        })
+        if (result.exhausted) {
+            honsole.warn('Media group retry budget exhausted', chat_id, mg.length, 'items')
+        }
+        return result
+    }
+
     const queue = [...mg_type]
     let lastError
     let lastDocumentClassification = null
     const attemptLimit = mg[0].type === 'document' ? 2 : 5
     for (let attempt = 0; attempt < attemptLimit && queue.length > 0; attempt++) {
         const currentType = queue.shift()
-        honsole.dev(`[MediaGroup ${attempt + 1}/${attemptLimit}] type=${currentType}, remaining=[${queue.join(', ')}]`)
+        honsole.log('[media-group-attempt]', mediaGroupAttemptLog(mg, currentType, attempt + 1))
         try {
             const result = await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], currentType), extra)
             return { kind: MediaSendKind.SENT, result }

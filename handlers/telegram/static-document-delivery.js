@@ -7,7 +7,10 @@ export function staticDeliveryPlan(settings = {}) {
                 ? 'append_immediate'
                 : null,
         queueDocument: Boolean(settings.append_file && !settings.append_file_immediate),
-        appendAlbumDocuments: Boolean(settings.append_file)
+        // Immediate append is already interleaved after each normal album chunk.
+        // Telegraph has no normal album send, so either append mode trails it.
+        appendAlbumDocuments: Boolean(settings.append_file &&
+            (!settings.append_file_immediate || settings.telegraph))
     }
 }
 
