@@ -132,7 +132,7 @@ test('link lifecycle has no legacy app or generic-settings write path', t => {
     )
 
     t.true(app.includes("createLinkLifecycle"))
-    t.true(app.includes('linkLifecycle.dispatchLinkedMessage(ctx)'))
+    t.true(app.includes('linkLifecycle.dispatchLinkedMessage(ctx,'))
     t.false(app.includes('add_link_chat'))
     t.false(app.includes('k_link_setting'))
     t.false(database.includes('link_chat_list.'))
@@ -291,6 +291,49 @@ test('a failed target remains visible and does not suppress the source send', as
     t.true(result.sendSource)
     t.false(result.results[0].ok)
     t.true(f.messages.at(-1).text.startsWith('link_dispatch_failed'))
+})
+
+test('repeat=2 starts unconditional source delivery before the target completes', async t => {
+    let releaseTarget
+    const targetGate = new Promise(resolve => { releaseTarget = resolve })
+    let targetStarted = false
+    let sourceStarted = false
+    const links = [{
+        linkedChatId: -20,
+        sync: 0,
+        administratorOnly: 0,
+        repeat: 2,
+        chatType: 'channel'
+    }]
+    const f = fixture({ links })
+    const original = f.lifecycle
+    const lifecycle = createLinkLifecycle({
+        bot: f.bot,
+        linkStore: f.linkStore,
+        tgSender: async () => {
+            targetStarted = true
+            await targetGate
+            return { ok: true }
+        },
+        localize,
+        logger: { warn() {}, error() {} }
+    })
+    const ctx = f.context({ text: 'https://pixiv.net/artworks/1' })
+    ctx.ids = { illust: ['1'], novel: [], author: [] }
+
+    const completion = lifecycle.dispatchLinkedMessage(ctx, {
+        dispatchSource: async () => { sourceStarted = true }
+    })
+    await new Promise(resolve => setImmediate(resolve))
+
+    t.true(targetStarted)
+    t.true(sourceStarted)
+    releaseTarget()
+    const result = await completion
+    t.true(result.sourceDispatched)
+    t.false(result.sendSource)
+    original.dispose()
+    lifecycle.dispose()
 })
 
 test('dispatch filtering preserves mention, administrator, sender-chat, and repeat rules', t => {

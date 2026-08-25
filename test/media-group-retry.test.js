@@ -1,5 +1,6 @@
 import test from 'ava'
 import { InputFile } from 'grammy'
+import { readFileSync } from 'node:fs'
 import {
     classifyMediaSendError,
     selectMediaRetryType,
@@ -18,7 +19,6 @@ test('album item #7 curl failure retries only item #7 as a local upload', async 
         media_r: `https://i.pximg.net/example-${index + 1}.jpg`
     }))
     const attempts = []
-    const diagnostics = []
     let sendCount = 0
 
     const result = await runMediaGroupAttempts({
@@ -44,8 +44,7 @@ test('album item #7 curl failure retries only item #7 as a local upload', async 
             return [{ message_id: 1 }]
         },
         classifyError: classifyMediaSendError,
-        reportError: async () => true,
-        logAttempt: items => diagnostics.push(items)
+        reportError: async () => true
     })
 
     t.is(result.kind, 'sent')
@@ -54,18 +53,21 @@ test('album item #7 curl failure retries only item #7 as a local upload', async 
     t.true(attempts[1].every((item, index) =>
         index === 6 ? item.media instanceof InputFile : typeof item.media === 'string'
     ))
-    t.deepEqual(diagnostics[1][6], {
-        albumIndex: 7,
-        illustId: 148841251,
-        page: 0,
-        retry: 2,
-        mediaType: 'dlr',
-        mode: 'local'
-    })
-    t.true(diagnostics[1].every((item, index) =>
-        item.mode === (index === 6 ? 'local' : 'remote')
-    ))
-    t.false(JSON.stringify(diagnostics).includes('https://'))
+})
+
+test('successful album attempts do not emit the removed multi-line attempt log', t => {
+    const senderSource = readFileSync(
+        new URL('../handlers/telegram/sender.js', import.meta.url),
+        'utf8'
+    )
+    const retrySource = readFileSync(
+        new URL('../handlers/telegram/media-group-retry.js', import.meta.url),
+        'utf8'
+    )
+
+    t.false(senderSource.includes('[media-group-attempt]'))
+    t.false(retrySource.includes('[media-group-attempt]'))
+    t.false(retrySource.includes('logAttempt'))
 })
 
 test('ordinary Error descriptions are safe to classify', t => {

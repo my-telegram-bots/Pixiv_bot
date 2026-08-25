@@ -1,6 +1,15 @@
 import { Bot } from 'grammy'
 import { apiThrottler } from '@grammyjs/transformer-throttler'
 import { autoRetry } from '@grammyjs/auto-retry'
+import {
+    createTelegramAttemptTraceTransformer,
+    createTelegramQueueTraceTransformer
+} from '#handlers/telegram/delivery-telemetry'
+import {
+    TELEGRAM_AUTO_RETRY_OPTIONS,
+    TELEGRAM_CLIENT_TIMEOUT_SECONDS,
+    TELEGRAM_THROTTLER_OPTIONS
+} from '#handlers/telegram/transport-policy'
 
 let botInstance = null
 
@@ -13,20 +22,24 @@ export function createBot(config) {
     }
 
     const botConfig = {
-        // Only add client config if needed
-        ...(process.env.TELEGRAM_API_SERVER ? {
-            client: {
-                apiRoot: process.env.TELEGRAM_API_SERVER
-            }
-        } : {})
+        client: {
+            timeoutSeconds: TELEGRAM_CLIENT_TIMEOUT_SECONDS,
+            ...(process.env.TELEGRAM_API_SERVER
+                ? { apiRoot: process.env.TELEGRAM_API_SERVER }
+                : {})
+        }
     }
 
     const bot = new Bot(config.tg.token, botConfig)
 
-    // Configure API throttling and auto-retry
-    const throttler = apiThrottler()
+    // Trace only actual request stages; payloads and media URLs are never logged.
+    bot.api.config.use(createTelegramAttemptTraceTransformer())
+
+    // Configure API throttling and finite automatic retries.
+    const throttler = apiThrottler(TELEGRAM_THROTTLER_OPTIONS)
     bot.api.config.use(throttler)
-    bot.api.config.use(autoRetry())
+    bot.api.config.use(autoRetry(TELEGRAM_AUTO_RETRY_OPTIONS))
+    bot.api.config.use(createTelegramQueueTraceTransformer())
 
     // Handle channel posts
     bot.on('channel_post', (ctx, next) => {

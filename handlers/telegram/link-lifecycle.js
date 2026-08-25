@@ -423,7 +423,7 @@ export function createLinkLifecycle({
         return true
     }
 
-    async function dispatchLinkedMessage(ctx) {
+    async function dispatchLinkedMessage(ctx, options = {}) {
         let links
         try {
             links = await linkStore.listLinks(ctx.chat_id ?? ctx.chat.id)
@@ -447,7 +447,12 @@ export function createLinkLifecycle({
             me: bot.botInfo,
             botUsername: bot.botInfo.username
         }, link, sourceIsAdmin))
-        const results = await Promise.all(dispatchable.map(async link => {
+        const sourcePromise = dispatchable.length > 0 &&
+            dispatchable.every(link => link.repeat === 2) &&
+            typeof options.dispatchSource === 'function'
+            ? Promise.resolve().then(options.dispatchSource)
+            : null
+        const targetResultsPromise = Promise.all(dispatchable.map(async link => {
             try {
                 const sendResult = await tgSender(createLinkedContext(ctx, link))
                 if (sendResult?.ok === false) {
@@ -457,7 +462,10 @@ export function createLinkLifecycle({
                 }
                 return { link, ok: true }
             } catch (error) {
-                logger.error?.('Error processing linked chat message:', error)
+                logger.error?.(
+                    'Error processing linked chat message:',
+                    error.code || 'LINK_SEND_FAILED'
+                )
                 await bot.api.sendMessage(
                     ctx.chat_id ?? ctx.chat.id,
                     plain(localize, ctx.l, 'link_dispatch_failed', link.linkedChatId, error.code || 'LINK_SEND_FAILED'),
@@ -466,6 +474,9 @@ export function createLinkLifecycle({
                 return { link, ok: false, error }
             }
         }))
+        const results = sourcePromise
+            ? (await Promise.all([targetResultsPromise, sourcePromise]))[0]
+            : await targetResultsPromise
         const notifyTargets = results
             .filter(result => result.ok && result.link.repeat === 1)
             .map(result => result.link.linkedChatId)
@@ -477,7 +488,11 @@ export function createLinkLifecycle({
             ).catch(() => {})
         }
         const suppressSource = results.some(result => result.ok && result.link.repeat < 2)
-        return { sendSource: !suppressSource, results }
+        return {
+            sendSource: !sourcePromise && !suppressSource,
+            sourceDispatched: Boolean(sourcePromise),
+            results
+        }
     }
 
     return {

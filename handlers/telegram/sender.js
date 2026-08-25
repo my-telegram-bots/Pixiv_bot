@@ -12,10 +12,8 @@ import {
     telegramErrorDescription,
     telegramRetryAfter
 } from './media-send-result.js'
-import {
-    mediaGroupAttemptLog,
-    runMediaGroupAttempts
-} from '#handlers/telegram/media-group-retry'
+import { runMediaGroupAttempts } from '#handlers/telegram/media-group-retry'
+import { logTelegramFailure } from '#handlers/telegram/delivery-telemetry'
 import {
     classifyDocumentFailure,
     deliverDocument,
@@ -35,15 +33,14 @@ export async function catchily(e, chat_id, language_code = 'en') {
     let default_extra = {
         parse_mode: 'MarkdownV2'
     }
-    honsole.warn(e)
+    const mediaFailure = classifyMediaSendError(e)
+    logTelegramFailure(honsole, e, {
+        chatId: chat_id,
+        failedIndex: Number.isInteger(mediaFailure.failedIndex)
+            ? mediaFailure.failedIndex + 1
+            : undefined
+    })
     try {
-        const error_json = JSON.stringify(e);
-        const error_msg = error_json.length > 1000
-            ? error_json.substring(0, 500) + '\n...\n' + error_json.substring(error_json.length - 500)
-            : error_json;
-        bot.api.sendMessage(config.tg.master_id, error_msg.replace(config.tg.token, '<REALLOCATED>'), {
-            disable_web_page_preview: true
-        }).catch(() => { })
         if (!e.ok) {
             const rawDescription = telegramErrorDescription(e)
             const description = rawDescription.toLowerCase()
@@ -77,16 +74,16 @@ export async function catchily(e, chat_id, language_code = 'en') {
                         const failed_media = e.payload.media[failed_index];
                         if (failed_media.media && typeof failed_media.media === 'string' && failed_media.media.includes('https://')) {
                             const failed_url = failed_media.media;
-                            honsole.log(`[refetch] Media item #${failed_index + 1} failed, refetching URL`);
+                            honsole.log(`[refetch] Media item #${failed_index + 1} failed`);
                             if (config.tg.refetch_api) {
                                 (async () => {
                                     try {
                                         await axios.post(config.tg.refetch_api, {
                                             url: failed_url
                                         })
-                                        honsole.log('[ok] refetch url', failed_url)
+                                        honsole.log('[ok] refetch request completed')
                                     } catch (error) {
-                                        honsole.warn('[err] refetch url', error)
+                                        logTelegramFailure(honsole, error, { errorCode: 'REFETCH_REQUEST_FAILED' })
                                     }
                                 })()
                             }
@@ -107,23 +104,22 @@ export async function catchily(e, chat_id, language_code = 'en') {
                 } else if (e.method === 'sendDocument') {
                     photo_urls[0] = e.payload.document
                 }
-                honsole.dev(photo_urls)
                 if (config.tg.refetch_api && photo_urls) {
                     (async () => {
                         try {
                             await axios.post(config.tg.refetch_api, {
                                 url: photo_urls.join('\n')
                             })
-                            honsole.log('[ok] fetch new url(s)', photo_urls)
+                            honsole.log('[ok] refetch request completed')
                         } catch (error) {
-                            honsole.warn('[err] fetch new url(s)', error)
+                            logTelegramFailure(honsole, error, { errorCode: 'REFETCH_REQUEST_FAILED' })
                         }
                     })()
                 }
             }
         }
     } catch (error) {
-        console.warn(error)
+        logTelegramFailure(honsole, error)
         return false
     }
     return true
@@ -181,8 +177,7 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
             buildMedia: (mediaGroup, currentType) => mg_filter(mediaGroup, currentType),
             sendMedia: media => bot.api.sendMediaGroup(chat_id, media, extra),
             classifyError: classifyMediaSendError,
-            reportError: error => catchily(error, chat_id, language_code),
-            logAttempt: attemptItems => honsole.log('[media-group-attempt]', attemptItems)
+            reportError: error => catchily(error, chat_id, language_code)
         })
         if (result.exhausted) {
             honsole.warn('Media group retry budget exhausted', chat_id, mg.length, 'items')
@@ -196,7 +191,6 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
     const attemptLimit = mg[0].type === 'document' ? 2 : 5
     for (let attempt = 0; attempt < attemptLimit && queue.length > 0; attempt++) {
         const currentType = queue.shift()
-        honsole.log('[media-group-attempt]', mediaGroupAttemptLog(mg, currentType, attempt + 1))
         try {
             const result = await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], currentType), extra)
             return { kind: MediaSendKind.SENT, result }
@@ -290,7 +284,7 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
 export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = [], extra) {
     const bot = getBot()
     if (photo_urls.length === 0) {
-        honsole.warn('error send photo', chat_id, photo_urls)
+        honsole.warn('error send photo', chat_id, 'candidate count', photo_urls.length)
         return { kind: MediaSendKind.FAILED, code: 'TELEGRAM_MEDIA_FALLBACK_EXHAUSTED' }
     }
     // Send upload_photo action
@@ -326,7 +320,7 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
             }
         }
     }
-    honsole.warn('error send photo', chat_id, photo_urls)
+    honsole.warn('error send photo', chat_id, 'candidate count', photo_urls.length)
     return {
         kind: MediaSendKind.FAILED,
         code: 'TELEGRAM_MEDIA_SEND_FAILED',

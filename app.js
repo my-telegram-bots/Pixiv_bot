@@ -18,8 +18,8 @@ import { createSettingsLifecycle } from '#handlers/telegram/settings-lifecycle'
 import { createChatLinkStore } from '#handlers/telegram/chat-link-store'
 import { createLinkLifecycle } from '#handlers/telegram/link-lifecycle'
 import { detect_ugpira_url } from '#handlers/pixiv/tools'
-import { catchily } from '#handlers/telegram/sender'
 import { createTgSender } from '#handlers/telegram/tg-sender'
+import { logTelegramFailure } from '#handlers/telegram/delivery-telemetry'
 import { renderUserFacingError } from '#handlers/telegram/user-facing-error'
 import {
     createInlineDeadline,
@@ -30,6 +30,7 @@ import { createBot, getBot } from './bot.js'
 import { FileCleaner } from '#handlers/utils/file-cleaner'
 import illustService from '#handlers/pixiv/illust-service'
 import { rankingScheduler } from '#handlers/pixiv/ranking-scheduler'
+import { TELEGRAM_UPDATE_CONCURRENCY } from '#handlers/telegram/transport-policy'
 
 // Create bot instance with validated configuration
 createBot(config)
@@ -37,7 +38,7 @@ const bot = getBot()
 const settingsLifecycle = createSettingsLifecycle({ bot, store: db, logger: honsole })
 const { resolveUserSettings, handleSettingsCommand } = settingsLifecycle
 const resolveInlineSettings = createInlineSettingsResolver({ resolveUserSettings, logger: honsole })
-const tg_sender = createTgSender({ bot, config, resolveUserSettings })
+const tg_sender = createTgSender({ bot, config, resolveUserSettings, logger: honsole })
 const linkStore = createChatLinkStore({ getPool })
 const linkLifecycle = createLinkLifecycle({ bot, linkStore, tgSender: tg_sender, logger: honsole })
 const inlineQueryHandler = createInlineQueryHandler({
@@ -49,7 +50,7 @@ const inlineQueryHandler = createInlineQueryHandler({
     keyboard: k_os,
     localize: _l,
     logger: honsole,
-    reportError: (error, ctx) => catchily(error, config.tg.master_id, ctx.l)
+    reportError: error => logTelegramFailure(honsole, error)
 })
 console.log('✓ Telegram bot instance created')
 
@@ -191,69 +192,62 @@ bot.use(async (ctx, next) => {
     }
 })
 
+async function dispatchSourceMessage(ctx, chatId) {
+    if (ctx.ids && (ctx.ids.illust.length > 0 || ctx.ids.novel.length > 0)) {
+        if (chatId > 0) {
+            const action = ctx.ids.illust.length > 0 ? 'upload_photo' : 'typing'
+            bot.api.sendChatAction(chatId, action, ctx.default_extra.message_thread_id ? {
+                message_thread_id: ctx.default_extra.message_thread_id
+            } : {}).catch(() => { })
+            tg_sender(ctx).catch(error => {
+                logTelegramFailure(honsole, error)
+                bot.api.sendMessage(chatId, renderUserFacingError(ctx.l, error), ctx.default_extra).catch(() => { })
+            })
+            return
+        }
+        try {
+            await tg_sender(ctx)
+        } catch (error) {
+            logTelegramFailure(honsole, error)
+            bot.api.sendMessage(chatId, renderUserFacingError(ctx.l, error), ctx.default_extra).catch(() => { })
+        }
+        return
+    }
+    try {
+        await tg_sender(ctx)
+    } catch (error) {
+        logTelegramFailure(honsole, error)
+        bot.api.sendMessage(chatId, renderUserFacingError(ctx.l, error), ctx.default_extra).catch(() => { })
+    }
+}
+
 bot.on([':text', ':caption'], async (ctx) => {
-    let chat_id = ctx.chat_id
+    const chatId = ctx.chat_id
     if (ctx.command === 's' || ctx.text.substring(0, 3) === 'eyJ') {
         await handleSettingsCommand(ctx, ctx.default_extra)
         return
     }
-    if (chat_id > 0) {
+    if (chatId > 0) {
         (async () => {
             await ctx.react('👀').catch(() => { })
             setTimeout(async () => {
-                await ctx.api.setMessageReaction(chat_id, ctx.message.message_id, []).catch(() => { })
+                await ctx.api.setMessageReaction(chatId, ctx.message.message_id, []).catch(() => { })
             }, 5000)
         })()
     }
-    let direct_flag = (ctx.message.caption && !ctx.us.caption_extraction) ? false : true
-    const linkDispatch = await linkLifecycle.dispatchLinkedMessage(ctx)
-    direct_flag = direct_flag && linkDispatch.sendSource
-    if (direct_flag) {
-        // Check if this message contains Pixiv IDs that need processing
-        if (ctx.ids && (ctx.ids.illust.length > 0 || ctx.ids.novel.length > 0)) {
-            // Send quick acknowledgment for private chats with Pixiv content
-            if (chat_id > 0) {
-                // Start appropriate action indicator - use upload_photo for illusts, typing for novels
-                const action = ctx.ids.illust.length > 0 ? 'upload_photo' : 'typing'
-                bot.api.sendChatAction(chat_id, action, ctx.default_extra.message_thread_id ? {
-                    message_thread_id: ctx.default_extra.message_thread_id
-                } : {}).catch(() => { })
-
-                // Process asynchronously without blocking
-                tg_sender(ctx).catch(error => {
-                    honsole.error('Error processing direct message:', error)
-                    // Send error notification to user
-                    bot.api.sendMessage(chat_id, renderUserFacingError(ctx.l, error), ctx.default_extra).catch(() => { })
-                })
-            } else {
-                // For groups/channels, process synchronously to maintain message order
-                try {
-                    await tg_sender(ctx)
-                } catch (error) {
-                    honsole.error('Error processing group/channel message:', error)
-                    // Send error notification
-                    bot.api.sendMessage(chat_id, renderUserFacingError(ctx.l, error), ctx.default_extra).catch(() => { })
-                }
-            }
-        } else {
-            // For non-Pixiv messages, process normally (fast anyway)
-            try {
-                await tg_sender(ctx)
-            } catch (error) {
-                honsole.error('Error processing non-Pixiv message:', error)
-                bot.api.sendMessage(chat_id, renderUserFacingError(ctx.l, error), ctx.default_extra).catch(() => { })
-            }
-        }
+    const sendSource = !(ctx.message.caption && !ctx.us.caption_extraction)
+    const linkDispatch = await linkLifecycle.dispatchLinkedMessage(ctx, {
+        dispatchSource: sendSource ? () => dispatchSourceMessage(ctx, chatId) : undefined
+    })
+    if (sendSource && linkDispatch.sendSource) {
+        await dispatchSourceMessage(ctx, chatId)
     }
     return
 })
 bot.on('inline_query', inlineQueryHandler)
 
 bot.catch(async (e) => {
-    honsole.warn('gg', e)
-    bot.api.sendMessage(config.tg.master_id, e.substring(0, 1000).replace(config.tg.token, '<REALLOCATED>'), {
-        disable_web_page_preview: true
-    }).catch(() => { })
+    logTelegramFailure(honsole, e?.error || e)
 })
 
 db.db_initial().then(async () => {
@@ -303,7 +297,7 @@ db.db_initial().then(async () => {
             console.log('⚠ Ranking scheduler skipped (DBLESS mode)')
         }
 
-        grammyjsRun(bot)
+        grammyjsRun(bot, TELEGRAM_UPDATE_CONCURRENCY)
 
         console.log(new Date(), `bot @${bot.botInfo.username} started!`)
         bot.api.sendMessage(config.tg.master_id, `${new Date().toString()} bot started!`).catch(() => { })

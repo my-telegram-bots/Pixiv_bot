@@ -3,18 +3,22 @@ import {
     queueLocalMediaRetry,
     selectMediaRetryType
 } from '#handlers/telegram/media-send-result'
+import { deliveryTraceEvent } from '#handlers/telegram/delivery-telemetry'
 
-export function mediaGroupAttemptLog(mediaGroup, requestedType, attempt) {
-    return mediaGroup.map((item, index) => {
-        const selectedType = selectMediaRetryType(item, requestedType)
-        return {
-            albumIndex: index + 1,
-            illustId: item.id ?? null,
-            page: item.p ?? null,
-            retry: attempt,
-            mediaType: selectedType,
-            mode: selectedType.startsWith('dl') ? 'local' : 'remote'
-        }
+function traceFailedAttempt(mediaGroup, currentType, attempt, classification) {
+    const failedIndex = classification.failedIndex
+    const failedItem = Number.isInteger(failedIndex) ? mediaGroup[failedIndex] : null
+    const selectedType = failedItem
+        ? selectMediaRetryType(failedItem, currentType)
+        : currentType
+    deliveryTraceEvent('media_group_retry', {
+        failedIndex: Number.isInteger(failedIndex) ? failedIndex + 1 : undefined,
+        illustId: failedItem?.id,
+        page: failedItem?.p,
+        attempt,
+        mediaType: selectedType,
+        mediaMode: selectedType?.startsWith('dl') ? 'local' : 'remote',
+        errorCode: classification.code
     })
 }
 
@@ -26,7 +30,6 @@ export async function runMediaGroupAttempts(options) {
         sendMedia,
         classifyError,
         reportError,
-        logAttempt = () => {},
         maxAttempts = 5
     } = options
     const queue = [...mediaTypes]
@@ -35,7 +38,6 @@ export async function runMediaGroupAttempts(options) {
 
     for (let attempt = 1; attempt <= maxAttempts && queue.length > 0; attempt++) {
         const currentType = queue.shift()
-        logAttempt(mediaGroupAttemptLog(mediaGroup, currentType, attempt))
         try {
             const result = await sendMedia(await buildMedia([...mediaGroup], currentType))
             return { kind: MediaSendKind.SENT, result, attempts: attempt }
@@ -43,6 +45,7 @@ export async function runMediaGroupAttempts(options) {
             lastError = error
             const classification = classifyError(error, currentType)
             lastClassification = classification
+            traceFailedAttempt(mediaGroup, currentType, attempt, classification)
             if (classification.stale) {
                 return {
                     kind: MediaSendKind.STALE_MEDIA,

@@ -52,6 +52,14 @@ import {
     markIllustrationPageSent,
     replaceRefreshedAlbumItems
 } from '#handlers/telegram/illustration-lifecycle'
+import {
+    createDeliveryTraceContext,
+    deliveryTraceEvent,
+    logTelegramFailure,
+    runWithDeliveryTrace,
+    runWithDeliveryTraceFields,
+    updateDeliveryTraceFields
+} from '#handlers/telegram/delivery-telemetry'
 
 const terminalIllustrationStates = new Set([
     IllustrationLifecycleState.COMPLETED,
@@ -123,7 +131,9 @@ async function collectIllustrations(bot, config, runtime) {
 
     for (const result of results) {
         if (result.status === 'rejected') {
-            honsole.error('Failed to handle illust:', result.reason)
+            logTelegramFailure(honsole, result.reason, {
+                errorCode: result.reason?.code || 'PIXIV_DETAIL_REQUEST_FAILED'
+            })
             hasError = true
             runtime.deliveryErrors.push(result.reason?.code || 'PIXIV_DETAIL_REQUEST_FAILED')
         } else if (result.value.kind === 'not_found') {
@@ -162,7 +172,9 @@ async function refreshIllustration(runtime, lifecycle, failedPage) {
         try {
             applyIllustrationRefresh(lifecycle, resolved.illustration)
         } catch (error) {
-            honsole.error('Illustration refresh identity mismatch:', error)
+            logTelegramFailure(honsole, error, {
+                errorCode: error.code || 'ILLUSTRATION_REFRESH_ID_MISMATCH'
+            })
             failIllustration(lifecycle, error.code || 'ILLUSTRATION_REFRESH_ID_MISMATCH')
             return false
         }
@@ -253,21 +265,27 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
         }
 
         if (needsPhoto && !lifecycle.sentPages.has(page)) {
-            let result = await sendPhotoWithRetry(
+            let result = await runWithDeliveryTraceFields({
+                illustId: illust.id,
+                page
+            }, () => sendPhotoWithRetry(
                 chatId,
                 ctx.l,
                 photoCandidates(item),
                 { ...extraOne, reply_to_message_id: replyToMessageId }
-            )
+            ))
             if (result.kind === MediaSendKind.STALE_MEDIA && await refreshIllustration(runtime, lifecycle, page)) {
                 illust = lifecycle.illust
                 item = illust.mediagroup[page]
-                result = await sendPhotoWithRetry(
+                result = await runWithDeliveryTraceFields({
+                    illustId: illust.id,
+                    page
+                }, () => sendPhotoWithRetry(
                     chatId,
                     ctx.l,
                     photoCandidates(item),
                     { ...extraOne, reply_to_message_id: replyToMessageId }
-                )
+                ))
             }
             if (result.kind === MediaSendKind.SENT) {
                 replyToMessageId = result.result.message_id
@@ -283,7 +301,10 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
             }
         }
 
-        const configuredDocument = await deliverConfiguredDocument({
+        const configuredDocument = await runWithDeliveryTraceFields({
+            illustId: illust.id,
+            page
+        }, () => deliverConfiguredDocument({
             settings: ctx.us,
             alreadySent: lifecycle.sentOutputs.has(`document:${page}`),
             sendDocument: () => deliverDocumentWithRefresh({
@@ -308,7 +329,7 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
                     return true
                 }
             })
-        })
+        }))
         if (configuredDocument.result) {
             const documentResult = configuredDocument.result
             if (documentResult.kind === MediaSendKind.SENT) {
@@ -357,7 +378,7 @@ async function sendUgoiraAnimation(bot, config, runtime, illust, media, extra) {
         })
     } catch (error) {
         if (typeof media === 'string' && media.includes(config.pixiv.ugoiraurl)) {
-            honsole.warn('External ugoira URL failed, downloading to memory:', media)
+            honsole.warn('External ugoira delivery failed, downloading locally')
             try {
                 const arrayBuffer = await fetch_tmp_file(media)
                 if (!arrayBuffer) {
@@ -600,7 +621,7 @@ async function sendTelegraph(bot, runtime) {
             await bot.api.sendMessage(chatId, _l(ctx.l, 'telegraph_iv'), defaultExtra).catch(() => { })
         }
     } catch (error) {
-        console.warn(error)
+        logTelegramFailure(honsole, error, { errorCode: 'TELEGRAPH_SEND_FAILED' })
     }
 }
 
@@ -626,7 +647,13 @@ async function sendAlbumBatch(bot, runtime, mediaGroups, asDocuments) {
                     markAlbumOutputs(runtime, mediaGroup, `album:${index}`)
                 } else {
                     delete mediaGroupExtra.reply_to_message_id
-                    honsole.warn('error send mg', result)
+                    logTelegramFailure(honsole, result.error, {
+                        chatId,
+                        errorCode: result.code || 'TELEGRAM_MEDIA_SEND_FAILED',
+                        failedIndex: Number.isInteger(result.failedIndex)
+                            ? result.failedIndex + 1
+                            : undefined
+                    })
                     await failAlbum(bot, runtime, mediaGroup, result)
                 }
             } else {
@@ -734,7 +761,10 @@ async function flushFiles(bot, runtime) {
         const { lifecycle, page, extra } = file
         if (terminalIllustrationStates.has(lifecycle.state)) return
         let item = lifecycle.illust.mediagroup[page]
-        const result = await deliverDocumentWithRefresh({
+        const result = await runWithDeliveryTraceFields({
+            illustId: lifecycle.id,
+            page
+        }, () => deliverDocumentWithRefresh({
             sendDocument: () => sendDocumentWithChain({
                 chat_id: runtime.chatId,
                 media_url: item.media_o,
@@ -748,7 +778,7 @@ async function flushFiles(bot, runtime) {
                 item = lifecycle.illust.mediagroup[page]
                 return true
             }
-        })
+        }))
         if (result.kind === MediaSendKind.SENT) {
             successCount++
             markIllustrationOutputSent(lifecycle, `delayed-document:${page}`)
@@ -756,7 +786,14 @@ async function flushFiles(bot, runtime) {
             failedCount++
             if (!terminalIllustrationStates.has(lifecycle.state)) failDelivery(lifecycle, result)
             await notifyIllustrationFailure(bot, runtime, lifecycle)
-            honsole.warn('[batched files] Failed to send file', index, item.media_o?.substring?.(0, 100))
+            honsole.warn(
+                '[batched files] Failed to send file',
+                index,
+                'illust',
+                lifecycle.id,
+                'page',
+                page
+            )
         }
     })
     honsole.dev(`[batched files] Completed: ${successCount} success, ${failedCount} failed`)
@@ -811,7 +848,10 @@ async function sendNovels(bot, runtime) {
                 console.log('Topic is closed, skipping message')
                 return
             }
-            console.warn(error)
+            logTelegramFailure(honsole, error, {
+                chatId,
+                errorCode: error.code || 'TELEGRAM_NOVEL_SEND_FAILED'
+            })
         })
     })
 }
@@ -823,20 +863,45 @@ async function notifyFanbox(bot, runtime) {
     }
 }
 
-export function createTgSender({ bot, config, resolveUserSettings }) {
+function effectiveDeliveryMode(settings = {}) {
+    if (settings.asfile) return 'file_only'
+    if (settings.telegraph) return 'telegraph'
+    if (settings.append_file_immediate) return 'media_with_immediate_files'
+    if (settings.append_file) return 'media_with_files'
+    return settings.album ? 'album' : 'media'
+}
+
+export function createTgSender({ bot, config, resolveUserSettings, logger = honsole }) {
     if (!bot || !config || !resolveUserSettings) {
         throw new Error('createTgSender requires bot, config, and resolveUserSettings')
     }
 
     return async function tgSender(ctx) {
-        const machine = createTgSenderMachine()
-        const runtime = await runTgSenderStateMachine(machine, {
-            initialize: () => initializeInvocation(resolveUserSettings, ctx),
-            collectIllustrations: runtime => collectIllustrations(bot, config, runtime),
-            sendIllustrations: runtime => sendIllustrations(bot, config, runtime),
-            sendNovels: runtime => sendNovels(bot, runtime),
-            notifyFanbox: runtime => notifyFanbox(bot, runtime)
+        const traceContext = createDeliveryTraceContext(ctx, logger)
+        return runWithDeliveryTrace(traceContext, async () => {
+            deliveryTraceEvent('update_received', {
+                illustIds: ctx.ids?.illust || []
+            })
+            const machine = createTgSenderMachine()
+            const runtime = await runTgSenderStateMachine(machine, {
+                initialize: () => initializeInvocation(resolveUserSettings, ctx),
+                collectIllustrations: async runtime => {
+                    await collectIllustrations(bot, config, runtime)
+                    updateDeliveryTraceFields({
+                        illustIds: runtime.illusts.map(illust => illust.id),
+                        deliveryMode: effectiveDeliveryMode(runtime.ctx.us)
+                    })
+                    deliveryTraceEvent('illustration_resolved', {
+                        illustIds: runtime.illusts.map(illust => illust.id),
+                        resolvedCount: runtime.illusts.length,
+                        deliveryMode: effectiveDeliveryMode(runtime.ctx.us)
+                    })
+                },
+                sendIllustrations: runtime => sendIllustrations(bot, config, runtime),
+                sendNovels: runtime => sendNovels(bot, runtime),
+                notifyFanbox: runtime => notifyFanbox(bot, runtime)
+            })
+            return summarizeTgSenderResult(runtime)
         })
-        return summarizeTgSenderResult(runtime)
     }
 }
