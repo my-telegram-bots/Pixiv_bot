@@ -20,6 +20,10 @@ test('Telegram client and automatic retry budgets are finite', t => {
     t.true(TELEGRAM_THROTTLER_OPTIONS.out.maxConcurrent > 1)
     t.is(TELEGRAM_THROTTLER_OPTIONS.group.minTime, 1000)
     t.is(TELEGRAM_THROTTLER_OPTIONS.group.reservoir, 20)
+    t.false(Object.isFrozen(TELEGRAM_THROTTLER_OPTIONS))
+    t.false(Object.isFrozen(TELEGRAM_THROTTLER_OPTIONS.global))
+    t.false(Object.isFrozen(TELEGRAM_THROTTLER_OPTIONS.group))
+    t.false(Object.isFrozen(TELEGRAM_THROTTLER_OPTIONS.out))
 })
 
 test('application starts the concurrent runner with the explicit update budget', t => {
