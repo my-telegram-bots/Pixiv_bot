@@ -12,6 +12,14 @@ import {
 } from '#handlers/telegram/transport-policy'
 
 let botInstance = null
+const nonDeliveryMethods = new Set(['sendChatAction', 'setMessageReaction'])
+
+export function createDeliveryThrottler(options) {
+    const throttler = apiThrottler(options)
+    return (previous, method, payload, signal) => nonDeliveryMethods.has(method)
+        ? previous(method, payload, signal)
+        : throttler(previous, method, payload, signal)
+}
 
 /**
  * Create and configure Telegram bot with given configuration
@@ -36,7 +44,7 @@ export function createBot(config) {
     bot.api.config.use(createTelegramAttemptTraceTransformer())
 
     // Configure API throttling and finite automatic retries.
-    const throttler = apiThrottler(TELEGRAM_THROTTLER_OPTIONS)
+    const throttler = createDeliveryThrottler(TELEGRAM_THROTTLER_OPTIONS)
     bot.api.config.use(throttler)
     bot.api.config.use(autoRetry(TELEGRAM_AUTO_RETRY_OPTIONS))
     bot.api.config.use(createTelegramQueueTraceTransformer())
