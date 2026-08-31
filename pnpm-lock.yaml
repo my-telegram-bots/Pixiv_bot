@@ -10,13 +10,13 @@ importers:
     dependencies:
       '@grammyjs/auto-retry':
         specifier: ^2.0.2
-        version: 2.0.2(grammy@1.45.1)
+        version: 2.0.2(grammy@1.46.0)
       '@grammyjs/runner':
-        specifier: ^1.0.4
-        version: 1.0.4
+        specifier: ^2.0.3
+        version: 2.0.3(grammy@1.46.0)
       '@grammyjs/transformer-throttler':
         specifier: ^1.2.1
-        version: 1.2.1(grammy@1.45.1)
+        version: 1.2.1(grammy@1.46.0)
       '@koa/bodyparser':
         specifier: ^6.1.0
         version: 6.1.0(koa@3.2.1)
@@ -27,8 +27,8 @@ importers:
         specifier: ^1.19.0
         version: 1.19.0(debug@4.4.3)
       grammy:
-        specifier: ^1.45.1
-        version: 1.45.1
+        specifier: ^1.46.0
+        version: 1.46.0
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
@@ -94,9 +94,11 @@ packages:
     peerDependencies:
       grammy: ^1.10.0
 
-  '@grammyjs/runner@1.0.4':
-    resolution: {integrity: sha512-77IE+2Gg0UHa9MNZ8wsculxJpzUDcHTrMg7OLbKoQ8jWKFxX78sdxRBwL+FK3NvHZ15YnXsnxesV43xgbOhteA==}
+  '@grammyjs/runner@2.0.3':
+    resolution: {integrity: sha512-nckmTs1dPWfVQteK9cxqxzE+0m1VRvluLWB8UgFzsjg62w3qthPJt0TYtJBEdG7OedvfQq4vnFAyE6iaMkR42A==}
     engines: {node: '>=12.20.0 || >=14.13.1'}
+    peerDependencies:
+      grammy: ^1.13.1
 
   '@grammyjs/transformer-throttler@1.2.1':
     resolution: {integrity: sha512-CpWB0F3rJdUiKsq7826QhQsxbZi4wqfz1ccKX+fr+AOC+o8K7ZvS+wqX0suSu1QCsyUq2MDpNiKhyL2ZOJUS4w==}
@@ -104,8 +106,8 @@ packages:
     peerDependencies:
       grammy: ^1.0.0
 
-  '@grammyjs/types@4.0.0':
-    resolution: {integrity: sha512-Z8lDLTvOlo12e5Vnly/vQh3JC9ppaitS1dGZ3w068gNitOd/y8tTSiib+Xm38aBGbtYGmUZwOc6afYrLs2CSTg==}
+  '@grammyjs/types@5.0.0':
+    resolution: {integrity: sha512-iq1Qrq1iPKkB8yAa0qSuIURMZOCuqTY5pWy5gHpCeL1oQ+GPadGhw/cDTVE8waJwuCzacUzuIjRv1sESvk7u7A==}
 
   '@hapi/bourne@3.0.0':
     resolution: {integrity: sha512-Waj1cwPXJDucOib4a3bAISsKJVb15MKi9IvmTI/7ssVEm6sywXGjVJDhl6/umt1pK1ZS7PacXU3A1PmFKHEZ2w==}
@@ -643,8 +645,8 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  grammy@1.45.1:
-    resolution: {integrity: sha512-Y4VL/hqJMZZxwlUr5ZgM68CFu2iIeEkNLR1cY3+Ww68CIvWARDsoXFix7+31rmyC0+7L85ZI+Pq3E5JSG5+nLQ==}
+  grammy@1.46.0:
+    resolution: {integrity: sha512-/8Qw+iisrUdOMk+p2mjEHouMm/BBdBEN1DHh16wiTpRUZkxDG3PxexdjCvR+wvK3LWPdrEvnQbdrwpU954sPhg==}
     engines: {node: ^12.20.0 || >=14.13.1}
 
   has-property-descriptors@1.0.2:
@@ -1486,23 +1488,24 @@ snapshots:
 
   '@csstools/css-tokenizer@3.0.4': {}
 
-  '@grammyjs/auto-retry@2.0.2(grammy@1.45.1)':
+  '@grammyjs/auto-retry@2.0.2(grammy@1.46.0)':
     dependencies:
       debug: 4.4.3
-      grammy: 1.45.1
+      grammy: 1.46.0
     transitivePeerDependencies:
       - supports-color
 
-  '@grammyjs/runner@1.0.4':
+  '@grammyjs/runner@2.0.3(grammy@1.46.0)':
     dependencies:
       abort-controller: 3.0.0
+      grammy: 1.46.0
 
-  '@grammyjs/transformer-throttler@1.2.1(grammy@1.45.1)':
+  '@grammyjs/transformer-throttler@1.2.1(grammy@1.46.0)':
     dependencies:
       bottleneck: 2.19.5
-      grammy: 1.45.1
+      grammy: 1.46.0
 
-  '@grammyjs/types@4.0.0': {}
+  '@grammyjs/types@5.0.0': {}
 
   '@hapi/bourne@3.0.0': {}
 
@@ -2056,9 +2059,9 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  grammy@1.45.1:
+  grammy@1.46.0:
     dependencies:
-      '@grammyjs/types': 4.0.0
+      '@grammyjs/types': 5.0.0
       abort-controller: 3.0.0
       debug: 4.4.3
       node-fetch: 2.7.0
