@@ -1,3 +1,5 @@
+import { extractAdjacentPixivSettingTokenGroups } from '#handlers/telegram/input-parser'
+
 export const SettingsCommand = Object.freeze({
     EXPORT: 'export',
     RESET: 'reset',
@@ -69,6 +71,16 @@ export function parseSettingsInput(input = '') {
         }
         directives[name] ||= createPresence()
         directives[name][sign === '+' ? 'positive' : 'negative'] = true
+    }
+
+    for (const tokens of extractAdjacentPixivSettingTokenGroups(text)) {
+        for (const token of tokens) {
+            const sign = token[0]
+            const name = aliasToCanonicalName.get(token.slice(1).toLowerCase())
+            if (!name) break
+            directives[name] ||= createPresence()
+            directives[name][sign === '+' ? 'positive' : 'negative'] = true
+        }
     }
 
     const isSettingsCommand = normalizedText === '/s' || normalizedText.startsWith('/s ')

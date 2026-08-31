@@ -20,15 +20,27 @@ export function classifyMediaSendError(error) {
     const failedIndexMatch = description.match(/failed to send message #(\d+)/)
     const stale = error?.code === 'PIXIV_MEDIA_STALE'
     const retryLocal = !stale && telegramRemoteFetchDescriptions.some(value => description.includes(value))
+    const terminalCode = description.includes('media_caption_too_long')
+        ? 'TELEGRAM_CAPTION_TOO_LONG'
+        : description.includes("can't parse entities: character")
+            ? 'TELEGRAM_FORMAT_INVALID'
+            : description.includes('forbidden:')
+                ? 'TELEGRAM_FORBIDDEN'
+                : description.includes('not enough rights to send')
+                    ? 'TELEGRAM_PERMISSION_DENIED'
+                    : description.includes('message thread not found') || description.includes('topic_closed')
+                        ? 'TELEGRAM_TOPIC_UNAVAILABLE'
+                        : null
     return {
         stale,
         retryLocal,
+        terminal: terminalCode !== null,
         failedIndex: failedIndexMatch ? Number.parseInt(failedIndexMatch[1], 10) - 1 : null,
-        code: stale
+        code: terminalCode || (stale
             ? 'PIXIV_MEDIA_STALE'
             : retryLocal
                 ? 'TELEGRAM_MEDIA_FETCH_FAILED'
-                : 'TELEGRAM_MEDIA_SEND_FAILED'
+                : 'TELEGRAM_MEDIA_SEND_FAILED')
     }
 }
 

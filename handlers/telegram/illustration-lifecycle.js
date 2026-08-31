@@ -66,10 +66,22 @@ export function createIllustrationLifecycle(illust) {
         sentPages: new Set(),
         queuedOutputs: new Set(),
         sentOutputs: new Set(),
+        deliveryFailures: [],
         failedPage: null,
         errorCode: null,
         history: [IllustrationLifecycleState.READY]
     }
+}
+
+export function recordIllustrationDeliveryFailure(
+    lifecycle,
+    errorCode = 'ILLUSTRATION_SEND_FAILED',
+    details = {}
+) {
+    lifecycle.deliveryFailures.push({ errorCode, ...details })
+    lifecycle.errorCode ||= errorCode
+    Object.assign(lifecycle, details)
+    return lifecycle
 }
 
 export function transitionIllustration(lifecycle, nextState, details = {}) {

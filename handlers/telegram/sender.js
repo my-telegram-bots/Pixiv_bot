@@ -14,6 +14,7 @@ import {
 } from './media-send-result.js'
 import { runMediaGroupAttempts } from '#handlers/telegram/media-group-retry'
 import { logTelegramFailure } from '#handlers/telegram/delivery-telemetry'
+import { reportAdminDeliveryError } from '#handlers/telegram/delivery-error-report'
 import {
     classifyDocumentFailure,
     deliverDocument,
@@ -22,49 +23,85 @@ import {
 
 export { MediaSendKind, classifyMediaSendError }
 
+export const CatchilyDecision = Object.freeze({
+    NEXT_SOURCE: 'next_source',
+    RETRY_TRANSPORT: 'retry_transport',
+    TERMINAL: 'terminal'
+})
+
 /**
  * catch error report && reply
  * @param {*} e error
  * @param {*} chat_id chat_id
  * @param {*} language_code language code
  */
-export async function catchily(e, chat_id, language_code = 'en') {
+export async function catchily(e, chat_id, language_code = 'en', options = {}) {
     const bot = getBot()
-    let default_extra = {
+    const default_extra = {
         parse_mode: 'MarkdownV2'
     }
     const mediaFailure = classifyMediaSendError(e)
+    const rawDescription = telegramErrorDescription(e)
+    const description = rawDescription.toLowerCase()
+    const errorCode = options.errorCode || mediaFailure.code
+    const decision = mediaFailure.terminal
+        ? CatchilyDecision.TERMINAL
+        : description.includes('too many requests') || e?.error_code === 429
+            ? CatchilyDecision.RETRY_TRANSPORT
+            : CatchilyDecision.NEXT_SOURCE
     logTelegramFailure(honsole, e, {
         chatId: chat_id,
+        errorCode,
+        attempt: options.attempt,
         failedIndex: Number.isInteger(mediaFailure.failedIndex)
             ? mediaFailure.failedIndex + 1
-            : undefined
+            : options.failedIndex
     })
+    await reportAdminDeliveryError({
+        error: e,
+        masterId: config.tg.master_id,
+        sendMessage: (masterId, report) => bot.api.sendMessage(masterId, report),
+        logger: honsole,
+        chatId: chat_id,
+        errorCode,
+        attempt: options.attempt,
+        failedIndex: Number.isInteger(mediaFailure.failedIndex)
+            ? mediaFailure.failedIndex + 1
+            : options.failedIndex
+    })
+    let userNotified = false
     try {
         if (!e.ok) {
-            const rawDescription = telegramErrorDescription(e)
-            const description = rawDescription.toLowerCase()
-            if (description.includes('media_caption_too_long')) {
-                await bot.api.sendMessage(chat_id, _l(language_code, 'error_text_too_long'), default_extra).catch(() => { })
-                return false
+            if (options.notifyUser !== false && description.includes('media_caption_too_long')) {
+                userNotified = await bot.api.sendMessage(
+                    chat_id,
+                    _l(language_code, 'error_text_too_long'),
+                    default_extra
+                ).then(() => true, () => false)
             } else if (description.includes('can\'t parse entities: character')) {
-                await bot.api.sendMessage(chat_id, _l(language_code, 'error_format', rawDescription)).catch(() => { })
-                return false
+                if (options.notifyUser !== false) {
+                    userNotified = await bot.api.sendMessage(
+                        chat_id,
+                        _l(language_code, 'error_format', rawDescription)
+                    ).then(() => true, () => false)
+                }
                 // banned by user
             } else if (description.includes('forbidden:')) {
-                return false
                 // not have permission
             } else if (description.includes('not enough rights to send')) {
-                await bot.api.sendMessage(chat_id, _l(language_code, 'error_not_enough_rights'), default_extra).catch(() => { })
-                return false
+                if (options.notifyUser !== false) {
+                    userNotified = await bot.api.sendMessage(
+                        chat_id,
+                        _l(language_code, 'error_not_enough_rights'),
+                        default_extra
+                    ).then(() => true, () => false)
+                }
                 // message thread not found - give up sending
             } else if (description.includes('message thread not found')) {
                 console.log('Message thread not found, skipping message')
-                return false
                 // just a moment
             } else if (description.includes('too many requests')) {
                 console.log(chat_id, 'sleep', telegramRetryAfter(e), 's')
-                return 'redo'
             } else if (description.includes('failed to send message') && description.includes('#')) {
                 // Handle specific media item failure: "failed to send message #N with the error message 'WEBPAGE_MEDIA_EMPTY'"
                 const failed_index_match = description.match(/failed to send message #(\d+)/);
@@ -120,9 +157,8 @@ export async function catchily(e, chat_id, language_code = 'en') {
         }
     } catch (error) {
         logTelegramFailure(honsole, error)
-        return false
     }
-    return true
+    return { decision, userNotified, errorCode }
 }
 
 /**
@@ -177,7 +213,7 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
             buildMedia: (mediaGroup, currentType) => mg_filter(mediaGroup, currentType),
             sendMedia: media => bot.api.sendMediaGroup(chat_id, media, extra),
             classifyError: classifyMediaSendError,
-            reportError: error => catchily(error, chat_id, language_code)
+            reportError: (error, fields) => catchily(error, chat_id, language_code, fields)
         })
         if (result.exhausted) {
             honsole.warn('Media group retry budget exhausted', chat_id, mg.length, 'items')
@@ -188,8 +224,11 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
     const queue = [...mg_type]
     let lastError
     let lastDocumentClassification = null
+    let lastFailedIndex = null
+    let attempts = 0
     const attemptLimit = mg[0].type === 'document' ? 2 : 5
-    for (let attempt = 0; attempt < attemptLimit && queue.length > 0; attempt++) {
+    for (let attempt = 1; attempt <= attemptLimit && queue.length > 0; attempt++) {
+        attempts = attempt
         const currentType = queue.shift()
         try {
             const result = await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], currentType), extra)
@@ -202,6 +241,7 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
                 ? classifyDocumentFailure(error, currentType.startsWith('dl') ? 'download' : 'send')
                 : null
             lastDocumentClassification = documentClassification
+            lastFailedIndex = mediaClassification.failedIndex
             const classification = documentMode
                 ? {
                     stale: documentClassification.kind === MediaSendKind.STALE_MEDIA,
@@ -212,17 +252,21 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
                         : documentClassification.code
                 }
                 : mediaClassification
-            const catchStatus = documentMode
-                ? true
-                : isStaleMediaError(error)
-                ? false
-                : await catchily(error, chat_id, language_code)
+            const catchResult = await catchily(error, chat_id, language_code, {
+                notifyUser: !documentMode,
+                attempt,
+                failedIndex: Number.isInteger(classification.failedIndex)
+                    ? classification.failedIndex + 1
+                    : undefined,
+                errorCode: classification.code
+            })
             if (classification.stale) {
                 return {
                     kind: MediaSendKind.STALE_MEDIA,
                     code: classification.code,
                     failedIndex: classification.failedIndex,
-                    error
+                    error,
+                    attempts: attempt
                 }
             }
             if (documentMode && !classification.retryLocal &&
@@ -232,6 +276,8 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
                     kind: MediaSendKind.FAILED,
                     code: documentClassification.code,
                     error,
+                    failedIndex: classification.failedIndex,
+                    attempts: attempt,
                     recoveryUrl: publicDocumentRecoveryUrl(
                         failedItem?.media_o,
                         config.pixiv.pximgproxy
@@ -240,14 +286,16 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
             }
             if (classification.failedIndex !== null) {
                 markFailedMediaItem(mg, classification.failedIndex, currentType, queue)
-            } else if (catchStatus === 'redo') {
+            } else if (catchResult.decision === CatchilyDecision.RETRY_TRANSPORT) {
                 queue.unshift(currentType)
-            } else if (catchStatus === false) {
+            } else if (catchResult.decision === CatchilyDecision.TERMINAL) {
                 return {
                     kind: MediaSendKind.FAILED,
                     code: classification.code,
                     error,
-                    userNotified: true
+                    failedIndex: classification.failedIndex,
+                    attempts: attempt,
+                    userNotified: catchResult.userNotified
                 }
             }
         }
@@ -260,6 +308,8 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
                 ? 'TELEGRAM_DOCUMENT_RETRY_EXHAUSTED'
                 : lastDocumentClassification?.code || 'TELEGRAM_DOCUMENT_SEND_FAILED',
             error: lastError,
+            failedIndex: lastFailedIndex,
+            attempts,
             recoveryUrl: publicDocumentRecoveryUrl(
                 mg[0]?.media_o,
                 config.pixiv.pximgproxy
@@ -269,7 +319,9 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
     return {
         kind: MediaSendKind.FAILED,
         code: 'TELEGRAM_MEDIA_RETRY_EXHAUSTED',
-        error: lastError
+        error: lastError,
+        failedIndex: lastFailedIndex,
+        attempts
     }
 }
 
@@ -294,28 +346,37 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
 
     let lastError
     let userNotified = false
-    for (const candidate of photo_urls) {
+    const candidates = [...photo_urls]
+    const attemptLimit = photo_urls.length + 1
+    let attempts = 0
+    while (attempts < attemptLimit && candidates.length > 0) {
+        attempts++
+        const candidate = candidates.shift()
         try {
             const photo = candidate.startsWith('dl-')
                 ? new InputFile(await fetch_tmp_file(candidate.substring(3)))
                 : candidate
             const result = await bot.api.sendPhoto(chat_id, photo, extra)
-            return { kind: MediaSendKind.SENT, result }
+            return { kind: MediaSendKind.SENT, result, attempts }
         } catch (error) {
             lastError = error
             const classification = classifyMediaSendError(error)
-            const catchStatus = isStaleMediaError(error)
-                ? false
-                : await catchily(error, chat_id, language_code)
+            const catchResult = await catchily(error, chat_id, language_code, {
+                attempt: attempts,
+                errorCode: classification.code
+            })
             if (classification.stale) {
                 return {
                     kind: MediaSendKind.STALE_MEDIA,
                     code: classification.code,
-                    error
+                    error,
+                    attempts
                 }
             }
-            if (catchStatus === false) {
-                userNotified = true
+            if (catchResult.decision === CatchilyDecision.RETRY_TRANSPORT) {
+                candidates.unshift(candidate)
+            } else if (catchResult.decision === CatchilyDecision.TERMINAL) {
+                userNotified = catchResult.userNotified
                 break
             }
         }
@@ -325,7 +386,8 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
         kind: MediaSendKind.FAILED,
         code: 'TELEGRAM_MEDIA_SEND_FAILED',
         error: lastError,
-        userNotified
+        userNotified,
+        attempts
     }
 }
 

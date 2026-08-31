@@ -61,6 +61,46 @@ function matchPixivUrl(candidate) {
     return null
 }
 
+function collectAdjacentDirectiveTokens(text, offset) {
+    const tokens = []
+    let remaining = text.slice(offset)
+    let consumed = 0
+    const directive = /^([+-])([a-z][a-z0-9_]*)(?=$|[^\w])/i
+
+    while (remaining) {
+        const match = remaining.match(directive)
+        if (!match) break
+        tokens.push(`${match[1]}${match[2]}`)
+        consumed += match[0].length
+        remaining = text.slice(offset + consumed)
+    }
+    return tokens
+}
+
+export function extractAdjacentPixivSettingTokenGroups(input = '') {
+    const text = String(input)
+    const groups = []
+
+    for (const candidate of text.matchAll(PIXIV_URL_PATTERN)) {
+        const url = normalizePixivUrl(candidate[0])
+        if (!url || url.search || url.hash || !matchPixivUrl(candidate[0])) continue
+        const tokens = collectAdjacentDirectiveTokens(
+            text,
+            candidate.index + candidate[0].length
+        )
+        if (tokens.length > 0) groups.push(tokens)
+    }
+
+    const standalonePattern = /(?:^|\s)(?:#|id=?)?(\d{8,9})(?=[+-])/gi
+    for (const match of text.matchAll(standalonePattern)) {
+        if (toPositiveInteger(match[1]) === null) continue
+        const tokens = collectAdjacentDirectiveTokens(text, match.index + match[0].length)
+        if (tokens.length > 0) groups.push(tokens)
+    }
+
+    return groups
+}
+
 function collectStandaloneIllustIds(text, ids) {
     text
         .replace(PIXIV_URL_PATTERN, ' ')

@@ -36,7 +36,10 @@ function safeInteger(value) {
     return undefined
 }
 
-function safeCode(error) {
+export function safeDeliveryErrorCode(error, preferredCode) {
+    if (typeof preferredCode === 'string' && SAFE_CODE.test(preferredCode)) {
+        return preferredCode
+    }
     for (const value of [error?.code, error?.cause?.code]) {
         if (typeof value === 'string' && SAFE_CODE.test(value)) return value
     }
@@ -91,6 +94,16 @@ export function updateDeliveryTraceFields(fields) {
     Object.assign(context, safeFields(fields))
 }
 
+export function currentDeliveryTraceCorrelation(fields = {}) {
+    const context = deliveryTraceStorage.getStore()
+    return safeFields({
+        requestId: context?.requestId,
+        chatId: fields.chatId ?? context?.chatId,
+        attempt: fields.attempt,
+        failedIndex: fields.failedIndex
+    })
+}
+
 export function deliveryTraceEvent(stage, fields = {}) {
     const context = deliveryTraceStorage.getStore()
     if (!context?.logger) return
@@ -119,7 +132,7 @@ export function logTelegramFailure(logger, error, fields = {}) {
     const record = safeFields({
         stage: 'telegram_error',
         method: error?.method,
-        errorCode: safeCode(error),
+        errorCode: safeDeliveryErrorCode(error),
         failedIndex: fields.failedIndex,
         retryAfter: error?.parameters?.retry_after,
         ...fields
@@ -151,7 +164,7 @@ export function createTelegramAttemptTraceTransformer(options = {}) {
                 status: response?.ok === false ? 'failed' : 'sent'
             }
             if (response?.ok === false) {
-                fields.errorCode = safeCode(response)
+                fields.errorCode = safeDeliveryErrorCode(response)
                 deliveryTraceEvent('api_failed', fields)
             } else {
                 deliveryTraceEvent('api_finished', fields)
@@ -163,7 +176,7 @@ export function createTelegramAttemptTraceTransformer(options = {}) {
                 chatId: payload?.chat_id,
                 durationMs: Math.max(0, now() - startedAt),
                 status: 'failed',
-                errorCode: safeCode(error)
+                errorCode: safeDeliveryErrorCode(error)
             })
             throw error
         }

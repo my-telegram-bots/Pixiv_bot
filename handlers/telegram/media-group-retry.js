@@ -46,6 +46,13 @@ export async function runMediaGroupAttempts(options) {
             const classification = classifyError(error, currentType)
             lastClassification = classification
             traceFailedAttempt(mediaGroup, currentType, attempt, classification)
+            const reportResult = await reportError(error, {
+                attempt,
+                failedIndex: Number.isInteger(classification.failedIndex)
+                    ? classification.failedIndex + 1
+                    : undefined,
+                errorCode: classification.code
+            })
             if (classification.stale) {
                 return {
                     kind: MediaSendKind.STALE_MEDIA,
@@ -65,17 +72,16 @@ export async function runMediaGroupAttempts(options) {
                 }
             }
 
-            const reportStatus = await reportError(error)
             if (classification.failedIndex !== null) {
                 queueLocalMediaRetry(mediaGroup, classification.failedIndex, currentType, queue)
-            } else if (reportStatus === 'redo') {
+            } else if (reportResult.decision === 'retry_transport') {
                 queue.unshift(currentType)
-            } else if (reportStatus === false) {
+            } else if (reportResult.decision === 'terminal') {
                 return {
                     kind: MediaSendKind.FAILED,
                     code: classification.code,
                     error,
-                    userNotified: true,
+                    userNotified: reportResult.userNotified,
                     attempts: attempt
                 }
             }
@@ -86,7 +92,7 @@ export async function runMediaGroupAttempts(options) {
         kind: MediaSendKind.FAILED,
         code: options.exhaustedCode?.(lastClassification) || 'TELEGRAM_MEDIA_RETRY_EXHAUSTED',
         error: lastError,
-        attempts: maxAttempts,
+        attempts: Math.min(maxAttempts, options.mediaTypes.length || maxAttempts),
         exhausted: true,
         lastClassification
     }

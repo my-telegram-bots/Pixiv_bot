@@ -50,6 +50,7 @@ import {
     markIllustrationOutputQueued,
     markIllustrationOutputSent,
     markIllustrationPageSent,
+    recordIllustrationDeliveryFailure,
     replaceRefreshedAlbumItems
 } from '#handlers/telegram/illustration-lifecycle'
 import {
@@ -60,12 +61,61 @@ import {
     runWithDeliveryTraceFields,
     updateDeliveryTraceFields
 } from '#handlers/telegram/delivery-telemetry'
+import {
+    reportAdminDeliveryError
+} from '#handlers/telegram/delivery-error-report'
+import { renderUserFacingError } from '#handlers/telegram/user-facing-error'
 
 const terminalIllustrationStates = new Set([
     IllustrationLifecycleState.COMPLETED,
     IllustrationLifecycleState.NOT_FOUND,
     IllustrationLifecycleState.FAILED
 ])
+
+function recordPageSent(lifecycle, page) {
+    if (terminalIllustrationStates.has(lifecycle.state)) {
+        lifecycle.sentPages.add(page)
+        return
+    }
+    markIllustrationPageSent(lifecycle, page)
+}
+
+function recordOutputSent(lifecycle, output) {
+    if (terminalIllustrationStates.has(lifecycle.state)) {
+        lifecycle.sentOutputs.add(output)
+        return
+    }
+    markIllustrationOutputSent(lifecycle, output)
+}
+
+function recordOutputQueued(lifecycle, output) {
+    if (terminalIllustrationStates.has(lifecycle.state)) {
+        lifecycle.queuedOutputs.add(output)
+        return
+    }
+    markIllustrationOutputQueued(lifecycle, output)
+}
+
+async function reportIndependentFailure(bot, config, runtime, error, fields = {}) {
+    const errorCode = fields.errorCode || error?.code || 'UNEXPECTED_PROCESSING_FAILURE'
+    runtime.deliveryErrors.push(errorCode)
+    logTelegramFailure(honsole, error, {
+        chatId: runtime.chatId,
+        errorCode,
+        failedIndex: fields.failedIndex
+    })
+    await reportAdminDeliveryError({
+        error,
+        masterId: config.tg.master_id,
+        sendMessage: (masterId, report) => bot.api.sendMessage(masterId, report),
+        logger: honsole,
+        chatId: runtime.chatId,
+        errorCode,
+        failedIndex: fields.failedIndex,
+        attempt: fields.attempt
+    })
+    return errorCode
+}
 
 function messageThreadOptions(ctx) {
     const messageThreadId = ctx.default_extra?.message_thread_id
@@ -103,19 +153,31 @@ async function collectIllustrations(bot, config, runtime) {
     if (ids.author.length > 0 && userId === config.tg.master_id) {
         bot.api.sendChatAction(chatId, 'upload_photo', messageThreadOptions(ctx)).catch(() => { })
         await asyncForEach(ids.author, async id => {
-            const authorIllusts = await get_user_illusts(id)
-            await asyncForEach(authorIllusts, async illust => {
-                const handled = await handle_illust(illust, ctx.us)
-                if (handled.kind === 'ready') {
-                    addResolvedIllustration(runtime, handled.illustration)
-                } else {
-                    runtime.deliveryErrors.push(
-                        handled.code || (handled.kind === 'not_found'
-                            ? 'PIXIV_ILLUSTRATION_NOT_FOUND'
-                            : 'PIXIV_DETAIL_REQUEST_FAILED')
-                    )
-                }
-            })
+            try {
+                const authorIllusts = await get_user_illusts(id)
+                await asyncForEach(authorIllusts, async illust => {
+                    try {
+                        const handled = await handle_illust(illust, ctx.us)
+                        if (handled.kind === 'ready') {
+                            addResolvedIllustration(runtime, handled.illustration)
+                        } else {
+                            runtime.deliveryErrors.push(
+                                handled.code || (handled.kind === 'not_found'
+                                    ? 'PIXIV_ILLUSTRATION_NOT_FOUND'
+                                    : 'PIXIV_DETAIL_REQUEST_FAILED')
+                            )
+                        }
+                    } catch (error) {
+                        await reportIndependentFailure(bot, config, runtime, error, {
+                            errorCode: error?.code || 'PIXIV_DETAIL_REQUEST_FAILED'
+                        })
+                    }
+                })
+            } catch (error) {
+                await reportIndependentFailure(bot, config, runtime, error, {
+                    errorCode: error?.code || 'PIXIV_AUTHOR_REQUEST_FAILED'
+                })
+            }
         })
     }
 
@@ -248,7 +310,6 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
     if (lifecycle.state === IllustrationLifecycleState.READY) beginIllustrationSend(lifecycle)
 
     for (let page = 0; page < lifecycle.illust.mediagroup.length; page++) {
-        if (terminalIllustrationStates.has(lifecycle.state)) break
         const deliveryPlan = staticDeliveryPlan(ctx.us)
         const needsPhoto = deliveryPlan.sendPhoto
         const needsImmediateDocument = Boolean(deliveryPlan.immediateDocumentMode)
@@ -289,7 +350,7 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
             }
             if (result.kind === MediaSendKind.SENT) {
                 replyToMessageId = result.result.message_id
-                markIllustrationPageSent(lifecycle, page)
+                recordPageSent(lifecycle, page)
             } else {
                 honsole.warn('Failed to send photo for illust', illust.id, 'page', page)
                 if (!terminalIllustrationStates.has(lifecycle.state)) {
@@ -297,7 +358,7 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
                 }
                 if (result.userNotified) lifecycle.failureNotified = true
                 await notifyIllustrationFailure(bot, runtime, lifecycle)
-                break
+                continue
             }
         }
 
@@ -333,7 +394,7 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
         if (configuredDocument.result) {
             const documentResult = configuredDocument.result
             if (documentResult.kind === MediaSendKind.SENT) {
-                markIllustrationOutputSent(lifecycle, `document:${page}`)
+                recordOutputSent(lifecycle, `document:${page}`)
                 if (ctx.us.append_file_immediate) {
                     replyToMessageId = documentResult.result.message_id
                     fileReplyToMessageId = documentResult.result.message_id
@@ -341,7 +402,7 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
             } else {
                 if (!terminalIllustrationStates.has(lifecycle.state)) failDelivery(lifecycle, documentResult)
                 await notifyIllustrationFailure(bot, runtime, lifecycle)
-                break
+                continue
             }
         }
 
@@ -349,7 +410,7 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
             const queuedKey = `queued-document:${page}`
             if (!lifecycle.queuedOutputs.has(queuedKey)) {
                 files.push({ lifecycle, page, extra: extraOne })
-                markIllustrationOutputQueued(lifecycle, queuedKey)
+                recordOutputQueued(lifecycle, queuedKey)
             }
         }
     }
@@ -465,7 +526,7 @@ async function sendUgoira(bot, config, runtime, lifecycle, extra) {
         }
         if (result.kind === MediaSendKind.SENT) {
             sent = true
-            markIllustrationOutputSent(lifecycle, 'animation:0')
+            recordOutputSent(lifecycle, 'animation:0')
         } else {
             failureCode = result.code
         }
@@ -491,7 +552,7 @@ async function sendUgoira(bot, config, runtime, lifecycle, extra) {
         })
         if (documentResult.kind === MediaSendKind.SENT) {
             sent = true
-            markIllustrationOutputSent(lifecycle, 'document:0')
+            recordOutputSent(lifecycle, 'document:0')
             if (ctx.us.append_file_immediate) {
                 extra.reply_to_message_id = documentResult.result.message_id
             }
@@ -504,7 +565,7 @@ async function sendUgoira(bot, config, runtime, lifecycle, extra) {
 
     if (ctx.us.append_file && !ctx.us.append_file_immediate) {
         files.push({ lifecycle, page: 0, extra })
-        markIllustrationOutputQueued(lifecycle, 'queued-document:0')
+        recordOutputQueued(lifecycle, 'queued-document:0')
         queued = true
     }
     if (terminalIllustrationStates.has(lifecycle.state)) {
@@ -527,35 +588,45 @@ async function classifyIllustrationOutput(bot, config, runtime) {
 
     await asyncForEach(orderedIllusts, async illust => {
         const lifecycle = runtime.lifecycles.get(illust.id)
-        ctx.us.q_id += 1
-        const mediaGroup = illust.mediagroup
-        const sendDirectly = !ctx.us.telegraph && (
-            !ctx.us.album ||
-            (illusts.length === 1 && mediaGroup.length === 1) ||
-            (!ctx.us.album_one && mediaGroup.length === 1)
-        )
+        try {
+            ctx.us.q_id += 1
+            const mediaGroup = illust.mediagroup
+            const sendDirectly = !ctx.us.telegraph && (
+                !ctx.us.album ||
+                (illusts.length === 1 && mediaGroup.length === 1) ||
+                (!ctx.us.album_one && mediaGroup.length === 1)
+            )
 
-        if (!sendDirectly) {
-            if (lifecycle.state === IllustrationLifecycleState.READY) beginIllustrationSend(lifecycle)
-            if (ctx.us.telegraph || ctx.us.album_one) {
-                if (mediaGroups.length === 0) {
-                    mediaGroups.push([])
+            if (!sendDirectly) {
+                if (lifecycle.state === IllustrationLifecycleState.READY) beginIllustrationSend(lifecycle)
+                if (ctx.us.telegraph || ctx.us.album_one) {
+                    if (mediaGroups.length === 0) {
+                        mediaGroups.push([])
+                    }
+                    mediaGroups[0].push(...mediaGroup)
+                } else {
+                    mediaGroups.push(mediaGroup)
                 }
-                mediaGroups[0].push(...mediaGroup)
-            } else {
-                mediaGroups.push(mediaGroup)
+                return
             }
-            return
-        }
 
-        if (illust.type === 2 && ctx.match) {
-            ctx.us.share = true
-        }
-        const extra = createMediaExtra(ctx, runtime.defaultExtra, illust)
-        if (illust.type <= 1) {
-            await sendStaticIllustration(bot, runtime, lifecycle, extra)
-        } else if (illust.type === 2) {
-            await sendUgoira(bot, config, runtime, lifecycle, extra)
+            if (illust.type === 2 && ctx.match) {
+                ctx.us.share = true
+            }
+            const extra = createMediaExtra(ctx, runtime.defaultExtra, illust)
+            if (illust.type <= 1) {
+                await sendStaticIllustration(bot, runtime, lifecycle, extra)
+            } else if (illust.type === 2) {
+                await sendUgoira(bot, config, runtime, lifecycle, extra)
+            }
+        } catch (error) {
+            const errorCode = await reportIndependentFailure(bot, config, runtime, error, {
+                errorCode: error?.code || 'ILLUSTRATION_SEND_FAILED'
+            })
+            if (!terminalIllustrationStates.has(lifecycle.state)) {
+                failIllustration(lifecycle, errorCode)
+            }
+            await notifyIllustrationFailure(bot, runtime, lifecycle)
         }
     })
 }
@@ -629,7 +700,18 @@ async function sendAlbumBatch(bot, runtime, mediaGroups, asDocuments) {
     const { ctx, chatId, defaultExtra, illusts, mediaGroupExtra } = runtime
 
     await asyncForEach(mediaGroups, async group => {
-        await asyncForEach(mg_albumize(group, ctx.us), async (mediaGroup, index) => {
+        let albums
+        try {
+            albums = mg_albumize(group, ctx.us)
+        } catch (error) {
+            const errorCode = await reportIndependentFailure(bot, runtime.config, runtime, error, {
+                errorCode: error?.code || 'TELEGRAM_ALBUM_BUILD_FAILED'
+            })
+            await failAlbum(bot, runtime, group, { code: errorCode, error, attempts: 0 })
+            return
+        }
+        await asyncForEach(albums, async (mediaGroup, index) => {
+            try {
             if (!asDocuments) {
                 applySingleCaption(ctx, illusts, mediaGroup, index)
                 let result = await sendMediaGroupWithRetry(
@@ -677,7 +759,7 @@ async function sendAlbumBatch(bot, runtime, mediaGroups, asDocuments) {
                     await failAlbum(bot, runtime, mediaGroup, result)
                 }
             }
-            await rateLimit(index)
+                await rateLimit(index)
 
             if (!asDocuments && ctx.us.append_file_immediate) {
                 let result = await sendMediaGroupDocuments({
@@ -699,7 +781,17 @@ async function sendAlbumBatch(bot, runtime, mediaGroups, asDocuments) {
                     updateReplyChain(mediaGroupExtra, null)
                     await failAlbum(bot, runtime, mediaGroup, result)
                 }
-                await rateLimit(index)
+                    await rateLimit(index)
+                }
+            } catch (error) {
+                const errorCode = await reportIndependentFailure(bot, runtime.config, runtime, error, {
+                    errorCode: error?.code || 'TELEGRAM_ALBUM_SEND_FAILED'
+                })
+                await failAlbum(bot, runtime, mediaGroup, {
+                    code: errorCode,
+                    error,
+                    attempts: 0
+                })
             }
         })
     })
@@ -735,8 +827,8 @@ async function refreshAndRetryAlbum(runtime, mediaGroup, staleResult, asDocument
 function markAlbumOutputs(runtime, mediaGroup, output) {
     for (const id of new Set(mediaGroup.map(item => item.id))) {
         const lifecycle = runtime.lifecycles.get(id)
-        if (lifecycle && !terminalIllustrationStates.has(lifecycle.state)) {
-            markIllustrationOutputSent(lifecycle, output)
+        if (lifecycle) {
+            recordOutputSent(lifecycle, output)
         }
     }
 }
@@ -759,9 +851,9 @@ async function flushFiles(bot, runtime) {
     let failedCount = 0
     await asyncForEach(runtime.files, async (file, index) => {
         const { lifecycle, page, extra } = file
-        if (terminalIllustrationStates.has(lifecycle.state)) return
-        let item = lifecycle.illust.mediagroup[page]
-        const result = await runWithDeliveryTraceFields({
+        try {
+            let item = lifecycle.illust.mediagroup[page]
+            const result = await runWithDeliveryTraceFields({
             illustId: lifecycle.id,
             page
         }, () => deliverDocumentWithRefresh({
@@ -779,21 +871,35 @@ async function flushFiles(bot, runtime) {
                 return true
             }
         }))
-        if (result.kind === MediaSendKind.SENT) {
-            successCount++
-            markIllustrationOutputSent(lifecycle, `delayed-document:${page}`)
-        } else {
-            failedCount++
-            if (!terminalIllustrationStates.has(lifecycle.state)) failDelivery(lifecycle, result)
-            await notifyIllustrationFailure(bot, runtime, lifecycle)
-            honsole.warn(
+            if (result.kind === MediaSendKind.SENT) {
+                successCount++
+                recordOutputSent(lifecycle, `delayed-document:${page}`)
+            } else {
+                failedCount++
+                if (!terminalIllustrationStates.has(lifecycle.state)) failDelivery(lifecycle, result)
+                else recordIllustrationDeliveryFailure(lifecycle, result.code, {
+                    recoveryUrl: result.recoveryUrl,
+                    deliveryAttempts: result.attempts
+                })
+                await notifyIllustrationFailure(bot, runtime, lifecycle)
+                honsole.warn(
                 '[batched files] Failed to send file',
                 index,
                 'illust',
                 lifecycle.id,
                 'page',
                 page
-            )
+                )
+            }
+        } catch (error) {
+            failedCount++
+            const errorCode = await reportIndependentFailure(bot, runtime.config, runtime, error, {
+                errorCode: error?.code || 'TELEGRAM_DOCUMENT_SEND_FAILED',
+                failedIndex: index + 1
+            })
+            recordIllustrationDeliveryFailure(lifecycle, errorCode, { failedPage: page })
+            if (!terminalIllustrationStates.has(lifecycle.state)) failIllustration(lifecycle, errorCode)
+            await notifyIllustrationFailure(bot, runtime, lifecycle)
         }
     })
     honsole.dev(`[batched files] Completed: ${successCount} success, ${failedCount} failed`)
@@ -805,6 +911,7 @@ async function sendIllustrations(bot, config, runtime) {
         return
     }
 
+    runtime.config = config
     await classifyIllustrationOutput(bot, config, runtime)
     if (mediaGroups.length > 0) {
         if (ctx.us.telegraph) {
@@ -832,27 +939,35 @@ async function sendIllustrations(bot, config, runtime) {
 async function sendNovels(bot, runtime) {
     const { ctx, chatId, defaultExtra, ids } = runtime
     await asyncForEach(ids.novel, async id => {
-        bot.api.sendChatAction(chatId, 'typing', messageThreadOptions(ctx)).catch(() => { })
-        const novel = await handle_novel(id)
-        if (!novel) {
-            runtime.deliveryErrors.push('PIXIV_NOVEL_NOT_FOUND')
-            await bot.api.sendMessage(chatId, _l(ctx.l, 'illust_404'), defaultExtra).catch(() => { })
-            return
-        }
-
-        const extra = { ...defaultExtra }
-        delete extra.parse_mode
-        await bot.api.sendMessage(chatId, novel.telegraph_url, extra).catch(error => {
-            runtime.deliveryErrors.push(error.code || 'TELEGRAM_NOVEL_SEND_FAILED')
-            if (error.error_code === 400 && error.description === 'Bad Request: TOPIC_CLOSED') {
-                console.log('Topic is closed, skipping message')
+        try {
+            bot.api.sendChatAction(chatId, 'typing', messageThreadOptions(ctx)).catch(() => { })
+            const novel = await handle_novel(id)
+            if (!novel) {
+                runtime.deliveryErrors.push('PIXIV_NOVEL_NOT_FOUND')
+                await bot.api.sendMessage(chatId, _l(ctx.l, 'illust_404'), defaultExtra).catch(() => { })
                 return
             }
-            logTelegramFailure(honsole, error, {
-                chatId,
-                errorCode: error.code || 'TELEGRAM_NOVEL_SEND_FAILED'
+
+            const extra = { ...defaultExtra }
+            delete extra.parse_mode
+            try {
+                await bot.api.sendMessage(chatId, novel.telegraph_url, extra)
+            } catch (error) {
+                runtime.deliveryErrors.push(error.code || 'TELEGRAM_NOVEL_SEND_FAILED')
+                await catchily(error, chatId, ctx.l, {
+                    errorCode: error.code || 'TELEGRAM_NOVEL_SEND_FAILED'
+                })
+            }
+        } catch (error) {
+            const errorCode = await reportIndependentFailure(bot, runtime.config, runtime, error, {
+                errorCode: error?.code || 'PIXIV_NOVEL_REQUEST_FAILED'
             })
-        })
+            await bot.api.sendMessage(
+                chatId,
+                renderUserFacingError(ctx.l, { ...error, code: errorCode }),
+                defaultExtra
+            ).catch(() => { })
+        }
     })
 }
 
