@@ -7,7 +7,6 @@ import {
     isStaleMediaError
 } from '#handlers/common'
 import { handle_illust } from '#handlers/telegram/handle_illust'
-import { handle_novel } from '#handlers/telegram/handle_novel'
 import { format } from '#handlers/telegram/format'
 import { k_os } from '#handlers/telegram/keyboard'
 import { _l } from '#handlers/telegram/i18n'
@@ -58,14 +57,16 @@ import {
     runWithDeliveryTraceFields,
     updateDeliveryTraceFields
 } from '#handlers/telegram/delivery-telemetry'
-import { renderUserFacingError } from '#handlers/telegram/user-facing-error'
 import {
     recordOutputQueued,
     recordOutputSent,
     recordPageSent,
-    reportIndependentFailure,
-    runIndependentDeliveryItems
+    reportIndependentFailure
 } from '#handlers/telegram/tg-sender-continuation'
+import {
+    notifyFanbox,
+    sendNovels
+} from '#handlers/telegram/tg-sender-secondary-phases'
 
 const terminalIllustrationStates = new Set([
     IllustrationLifecycleState.COMPLETED,
@@ -203,7 +204,10 @@ async function refreshIllustration(runtime, lifecycle, failedPage) {
         try {
             applyIllustrationRefresh(lifecycle, resolved.illustration)
         } catch (error) {
-            logTelegramFailure(honsole, error, {
+            await reportIndependentFailure(runtime, error, {
+                illustId: lifecycle.id,
+                page: failedPage,
+                method: 'refreshIllustration',
                 errorCode: error.code || 'ILLUSTRATION_REFRESH_ID_MISMATCH'
             })
             failIllustration(lifecycle, error.code || 'ILLUSTRATION_REFRESH_ID_MISMATCH')
@@ -654,13 +658,29 @@ async function sendTelegraph(bot, runtime) {
         )
         if (result) {
             await asyncForEach(result, async item => {
-                await bot.api.sendMessage(
-                    chatId,
-                    `${item.ids.join('\n')}\n${item.telegraph_url}`,
-                    defaultExtra
-                ).catch(() => { })
+                try {
+                    await bot.api.sendMessage(
+                        chatId,
+                        `${item.ids.join('\n')}\n${item.telegraph_url}`,
+                        defaultExtra
+                    )
+                } catch (error) {
+                    await reportIndependentFailure(runtime, error, {
+                        illustIds: item.ids,
+                        method: 'sendTelegraphLink',
+                        errorCode: error?.code || 'TELEGRAPH_LINK_SEND_FAILED'
+                    })
+                }
             })
-            await bot.api.sendMessage(chatId, _l(ctx.l, 'telegraph_iv'), defaultExtra).catch(() => { })
+            try {
+                await bot.api.sendMessage(chatId, _l(ctx.l, 'telegraph_iv'), defaultExtra)
+            } catch (error) {
+                await reportIndependentFailure(runtime, error, {
+                    illustIds: mediaGroups[0]?.map(media => media.id),
+                    method: 'sendTelegraphNotice',
+                    errorCode: error?.code || 'TELEGRAPH_NOTICE_SEND_FAILED'
+                })
+            }
         }
     } catch (error) {
         const errorCode = await reportIndependentFailure(
@@ -902,7 +922,6 @@ async function sendIllustrations(bot, config, runtime) {
         return
     }
 
-    runtime.config = config
     await classifyIllustrationOutput(bot, config, runtime)
     if (mediaGroups.length > 0) {
         if (ctx.us.telegraph) {
@@ -927,58 +946,24 @@ async function sendIllustrations(bot, config, runtime) {
     files.length = 0
 }
 
-async function sendNovels(bot, runtime) {
-    const { ctx, chatId, defaultExtra, ids } = runtime
-    await runIndependentDeliveryItems(ids.novel, async id => {
-        try {
-            bot.api.sendChatAction(chatId, 'typing', messageThreadOptions(ctx)).catch(() => { })
-            const novel = await handle_novel(id)
-            if (!novel) {
-                runtime.deliveryErrors.push('PIXIV_NOVEL_NOT_FOUND')
-                await bot.api.sendMessage(chatId, _l(ctx.l, 'illust_404'), defaultExtra).catch(() => { })
-                return
-            }
-
-            const extra = { ...defaultExtra }
-            delete extra.parse_mode
-            try {
-                await bot.api.sendMessage(chatId, novel.telegraph_url, extra)
-            } catch (error) {
-                runtime.deliveryErrors.push(error.code || 'TELEGRAM_NOVEL_SEND_FAILED')
-                await catchily(error, chatId, ctx.l, {
-                    method: 'sendNovel',
-                    errorCode: error.code || 'TELEGRAM_NOVEL_SEND_FAILED'
-                })
-            }
-        } catch (error) {
-            throw error
-        }
-    }, async error => {
-        const errorCode = await reportIndependentFailure(runtime, error, {
-            method: 'resolveNovel',
-            errorCode: error?.code || 'PIXIV_NOVEL_REQUEST_FAILED'
-        })
-        await bot.api.sendMessage(
-            chatId,
-            renderUserFacingError(ctx.l, { ...error, code: errorCode }),
-            defaultExtra
-        ).catch(() => { })
-    })
-}
-
-async function notifyFanbox(bot, runtime) {
-    const { ctx, chatId, text, defaultExtra } = runtime
-    if (text.includes('fanbox.cc/') && chatId > 0) {
-        await bot.api.sendMessage(chatId, _l(ctx.l, 'fanbox_not_support'), defaultExtra).catch(() => { })
-    }
-}
-
 function effectiveDeliveryMode(settings = {}) {
     if (settings.asfile) return 'file_only'
     if (settings.telegraph) return 'telegraph'
     if (settings.append_file_immediate) return 'media_with_immediate_files'
     if (settings.append_file) return 'media_with_files'
     return settings.album ? 'album' : 'media'
+}
+
+async function runNonfatalPhase(runtime, method, callback) {
+    try {
+        await callback()
+    } catch (error) {
+        await reportIndependentFailure(runtime, error, {
+            illustIds: runtime.ids.illust,
+            method,
+            errorCode: error?.code || 'SENDER_PHASE_FAILED'
+        })
+    }
 }
 
 export function createTgSender({ bot, config, resolveUserSettings, logger = honsole }) {
@@ -997,13 +982,26 @@ export function createTgSender({ bot, config, resolveUserSettings, logger = hons
             const runtime = await runTgSenderStateMachine(machine, {
                 initialize: async () => {
                     const runtime = await initializeInvocation(resolveUserSettings, ctx)
-                    runtime.reportError = catchily
+                    runtime.reportError = (error, chatId, languageCode, options) => catchily(
+                        error,
+                        chatId,
+                        languageCode,
+                        { ...options, config }
+                    )
                     return runtime
                 },
                 collectIllustrations: async runtime => {
-                    await collectIllustrations(bot, config, runtime)
+                    try {
+                        await collectIllustrations(bot, config, runtime)
+                    } catch (error) {
+                        await reportIndependentFailure(runtime, error, {
+                            illustIds: runtime.ids.illust,
+                            method: 'collectIllustrations',
+                            errorCode: error?.code || 'ILLUSTRATION_COLLECTION_FAILED'
+                        })
+                    }
                     updateDeliveryTraceFields({
-                        illustIds: runtime.illusts.map(illust => illust.id),
+                        illustIds: runtime.ids.illust,
                         deliveryMode: effectiveDeliveryMode(runtime.ctx.us)
                     })
                     deliveryTraceEvent('illustration_resolved', {
@@ -1012,9 +1010,21 @@ export function createTgSender({ bot, config, resolveUserSettings, logger = hons
                         deliveryMode: effectiveDeliveryMode(runtime.ctx.us)
                     })
                 },
-                sendIllustrations: runtime => sendIllustrations(bot, config, runtime),
-                sendNovels: runtime => sendNovels(bot, runtime),
-                notifyFanbox: runtime => notifyFanbox(bot, runtime)
+                sendIllustrations: runtime => runNonfatalPhase(
+                    runtime,
+                    'sendIllustrations',
+                    () => sendIllustrations(bot, config, runtime)
+                ),
+                sendNovels: runtime => runNonfatalPhase(
+                    runtime,
+                    'sendNovels',
+                    () => sendNovels(bot, runtime)
+                ),
+                notifyFanbox: runtime => runNonfatalPhase(
+                    runtime,
+                    'notifyFanbox',
+                    () => notifyFanbox(bot, runtime)
+                )
             })
             return summarizeTgSenderResult(runtime)
         })

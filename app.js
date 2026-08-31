@@ -51,12 +51,13 @@ const inlineQueryHandler = createInlineQueryHandler({
     keyboard: k_os,
     localize: _l,
     logger: honsole,
-    reportError: error => logTelegramFailure(honsole, error)
+    reportError: error => reportApplicationError(error, { method: 'inlineQuery' })
 })
 console.log('✓ Telegram bot instance created')
 
 async function reportApplicationError(error, fields = {}) {
     await catchily(error, fields.chatId, fields.languageCode || 'en', {
+        config,
         notifyUser: false,
         illustIds: fields.illustIds,
         illustId: fields.illustId,

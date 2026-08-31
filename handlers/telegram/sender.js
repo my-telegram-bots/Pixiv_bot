@@ -105,7 +105,17 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
             buildMedia: (mediaGroup, currentType) => mg_filter(mediaGroup, currentType),
             sendMedia: media => bot.api.sendMediaGroup(chat_id, media, extra),
             classifyError: classifyMediaSendError,
-            reportError: (error, fields) => catchily(error, chat_id, language_code, fields)
+            reportError: (error, fields) => {
+                const item = Number.isInteger(fields.failedIndex)
+                    ? mg[fields.failedIndex - 1]
+                    : null
+                return catchily(error, chat_id, language_code, {
+                    ...fields,
+                    illustId: item?.id,
+                    page: item?.p,
+                    method: 'sendMediaGroup'
+                })
+            }
         })
         if (result.exhausted) {
             honsole.warn('Media group retry budget exhausted', chat_id, mg.length, 'items')
@@ -146,6 +156,13 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
                 : mediaClassification
             const catchResult = await catchily(error, chat_id, language_code, {
                 notifyUser: !documentMode,
+                illustId: Number.isInteger(classification.failedIndex)
+                    ? mg[classification.failedIndex]?.id
+                    : undefined,
+                page: Number.isInteger(classification.failedIndex)
+                    ? mg[classification.failedIndex]?.p
+                    : undefined,
+                method: 'sendMediaGroup',
                 attempt,
                 failedIndex: Number.isInteger(classification.failedIndex)
                     ? classification.failedIndex + 1
@@ -254,6 +271,7 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
             lastError = error
             const classification = classifyMediaSendError(error)
             const catchResult = await catchily(error, chat_id, language_code, {
+                method: 'sendPhoto',
                 attempt: attempts,
                 errorCode: classification.code
             })
@@ -310,6 +328,7 @@ export async function sendDocumentWithRetry(chat_id, media_o, extra, language_co
         sendDocument: (file, sendExtra) => bot.api.sendDocument(chat_id, file, sendExtra),
         reportError: (error, fields) => catchily(error, chat_id, language_code, {
             ...fields,
+            method: 'sendDocument',
             notifyUser: false
         })
     })
