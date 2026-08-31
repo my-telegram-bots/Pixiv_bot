@@ -44,7 +44,11 @@ test('album item #7 curl failure retries only item #7 as a local upload', async 
             return [{ message_id: 1 }]
         },
         classifyError: classifyMediaSendError,
-        reportError: async () => true
+        reportError: async () => ({
+            decision: 'next_source',
+            userNotified: false,
+            errorCode: 'TELEGRAM_MEDIA_FETCH_FAILED'
+        })
     })
 
     t.is(result.kind, 'sent')

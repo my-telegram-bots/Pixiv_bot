@@ -14,6 +14,14 @@ export const CatchilyDecision = Object.freeze({
     TERMINAL: 'terminal'
 })
 
+const GENERIC_HTTP_CODES = new Set([
+    'ERR_BAD_REQUEST',
+    'ERR_BAD_RESPONSE',
+    'PIXIV_DETAIL_REQUEST_FAILED',
+    'PIXIV_DOCUMENT_DOWNLOAD_FAILED',
+    'TELEGRAM_MEDIA_SEND_FAILED'
+])
+
 export async function handleTelegramError(e, chatId, languageCode = 'en', options) {
     const { bot, logger, masterId, refetchApi } = options
     const mediaFailure = classifyMediaSendError(e)
@@ -21,11 +29,12 @@ export async function handleTelegramError(e, chatId, languageCode = 'en', option
     const description = rawDescription.toLowerCase()
     const httpStatus = Number(e?.response?.status)
     const isTelegramError = Boolean(e?.method || Number.isInteger(e?.error_code) || e?.ok === false)
-    const errorCode = options.errorCode || (
-        !isTelegramError && Number.isInteger(httpStatus)
-            ? `HTTP_${httpStatus}`
-            : mediaFailure.code
+    const preserveHttpStatus = !isTelegramError && Number.isInteger(httpStatus) && (
+        !options.errorCode || GENERIC_HTTP_CODES.has(options.errorCode)
     )
+    const errorCode = preserveHttpStatus
+        ? `HTTP_${httpStatus}`
+        : options.errorCode || mediaFailure.code
     const decision = mediaFailure.terminal
         ? CatchilyDecision.TERMINAL
         : description.includes('too many requests') || e?.error_code === 429

@@ -426,7 +426,11 @@ async function sendUgoiraAnimation(bot, config, runtime, illust, media, extra) {
             } catch (downloadError) {
                 honsole.error('Failed to download and send ugoira:', downloadError)
                 const classification = classifyMediaSendError(downloadError)
-                if (!classification.stale) await catchily(downloadError, chatId, ctx.l)
+                if (!classification.stale) await catchily(downloadError, chatId, ctx.l, {
+                    illustId: illust.id,
+                    page: 0,
+                    method: 'sendAnimation'
+                })
                 return {
                     kind: classification.stale ? MediaSendKind.STALE_MEDIA : MediaSendKind.FAILED,
                     code: classification.code,
@@ -435,7 +439,11 @@ async function sendUgoiraAnimation(bot, config, runtime, illust, media, extra) {
             }
         } else {
             const classification = classifyMediaSendError(error)
-            if (!classification.stale) await catchily(error, chatId, ctx.l)
+            if (!classification.stale) await catchily(error, chatId, ctx.l, {
+                illustId: illust.id,
+                page: 0,
+                method: 'sendAnimation'
+            })
             return {
                 kind: classification.stale ? MediaSendKind.STALE_MEDIA : MediaSendKind.FAILED,
                 code: classification.code,

@@ -149,7 +149,8 @@ test('ordinary HTTP failure keeps its status code and requested illustration ID'
         logger: quietLogger,
         notifyUser: false,
         illustIds: [131538411],
-        method: 'resolveIllustration'
+        method: 'resolveIllustration',
+        errorCode: 'PIXIV_DETAIL_REQUEST_FAILED'
     })
 
     t.is(result.errorCode, 'HTTP_404')
