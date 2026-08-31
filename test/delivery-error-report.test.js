@@ -114,6 +114,29 @@ test('administrator report failure is contained and never changes catchily decis
     })
 })
 
+test('administrator report failure does not change finite flood-wait retry decision', async t => {
+    const bot = { api: { sendMessage: async () => { throw new Error('admin blocked') } } }
+    const result = await catchily({
+        ok: false,
+        method: 'sendMediaGroup',
+        error_code: 429,
+        description: 'Too Many Requests: retry later',
+        parameters: { retry_after: 3 }
+    }, 10, 'en', {
+        bot,
+        masterId: 99,
+        refetchApi: null,
+        logger: quietLogger,
+        notifyUser: false,
+        illustId: 131538411,
+        method: 'sendMediaGroup',
+        attempt: 2
+    })
+
+    t.is(result.decision, CatchilyDecision.RETRY_TRANSPORT)
+    t.is(result.userNotified, false)
+})
+
 test('ordinary HTTP failure keeps its status code and requested illustration ID', async t => {
     const reports = []
     const bot = { api: { sendMessage: async (chatId, text) => reports.push({ chatId, text }) } }

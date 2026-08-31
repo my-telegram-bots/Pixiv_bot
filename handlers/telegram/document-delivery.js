@@ -106,7 +106,11 @@ export async function deliverDocument({
         }
     } catch (error) {
         const classification = classifyDocumentFailure(error, 'download')
-        await reportError(error, { attempt: 0, errorCode: classification.code })
+        try {
+            await reportError(error, { attempt: 0, errorCode: classification.code })
+        } catch {
+            // Reporting must never change document recovery or retry.
+        }
         return { ...classification, error, recoveryUrl: mediaUrl, attempts: 0 }
     }
 
@@ -119,7 +123,11 @@ export async function deliverDocument({
         } catch (error) {
             lastError = error
             const classification = classifyDocumentFailure(error, 'send')
-            await reportError(error, { attempt, errorCode: classification.code })
+            try {
+                await reportError(error, { attempt, errorCode: classification.code })
+            } catch {
+                // Reporting must never change document recovery or retry.
+            }
             if (!classification.retryable || attempt === attemptLimit) {
                 return {
                     ...classification,

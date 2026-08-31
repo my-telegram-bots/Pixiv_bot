@@ -32,7 +32,9 @@ export function safeDeliveryErrorReason(error) {
 
 export function formatAdminDeliveryError(error, fields = {}) {
     const correlation = currentDeliveryTraceCorrelation(fields)
-    const illust = correlation.illustId ?? correlation.illustIds?.join(',') ?? 'unknown'
+    const illust = correlation.illustId ?? (
+        correlation.illustIds?.length > 0 ? correlation.illustIds.join(',') : 'unknown'
+    )
     const parts = [
         '[delivery-error]',
         `request=${sanitizeLabel(correlation.requestId, 'unscoped')}`,
