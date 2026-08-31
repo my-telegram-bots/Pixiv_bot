@@ -77,9 +77,57 @@ test('ordinary Error descriptions are safe to classify', t => {
     t.deepEqual(classifyMediaSendError(error), {
         stale: false,
         retryLocal: false,
+        terminal: false,
         failedIndex: null,
         code: 'TELEGRAM_MEDIA_SEND_FAILED'
     })
+})
+
+test('reporting failure cannot block local retry of the failed album item', async t => {
+    const mediaGroup = [{ type: 'photo', id: 1, p: 0, media_r: 'https://example.test/1.jpg' }]
+    let sends = 0
+    const result = await runMediaGroupAttempts({
+        mediaGroup,
+        mediaTypes: ['r'],
+        buildMedia: async items => items,
+        sendMedia: async () => {
+            sends++
+            if (sends === 1) {
+                throw { description: 'failed to send message #1 with WEBPAGE_CURL_FAILED' }
+            }
+            return [{ message_id: 1 }]
+        },
+        classifyError: classifyMediaSendError,
+        reportError: async () => {
+            throw new Error('administrator unavailable')
+        }
+    })
+
+    t.is(result.kind, 'sent')
+    t.is(result.attempts, 2)
+})
+
+test('exhausted retry preserves actual attempts, code, and failed item', async t => {
+    const result = await runMediaGroupAttempts({
+        mediaGroup: [{ type: 'photo', id: 1, p: 0, media_r: 'https://example.test/1.jpg' }],
+        mediaTypes: ['r'],
+        maxAttempts: 1,
+        buildMedia: async items => items,
+        sendMedia: async () => {
+            throw { description: 'failed to send message #1 with WEBPAGE_CURL_FAILED' }
+        },
+        classifyError: classifyMediaSendError,
+        reportError: async () => ({
+            decision: 'next_source',
+            userNotified: false,
+            errorCode: 'TELEGRAM_MEDIA_FETCH_FAILED'
+        })
+    })
+
+    t.is(result.kind, 'failed')
+    t.is(result.code, 'TELEGRAM_MEDIA_RETRY_EXHAUSTED')
+    t.is(result.attempts, 1)
+    t.is(result.failedIndex, 0)
 })
 
 test('Telegram flood wait reads parameters.retry_after', t => {

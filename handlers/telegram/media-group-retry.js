@@ -35,8 +35,10 @@ export async function runMediaGroupAttempts(options) {
     const queue = [...mediaTypes]
     let lastError
     let lastClassification
+    let attempts = 0
 
     for (let attempt = 1; attempt <= maxAttempts && queue.length > 0; attempt++) {
+        attempts = attempt
         const currentType = queue.shift()
         try {
             const result = await sendMedia(await buildMedia([...mediaGroup], currentType))
@@ -46,13 +48,22 @@ export async function runMediaGroupAttempts(options) {
             const classification = classifyError(error, currentType)
             lastClassification = classification
             traceFailedAttempt(mediaGroup, currentType, attempt, classification)
-            const reportResult = await reportError(error, {
-                attempt,
-                failedIndex: Number.isInteger(classification.failedIndex)
-                    ? classification.failedIndex + 1
-                    : undefined,
+            let reportResult = {
+                decision: classification.terminal ? 'terminal' : 'next_source',
+                userNotified: false,
                 errorCode: classification.code
-            })
+            }
+            try {
+                reportResult = await reportError(error, {
+                    attempt,
+                    failedIndex: Number.isInteger(classification.failedIndex)
+                        ? classification.failedIndex + 1
+                        : undefined,
+                    errorCode: classification.code
+                })
+            } catch {
+                // Reporting must never change transport retry or continuation.
+            }
             if (classification.stale) {
                 return {
                     kind: MediaSendKind.STALE_MEDIA,
@@ -92,7 +103,8 @@ export async function runMediaGroupAttempts(options) {
         kind: MediaSendKind.FAILED,
         code: options.exhaustedCode?.(lastClassification) || 'TELEGRAM_MEDIA_RETRY_EXHAUSTED',
         error: lastError,
-        attempts: Math.min(maxAttempts, options.mediaTypes.length || maxAttempts),
+        failedIndex: lastClassification?.failedIndex,
+        attempts,
         exhausted: true,
         lastClassification
     }

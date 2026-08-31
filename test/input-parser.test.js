@@ -57,6 +57,13 @@ test('Pixiv matcher scans adjacent links separated by setting markers', t => {
     )
 })
 
+test('Pixiv matcher keeps the artwork identity before whitespace-free flags', t => {
+    t.deepEqual(
+        extractPixivIds('https://www.pixiv.net/en/artworks/131538411+file+afi'),
+        { illust: [131538411], author: [], novel: [] }
+    )
+})
+
 test('metadata extraction removes recognized lines and preserves aliases', t => {
     const values = extractInputValues('title=Example\nan=Artist\nau=https://example.com\nbody')
 

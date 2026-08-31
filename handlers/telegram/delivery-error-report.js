@@ -32,14 +32,17 @@ export function safeDeliveryErrorReason(error) {
 
 export function formatAdminDeliveryError(error, fields = {}) {
     const correlation = currentDeliveryTraceCorrelation(fields)
+    const illust = correlation.illustId ?? correlation.illustIds?.join(',') ?? 'unknown'
     const parts = [
         '[delivery-error]',
         `request=${sanitizeLabel(correlation.requestId, 'unscoped')}`,
         `chat=${correlation.chatId ?? 'unknown'}`,
-        `method=${sanitizeLabel(error?.method, 'unknown')}`,
+        `illust=${illust}`,
+        `method=${sanitizeLabel(fields.method || error?.method, 'unknown')}`,
         `code=${safeDeliveryErrorCode(error, fields.errorCode)}`,
         `reason=${safeDeliveryErrorReason(error)}`
     ]
+    if (correlation.page !== undefined) parts.push(`page=${correlation.page}`)
     if (correlation.attempt !== undefined) parts.push(`attempt=${correlation.attempt}`)
     if (correlation.failedIndex !== undefined) parts.push(`failedItem=${correlation.failedIndex}`)
     return truncate(parts.join(' '), ADMIN_ERROR_REPORT_LIMIT)

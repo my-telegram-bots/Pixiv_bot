@@ -61,3 +61,33 @@ test('settings command body is separated for Telegraph metadata parsing', t => {
     t.is(parseSettingsInput('/s +tags\ntitle=Example').body, '+tags\ntitle=Example')
     t.is(parseSettingsInput('title=Example').body, 'title=Example')
 })
+
+test('recognized Pixiv inputs accept registered flags without whitespace', t => {
+    const cases = [
+        'https://www.pixiv.net/en/artworks/131538411+file',
+        'https://phixiv.net/artworks/131538411+file',
+        '131538411+file',
+        '#131538411+file'
+    ]
+    for (const input of cases) {
+        t.true(hasPositiveDirective(parseSettingsInput(input), 'asfile'), input)
+    }
+
+    const combined = parseSettingsInput('pixiv.net/artworks/131538411+af+afi-tags')
+    t.true(hasPositiveDirective(combined, 'append_file'))
+    t.true(hasPositiveDirective(combined, 'append_file_immediate'))
+    t.true(hasNegativeDirective(combined, 'tags'))
+})
+
+test('embedded signs and URL query values do not become suffix directives', t => {
+    const rejected = [
+        'text+file',
+        'name+file@example.com',
+        'https://example.com/artworks/131538411+file',
+        'https://pixiv.net/artworks/131538411?redirect=+file',
+        'https://pixiv.net/artworks/131538411+unknown+file'
+    ]
+    for (const input of rejected) {
+        t.false(parseSettingsInput(input).hasKnownDirectives, input)
+    }
+})

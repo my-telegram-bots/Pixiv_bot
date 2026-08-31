@@ -20,7 +20,7 @@ import { createLinkLifecycle } from '#handlers/telegram/link-lifecycle'
 import { detect_ugpira_url } from '#handlers/pixiv/tools'
 import { createTgSender } from '#handlers/telegram/tg-sender'
 import { logTelegramFailure } from '#handlers/telegram/delivery-telemetry'
-import { reportAdminDeliveryError } from '#handlers/telegram/delivery-error-report'
+import { catchily } from '#handlers/telegram/sender'
 import { renderUserFacingError } from '#handlers/telegram/user-facing-error'
 import {
     createInlineDeadline,
@@ -56,13 +56,13 @@ const inlineQueryHandler = createInlineQueryHandler({
 console.log('✓ Telegram bot instance created')
 
 async function reportApplicationError(error, fields = {}) {
-    logTelegramFailure(honsole, error, fields)
-    await reportAdminDeliveryError({
-        error,
-        masterId: config.tg.master_id,
-        sendMessage: (masterId, report) => bot.api.sendMessage(masterId, report),
-        logger: honsole,
-        ...fields
+    await catchily(error, fields.chatId, fields.languageCode || 'en', {
+        notifyUser: false,
+        illustIds: fields.illustIds,
+        illustId: fields.illustId,
+        page: fields.page,
+        method: fields.method || 'tgSender',
+        errorCode: fields.errorCode
     })
 }
 
@@ -212,7 +212,11 @@ async function dispatchSourceMessage(ctx, chatId) {
                 message_thread_id: ctx.default_extra.message_thread_id
             } : {}).catch(() => { })
             tg_sender(ctx).catch(error => {
-                reportApplicationError(error, { chatId }).catch(() => { })
+                reportApplicationError(error, {
+                    chatId,
+                    languageCode: ctx.l,
+                    illustIds: ctx.ids?.illust
+                }).catch(() => { })
                 bot.api.sendMessage(chatId, renderUserFacingError(ctx.l, error), ctx.default_extra).catch(() => { })
             })
             return
@@ -220,7 +224,11 @@ async function dispatchSourceMessage(ctx, chatId) {
         try {
             await tg_sender(ctx)
         } catch (error) {
-            await reportApplicationError(error, { chatId })
+            await reportApplicationError(error, {
+                chatId,
+                languageCode: ctx.l,
+                illustIds: ctx.ids?.illust
+            })
             bot.api.sendMessage(chatId, renderUserFacingError(ctx.l, error), ctx.default_extra).catch(() => { })
         }
         return
@@ -228,7 +236,11 @@ async function dispatchSourceMessage(ctx, chatId) {
     try {
         await tg_sender(ctx)
     } catch (error) {
-        await reportApplicationError(error, { chatId })
+        await reportApplicationError(error, {
+            chatId,
+            languageCode: ctx.l,
+            illustIds: ctx.ids?.illust
+        })
         bot.api.sendMessage(chatId, renderUserFacingError(ctx.l, error), ctx.default_extra).catch(() => { })
     }
 }
@@ -259,7 +271,12 @@ bot.on([':text', ':caption'], async (ctx) => {
 bot.on('inline_query', inlineQueryHandler)
 
 bot.catch(async (e) => {
-    await reportApplicationError(e?.error || e)
+    await reportApplicationError(e?.error || e, {
+        chatId: e?.ctx?.chat?.id,
+        languageCode: e?.ctx?.l,
+        illustIds: e?.ctx?.ids?.illust,
+        method: 'botUpdate'
+    })
 })
 
 db.db_initial().then(async () => {

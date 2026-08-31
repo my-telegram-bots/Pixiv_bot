@@ -36,21 +36,33 @@ export const CatchilyDecision = Object.freeze({
  * @param {*} language_code language code
  */
 export async function catchily(e, chat_id, language_code = 'en', options = {}) {
-    const bot = getBot()
+    const bot = options.bot || getBot()
+    const logger = options.logger || honsole
+    const masterId = options.masterId || config.tg.master_id
     const default_extra = {
         parse_mode: 'MarkdownV2'
     }
     const mediaFailure = classifyMediaSendError(e)
     const rawDescription = telegramErrorDescription(e)
     const description = rawDescription.toLowerCase()
-    const errorCode = options.errorCode || mediaFailure.code
+    const httpStatus = Number(e?.response?.status)
+    const isTelegramError = Boolean(e?.method || Number.isInteger(e?.error_code) || e?.ok === false)
+    const errorCode = options.errorCode || (
+        !isTelegramError && Number.isInteger(httpStatus)
+            ? `HTTP_${httpStatus}`
+            : mediaFailure.code
+    )
     const decision = mediaFailure.terminal
         ? CatchilyDecision.TERMINAL
         : description.includes('too many requests') || e?.error_code === 429
             ? CatchilyDecision.RETRY_TRANSPORT
             : CatchilyDecision.NEXT_SOURCE
-    logTelegramFailure(honsole, e, {
+    logTelegramFailure(logger, e, {
         chatId: chat_id,
+        illustIds: options.illustIds,
+        illustId: options.illustId,
+        page: options.page,
+        method: options.method,
         errorCode,
         attempt: options.attempt,
         failedIndex: Number.isInteger(mediaFailure.failedIndex)
@@ -59,10 +71,14 @@ export async function catchily(e, chat_id, language_code = 'en', options = {}) {
     })
     await reportAdminDeliveryError({
         error: e,
-        masterId: config.tg.master_id,
+        masterId,
         sendMessage: (masterId, report) => bot.api.sendMessage(masterId, report),
-        logger: honsole,
+        logger,
         chatId: chat_id,
+        illustIds: options.illustIds,
+        illustId: options.illustId,
+        page: options.page,
+        method: options.method,
         errorCode,
         attempt: options.attempt,
         failedIndex: Number.isInteger(mediaFailure.failedIndex)
@@ -156,7 +172,7 @@ export async function catchily(e, chat_id, language_code = 'en', options = {}) {
             }
         }
     } catch (error) {
-        logTelegramFailure(honsole, error)
+        logTelegramFailure(logger, error)
     }
     return { decision, userNotified, errorCode }
 }
@@ -397,7 +413,7 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
  * @param {*} media_o - Can be URL or local file path
  * @param {*} extra
  */
-export async function sendDocumentWithRetry(chat_id, media_o, extra) {
+export async function sendDocumentWithRetry(chat_id, media_o, extra, language_code = 'en') {
     const bot = getBot()
     // Send upload_document action
     bot.api.sendChatAction(chat_id, 'upload_document', extra.message_thread_id ? {
@@ -414,7 +430,11 @@ export async function sendDocumentWithRetry(chat_id, media_o, extra) {
         createLocalInputFile: (path, filename) => new InputFile(path, filename),
         fetchRemoteFile: fetch_tmp_file,
         createBufferedInputFile: (data, filename) => new InputFile(data, filename),
-        sendDocument: (file, sendExtra) => bot.api.sendDocument(chat_id, file, sendExtra)
+        sendDocument: (file, sendExtra) => bot.api.sendDocument(chat_id, file, sendExtra),
+        reportError: (error, fields) => catchily(error, chat_id, language_code, {
+            ...fields,
+            notifyUser: false
+        })
     })
     delivery.recoveryUrl = publicDocumentRecoveryUrl(
         delivery.recoveryUrl,

@@ -47,9 +47,6 @@ import {
     completeIllustration,
     createIllustrationLifecycle,
     failIllustration,
-    markIllustrationOutputQueued,
-    markIllustrationOutputSent,
-    markIllustrationPageSent,
     recordIllustrationDeliveryFailure,
     replaceRefreshedAlbumItems
 } from '#handlers/telegram/illustration-lifecycle'
@@ -61,61 +58,20 @@ import {
     runWithDeliveryTraceFields,
     updateDeliveryTraceFields
 } from '#handlers/telegram/delivery-telemetry'
-import {
-    reportAdminDeliveryError
-} from '#handlers/telegram/delivery-error-report'
 import { renderUserFacingError } from '#handlers/telegram/user-facing-error'
+import {
+    recordOutputQueued,
+    recordOutputSent,
+    recordPageSent,
+    reportIndependentFailure,
+    runIndependentDeliveryItems
+} from '#handlers/telegram/tg-sender-continuation'
 
 const terminalIllustrationStates = new Set([
     IllustrationLifecycleState.COMPLETED,
     IllustrationLifecycleState.NOT_FOUND,
     IllustrationLifecycleState.FAILED
 ])
-
-function recordPageSent(lifecycle, page) {
-    if (terminalIllustrationStates.has(lifecycle.state)) {
-        lifecycle.sentPages.add(page)
-        return
-    }
-    markIllustrationPageSent(lifecycle, page)
-}
-
-function recordOutputSent(lifecycle, output) {
-    if (terminalIllustrationStates.has(lifecycle.state)) {
-        lifecycle.sentOutputs.add(output)
-        return
-    }
-    markIllustrationOutputSent(lifecycle, output)
-}
-
-function recordOutputQueued(lifecycle, output) {
-    if (terminalIllustrationStates.has(lifecycle.state)) {
-        lifecycle.queuedOutputs.add(output)
-        return
-    }
-    markIllustrationOutputQueued(lifecycle, output)
-}
-
-async function reportIndependentFailure(bot, config, runtime, error, fields = {}) {
-    const errorCode = fields.errorCode || error?.code || 'UNEXPECTED_PROCESSING_FAILURE'
-    runtime.deliveryErrors.push(errorCode)
-    logTelegramFailure(honsole, error, {
-        chatId: runtime.chatId,
-        errorCode,
-        failedIndex: fields.failedIndex
-    })
-    await reportAdminDeliveryError({
-        error,
-        masterId: config.tg.master_id,
-        sendMessage: (masterId, report) => bot.api.sendMessage(masterId, report),
-        logger: honsole,
-        chatId: runtime.chatId,
-        errorCode,
-        failedIndex: fields.failedIndex,
-        attempt: fields.attempt
-    })
-    return errorCode
-}
 
 function messageThreadOptions(ctx) {
     const messageThreadId = ctx.default_extra?.message_thread_id
@@ -168,13 +124,16 @@ async function collectIllustrations(bot, config, runtime) {
                             )
                         }
                     } catch (error) {
-                        await reportIndependentFailure(bot, config, runtime, error, {
+                        await reportIndependentFailure(runtime, error, {
+                            illustId: illust?.id,
+                            method: 'resolveIllustration',
                             errorCode: error?.code || 'PIXIV_DETAIL_REQUEST_FAILED'
                         })
                     }
                 })
             } catch (error) {
-                await reportIndependentFailure(bot, config, runtime, error, {
+                await reportIndependentFailure(runtime, error, {
+                    method: 'resolveAuthorIllustrations',
                     errorCode: error?.code || 'PIXIV_AUTHOR_REQUEST_FAILED'
                 })
             }
@@ -191,19 +150,29 @@ async function collectIllustrations(bot, config, runtime) {
     let has404 = false
     let hasError = false
 
-    for (const result of results) {
+    for (const [index, result] of results.entries()) {
+        const requestedIllustId = ids.illust[index]
         if (result.status === 'rejected') {
-            logTelegramFailure(honsole, result.reason, {
+            await reportIndependentFailure(runtime, result.reason, {
+                illustId: requestedIllustId,
+                method: 'resolveIllustration',
                 errorCode: result.reason?.code || 'PIXIV_DETAIL_REQUEST_FAILED'
             })
             hasError = true
-            runtime.deliveryErrors.push(result.reason?.code || 'PIXIV_DETAIL_REQUEST_FAILED')
         } else if (result.value.kind === 'not_found') {
             has404 = true
             runtime.deliveryErrors.push('PIXIV_ILLUSTRATION_NOT_FOUND')
         } else if (result.value.kind === 'failed') {
             hasError = true
-            runtime.deliveryErrors.push(result.value.code || 'PIXIV_DETAIL_REQUEST_FAILED')
+            const error = Object.assign(
+                new Error('Pixiv illustration resolution failed'),
+                { code: result.value.code || 'PIXIV_DETAIL_REQUEST_FAILED' }
+            )
+            await reportIndependentFailure(runtime, error, {
+                illustId: requestedIllustId,
+                method: 'resolveIllustration',
+                errorCode: error.code
+            })
         } else if (result.value.kind === 'ready') {
             addResolvedIllustration(runtime, result.value.illustration)
         }
@@ -620,7 +589,9 @@ async function classifyIllustrationOutput(bot, config, runtime) {
                 await sendUgoira(bot, config, runtime, lifecycle, extra)
             }
         } catch (error) {
-            const errorCode = await reportIndependentFailure(bot, config, runtime, error, {
+            const errorCode = await reportIndependentFailure(runtime, error, {
+                illustId: lifecycle.id,
+                method: 'sendIllustration',
                 errorCode: error?.code || 'ILLUSTRATION_SEND_FAILED'
             })
             if (!terminalIllustrationStates.has(lifecycle.state)) {
@@ -692,7 +663,20 @@ async function sendTelegraph(bot, runtime) {
             await bot.api.sendMessage(chatId, _l(ctx.l, 'telegraph_iv'), defaultExtra).catch(() => { })
         }
     } catch (error) {
-        logTelegramFailure(honsole, error, { errorCode: 'TELEGRAPH_SEND_FAILED' })
+        const errorCode = await reportIndependentFailure(
+            runtime,
+            error,
+            {
+                illustIds: mediaGroups[0]?.map(item => item.id),
+                method: 'sendTelegraph',
+                errorCode: 'TELEGRAPH_SEND_FAILED'
+            }
+        )
+        await failAlbum(bot, runtime, mediaGroups[0] || [], {
+            code: errorCode,
+            error,
+            attempts: 1
+        })
     }
 }
 
@@ -704,7 +688,9 @@ async function sendAlbumBatch(bot, runtime, mediaGroups, asDocuments) {
         try {
             albums = mg_albumize(group, ctx.us)
         } catch (error) {
-            const errorCode = await reportIndependentFailure(bot, runtime.config, runtime, error, {
+            const errorCode = await reportIndependentFailure(runtime, error, {
+                illustIds: group.map(item => item.id),
+                method: 'buildMediaGroup',
                 errorCode: error?.code || 'TELEGRAM_ALBUM_BUILD_FAILED'
             })
             await failAlbum(bot, runtime, group, { code: errorCode, error, attempts: 0 })
@@ -784,7 +770,9 @@ async function sendAlbumBatch(bot, runtime, mediaGroups, asDocuments) {
                     await rateLimit(index)
                 }
             } catch (error) {
-                const errorCode = await reportIndependentFailure(bot, runtime.config, runtime, error, {
+                const errorCode = await reportIndependentFailure(runtime, error, {
+                    illustIds: mediaGroup.map(item => item.id),
+                    method: asDocuments ? 'sendDocumentGroup' : 'sendMediaGroup',
                     errorCode: error?.code || 'TELEGRAM_ALBUM_SEND_FAILED'
                 })
                 await failAlbum(bot, runtime, mediaGroup, {
@@ -893,7 +881,10 @@ async function flushFiles(bot, runtime) {
             }
         } catch (error) {
             failedCount++
-            const errorCode = await reportIndependentFailure(bot, runtime.config, runtime, error, {
+            const errorCode = await reportIndependentFailure(runtime, error, {
+                illustId: lifecycle.id,
+                page,
+                method: 'sendDocument',
                 errorCode: error?.code || 'TELEGRAM_DOCUMENT_SEND_FAILED',
                 failedIndex: index + 1
             })
@@ -938,7 +929,7 @@ async function sendIllustrations(bot, config, runtime) {
 
 async function sendNovels(bot, runtime) {
     const { ctx, chatId, defaultExtra, ids } = runtime
-    await asyncForEach(ids.novel, async id => {
+    await runIndependentDeliveryItems(ids.novel, async id => {
         try {
             bot.api.sendChatAction(chatId, 'typing', messageThreadOptions(ctx)).catch(() => { })
             const novel = await handle_novel(id)
@@ -955,19 +946,23 @@ async function sendNovels(bot, runtime) {
             } catch (error) {
                 runtime.deliveryErrors.push(error.code || 'TELEGRAM_NOVEL_SEND_FAILED')
                 await catchily(error, chatId, ctx.l, {
+                    method: 'sendNovel',
                     errorCode: error.code || 'TELEGRAM_NOVEL_SEND_FAILED'
                 })
             }
         } catch (error) {
-            const errorCode = await reportIndependentFailure(bot, runtime.config, runtime, error, {
-                errorCode: error?.code || 'PIXIV_NOVEL_REQUEST_FAILED'
-            })
-            await bot.api.sendMessage(
-                chatId,
-                renderUserFacingError(ctx.l, { ...error, code: errorCode }),
-                defaultExtra
-            ).catch(() => { })
+            throw error
         }
+    }, async error => {
+        const errorCode = await reportIndependentFailure(runtime, error, {
+            method: 'resolveNovel',
+            errorCode: error?.code || 'PIXIV_NOVEL_REQUEST_FAILED'
+        })
+        await bot.api.sendMessage(
+            chatId,
+            renderUserFacingError(ctx.l, { ...error, code: errorCode }),
+            defaultExtra
+        ).catch(() => { })
     })
 }
 
@@ -997,6 +992,7 @@ export function createTgSender({ bot, config, resolveUserSettings, logger = hons
             deliveryTraceEvent('update_received', {
                 illustIds: ctx.ids?.illust || []
             })
+            updateDeliveryTraceFields({ illustIds: ctx.ids?.illust || [] })
             const machine = createTgSenderMachine()
             const runtime = await runTgSenderStateMachine(machine, {
                 initialize: () => initializeInvocation(resolveUserSettings, ctx),

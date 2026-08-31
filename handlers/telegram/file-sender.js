@@ -54,7 +54,8 @@ export async function sendDocumentWithChain(options) {
         const result = await sendDocumentWithRetry(
             chat_id,
             media_url,
-            cleanExtra
+            cleanExtra,
+            lang
         )
 
         if (result.kind === MediaSendKind.FAILED && !silent_error && default_extra) {

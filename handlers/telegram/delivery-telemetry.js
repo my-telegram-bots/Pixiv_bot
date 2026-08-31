@@ -99,6 +99,9 @@ export function currentDeliveryTraceCorrelation(fields = {}) {
     return safeFields({
         requestId: context?.requestId,
         chatId: fields.chatId ?? context?.chatId,
+        illustIds: fields.illustIds ?? context?.illustIds,
+        illustId: fields.illustId ?? context?.illustId,
+        page: fields.page ?? context?.page,
         attempt: fields.attempt,
         failedIndex: fields.failedIndex
     })

@@ -92,6 +92,7 @@ export async function deliverDocument({
     fetchRemoteFile,
     createBufferedInputFile,
     sendDocument,
+    reportError = async () => {},
     maxSendAttempts = 2
 }) {
     const filename = String(mediaUrl || '').slice(String(mediaUrl || '').lastIndexOf('/') + 1)
@@ -105,6 +106,7 @@ export async function deliverDocument({
         }
     } catch (error) {
         const classification = classifyDocumentFailure(error, 'download')
+        await reportError(error, { attempt: 0, errorCode: classification.code })
         return { ...classification, error, recoveryUrl: mediaUrl, attempts: 0 }
     }
 
@@ -117,6 +119,7 @@ export async function deliverDocument({
         } catch (error) {
             lastError = error
             const classification = classifyDocumentFailure(error, 'send')
+            await reportError(error, { attempt, errorCode: classification.code })
             if (!classification.retryable || attempt === attemptLimit) {
                 return {
                     ...classification,
