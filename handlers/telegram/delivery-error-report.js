@@ -23,7 +23,7 @@ export function safeDeliveryErrorReason(error) {
     const reason = telegramErrorDescription(error)
         .replace(/\bhttps?:\/\/\S+/gi, '[redacted-url]')
         .replace(/\b\d{5,}:[a-z0-9_-]{20,}\b/gi, '[redacted-token]')
-        .replace(/\b(caption|payload|media|document|photo)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi, '$1=[redacted]')
+        .replace(/\b(?:caption|payload|media|document|photo)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi, '[redacted-field]')
         .replace(/[\u0000-\u001f\u007f]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()

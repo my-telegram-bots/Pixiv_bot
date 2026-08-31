@@ -19,7 +19,6 @@ import { createChatLinkStore } from '#handlers/telegram/chat-link-store'
 import { createLinkLifecycle } from '#handlers/telegram/link-lifecycle'
 import { detect_ugpira_url } from '#handlers/pixiv/tools'
 import { createTgSender } from '#handlers/telegram/tg-sender'
-import { logTelegramFailure } from '#handlers/telegram/delivery-telemetry'
 import { catchily } from '#handlers/telegram/sender'
 import { renderUserFacingError } from '#handlers/telegram/user-facing-error'
 import {

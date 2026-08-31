@@ -59,9 +59,13 @@ function deliveryFixture(overrides = {}) {
 }
 
 test('+file reaches document delivery and never selects photo mode', async t => {
-    const text = 'https://pixiv.net/artworks/12345678 +file'
+    const text = 'https://www.pixiv.net/en/artworks/131538411+file'
+    const base = createDefaultUserSettings()
+    base.setting.default.telegraph = true
+    base.setting.default.append_file = true
+    base.setting.default.append_file_immediate = true
     const settings = resolveRequestSettings(
-        createDefaultUserSettings(),
+        base,
         parseSettingsInput(text),
         'private',
         { id: 7 }
@@ -75,13 +79,16 @@ test('+file reaches document delivery and never selects photo mode', async t => 
         sendDocument: () => deliverDocument(f.fixture)
     })
 
-    t.deepEqual(ids.illust, [12345678])
+    t.deepEqual(ids.illust, [131538411])
     t.is(configured.mode, 'file_only')
     t.is(configured.result.kind, 'sent')
     t.false(plan.sendPhoto)
     t.is(plan.immediateDocumentMode, 'file_only')
     t.false(plan.queueDocument)
     t.false(plan.appendAlbumDocuments)
+    t.false(settings.telegraph)
+    t.false(settings.append_file)
+    t.false(settings.append_file_immediate)
     t.is(f.fetches.length, 1)
     t.is(f.sends.length, 1)
 })
