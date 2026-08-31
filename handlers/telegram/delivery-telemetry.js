@@ -97,7 +97,7 @@ export function updateDeliveryTraceFields(fields) {
 export function currentDeliveryTraceCorrelation(fields = {}) {
     const context = deliveryTraceStorage.getStore()
     return safeFields({
-        requestId: context?.requestId,
+        requestId: fields.requestId ?? context?.requestId,
         chatId: fields.chatId ?? context?.chatId,
         illustIds: fields.illustIds ?? context?.illustIds,
         illustId: fields.illustId ?? context?.illustId,

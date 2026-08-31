@@ -148,6 +148,7 @@ test('ordinary HTTP failure keeps its status code and requested illustration ID'
         refetchApi: null,
         logger: quietLogger,
         notifyUser: false,
+        requestId: '2356a5d1-0a00-496e-aa80-2f11b83b5785',
         illustIds: [131538411],
         method: 'resolveIllustration',
         errorCode: 'PIXIV_DETAIL_REQUEST_FAILED'
@@ -155,6 +156,7 @@ test('ordinary HTTP failure keeps its status code and requested illustration ID'
 
     t.is(result.errorCode, 'HTTP_404')
     t.is(reports.length, 1)
+    t.true(reports[0].text.includes('request=2356a5d1-0a00-496e-aa80-2f11b83b5785'))
     t.true(reports[0].text.includes('illust=131538411'))
     t.true(reports[0].text.includes('method=resolveIllustration'))
     t.true(reports[0].text.includes('code=HTTP_404'))

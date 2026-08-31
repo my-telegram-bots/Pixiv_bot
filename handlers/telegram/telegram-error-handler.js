@@ -44,6 +44,7 @@ export async function handleTelegramError(e, chatId, languageCode = 'en', option
         ? mediaFailure.failedIndex + 1
         : options.failedIndex
     const diagnosticFields = {
+        requestId: options.requestId,
         chatId,
         illustIds: options.illustIds,
         illustId: options.illustId,
