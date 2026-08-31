@@ -1,20 +1,17 @@
 import { getBot } from '../../bot.js'
-import { _l } from './i18n.js'
 import { honsole, fetch_tmp_file, isStaleMediaError } from '../common.js'
 import { mg_filter } from './mediagroup.js'
 import { InputFile } from 'grammy'
-import config from '../../config.js'
-import axios from 'axios'
 import {
     MediaSendKind,
     classifyMediaSendError,
-    queueLocalMediaRetry,
-    telegramErrorDescription,
-    telegramRetryAfter
+    queueLocalMediaRetry
 } from './media-send-result.js'
 import { runMediaGroupAttempts } from '#handlers/telegram/media-group-retry'
-import { logTelegramFailure } from '#handlers/telegram/delivery-telemetry'
-import { reportAdminDeliveryError } from '#handlers/telegram/delivery-error-report'
+import {
+    CatchilyDecision,
+    handleTelegramError
+} from '#handlers/telegram/telegram-error-handler'
 import {
     classifyDocumentFailure,
     deliverDocument,
@@ -23,11 +20,14 @@ import {
 
 export { MediaSendKind, classifyMediaSendError }
 
-export const CatchilyDecision = Object.freeze({
-    NEXT_SOURCE: 'next_source',
-    RETRY_TRANSPORT: 'retry_transport',
-    TERMINAL: 'terminal'
-})
+export { CatchilyDecision }
+
+let runtimeConfigPromise
+
+function loadRuntimeConfig() {
+    runtimeConfigPromise ||= import('../../config.js').then(module => module.default)
+    return runtimeConfigPromise
+}
 
 /**
  * catch error report && reply
@@ -38,143 +38,18 @@ export const CatchilyDecision = Object.freeze({
 export async function catchily(e, chat_id, language_code = 'en', options = {}) {
     const bot = options.bot || getBot()
     const logger = options.logger || honsole
-    const masterId = options.masterId || config.tg.master_id
-    const default_extra = {
-        parse_mode: 'MarkdownV2'
-    }
-    const mediaFailure = classifyMediaSendError(e)
-    const rawDescription = telegramErrorDescription(e)
-    const description = rawDescription.toLowerCase()
-    const httpStatus = Number(e?.response?.status)
-    const isTelegramError = Boolean(e?.method || Number.isInteger(e?.error_code) || e?.ok === false)
-    const errorCode = options.errorCode || (
-        !isTelegramError && Number.isInteger(httpStatus)
-            ? `HTTP_${httpStatus}`
-            : mediaFailure.code
+    const runtimeConfig = options.config || (
+        options.masterId === undefined ? await loadRuntimeConfig() : { tg: {} }
     )
-    const decision = mediaFailure.terminal
-        ? CatchilyDecision.TERMINAL
-        : description.includes('too many requests') || e?.error_code === 429
-            ? CatchilyDecision.RETRY_TRANSPORT
-            : CatchilyDecision.NEXT_SOURCE
-    logTelegramFailure(logger, e, {
-        chatId: chat_id,
-        illustIds: options.illustIds,
-        illustId: options.illustId,
-        page: options.page,
-        method: options.method,
-        errorCode,
-        attempt: options.attempt,
-        failedIndex: Number.isInteger(mediaFailure.failedIndex)
-            ? mediaFailure.failedIndex + 1
-            : options.failedIndex
-    })
-    await reportAdminDeliveryError({
-        error: e,
-        masterId,
-        sendMessage: (masterId, report) => bot.api.sendMessage(masterId, report),
+    const masterId = options.masterId ?? runtimeConfig.tg.master_id
+    const refetchApi = options.refetchApi ?? runtimeConfig.tg.refetch_api
+    return handleTelegramError(e, chat_id, language_code, {
+        ...options,
+        bot,
         logger,
-        chatId: chat_id,
-        illustIds: options.illustIds,
-        illustId: options.illustId,
-        page: options.page,
-        method: options.method,
-        errorCode,
-        attempt: options.attempt,
-        failedIndex: Number.isInteger(mediaFailure.failedIndex)
-            ? mediaFailure.failedIndex + 1
-            : options.failedIndex
+        masterId,
+        refetchApi
     })
-    let userNotified = false
-    try {
-        if (!e.ok) {
-            if (options.notifyUser !== false && description.includes('media_caption_too_long')) {
-                userNotified = await bot.api.sendMessage(
-                    chat_id,
-                    _l(language_code, 'error_text_too_long'),
-                    default_extra
-                ).then(() => true, () => false)
-            } else if (description.includes('can\'t parse entities: character')) {
-                if (options.notifyUser !== false) {
-                    userNotified = await bot.api.sendMessage(
-                        chat_id,
-                        _l(language_code, 'error_format', rawDescription)
-                    ).then(() => true, () => false)
-                }
-                // banned by user
-            } else if (description.includes('forbidden:')) {
-                // not have permission
-            } else if (description.includes('not enough rights to send')) {
-                if (options.notifyUser !== false) {
-                    userNotified = await bot.api.sendMessage(
-                        chat_id,
-                        _l(language_code, 'error_not_enough_rights'),
-                        default_extra
-                    ).then(() => true, () => false)
-                }
-                // message thread not found - give up sending
-            } else if (description.includes('message thread not found')) {
-                console.log('Message thread not found, skipping message')
-                // just a moment
-            } else if (description.includes('too many requests')) {
-                console.log(chat_id, 'sleep', telegramRetryAfter(e), 's')
-            } else if (description.includes('failed to send message') && description.includes('#')) {
-                // Handle specific media item failure: "failed to send message #N with the error message 'WEBPAGE_MEDIA_EMPTY'"
-                const failed_index_match = description.match(/failed to send message #(\d+)/);
-                if (failed_index_match && e.method === 'sendMediaGroup' && e.payload.media) {
-                    const failed_index = parseInt(failed_index_match[1]) - 1; // Convert to 0-based index
-                    if (failed_index >= 0 && failed_index < e.payload.media.length) {
-                        const failed_media = e.payload.media[failed_index];
-                        if (failed_media.media && typeof failed_media.media === 'string' && failed_media.media.includes('https://')) {
-                            const failed_url = failed_media.media;
-                            honsole.log(`[refetch] Media item #${failed_index + 1} failed`);
-                            if (config.tg.refetch_api) {
-                                (async () => {
-                                    try {
-                                        await axios.post(config.tg.refetch_api, {
-                                            url: failed_url
-                                        })
-                                        honsole.log('[ok] refetch request completed')
-                                    } catch (error) {
-                                        logTelegramFailure(honsole, error, { errorCode: 'REFETCH_REQUEST_FAILED' })
-                                    }
-                                })()
-                            }
-                        }
-                    }
-                }
-                // Don't return here, let it continue to check other error types
-            } else if (description.includes('failed to get http url content') || description.includes('wrong file identifier/http url specified') || description.includes('wrong type of the web page content') || description.includes('group send failed') || description.includes('can\'t parse inputmedia') || description.includes('media not found')) {
-                let photo_urls = []
-                if (e.method === 'sendPhoto') {
-                    photo_urls[0] = e.payload.photo
-                } else if (e.method === 'sendMediaGroup' && e.payload.media) {
-                    photo_urls = e.payload.media.filter(m => {
-                        return m.media && typeof m.media === 'string' && m.media.includes('https://')
-                    }).map(m => {
-                        return m.media
-                    })
-                } else if (e.method === 'sendDocument') {
-                    photo_urls[0] = e.payload.document
-                }
-                if (config.tg.refetch_api && photo_urls) {
-                    (async () => {
-                        try {
-                            await axios.post(config.tg.refetch_api, {
-                                url: photo_urls.join('\n')
-                            })
-                            honsole.log('[ok] refetch request completed')
-                        } catch (error) {
-                            logTelegramFailure(honsole, error, { errorCode: 'REFETCH_REQUEST_FAILED' })
-                        }
-                    })()
-                }
-            }
-        }
-    } catch (error) {
-        logTelegramFailure(logger, error)
-    }
-    return { decision, userNotified, errorCode }
 }
 
 /**
@@ -211,6 +86,7 @@ export function markFailedMediaItem(mg, failed_index, current_type, mg_type_queu
  */
 export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra, mg_type = []) {
     const bot = getBot()
+    const config = await loadRuntimeConfig()
     const hasInvalidMedia = mg.some(m => !m.media && !m.media_o && !m.media_r && !m.media_t)
     if (hasInvalidMedia) {
         honsole.warn('Media group contains invalid URLs, skipping send')
@@ -415,6 +291,7 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
  */
 export async function sendDocumentWithRetry(chat_id, media_o, extra, language_code = 'en') {
     const bot = getBot()
+    const config = await loadRuntimeConfig()
     // Send upload_document action
     bot.api.sendChatAction(chat_id, 'upload_document', extra.message_thread_id ? {
         message_thread_id: extra.message_thread_id

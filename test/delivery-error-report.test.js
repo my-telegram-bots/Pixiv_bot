@@ -8,7 +8,10 @@ import {
     createDeliveryTraceContext,
     runWithDeliveryTrace
 } from '../handlers/telegram/delivery-telemetry.js'
-import { CatchilyDecision, catchily } from '../handlers/telegram/sender.js'
+import {
+    CatchilyDecision,
+    handleTelegramError as catchily
+} from '../handlers/telegram/telegram-error-handler.js'
 
 const quietLogger = { log() {}, warn() {} }
 
@@ -69,6 +72,7 @@ test('Grammy-style and ordinary errors each reach the administrator exactly once
     const ordinary = await catchily(new Error('ordinary failure'), 10, 'en', {
         bot,
         masterId: 99,
+        refetchApi: null,
         logger: quietLogger,
         notifyUser: false
     })
@@ -81,6 +85,7 @@ test('Grammy-style and ordinary errors each reach the administrator exactly once
     }, 11, 'en', {
         bot,
         masterId: 99,
+        refetchApi: null,
         logger: quietLogger,
         notifyUser: false
     })
@@ -97,6 +102,7 @@ test('administrator report failure is contained and never changes catchily decis
     const result = await catchily(new Error('transport failed'), 10, 'en', {
         bot,
         masterId: 99,
+        refetchApi: null,
         logger: quietLogger,
         notifyUser: false
     })
@@ -116,6 +122,7 @@ test('ordinary HTTP failure keeps its status code and requested illustration ID'
     }), 5572294374, 'en', {
         bot,
         masterId: 99,
+        refetchApi: null,
         logger: quietLogger,
         notifyUser: false,
         illustIds: [131538411],

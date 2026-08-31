@@ -995,7 +995,11 @@ export function createTgSender({ bot, config, resolveUserSettings, logger = hons
             updateDeliveryTraceFields({ illustIds: ctx.ids?.illust || [] })
             const machine = createTgSenderMachine()
             const runtime = await runTgSenderStateMachine(machine, {
-                initialize: () => initializeInvocation(resolveUserSettings, ctx),
+                initialize: async () => {
+                    const runtime = await initializeInvocation(resolveUserSettings, ctx)
+                    runtime.reportError = catchily
+                    return runtime
+                },
                 collectIllustrations: async runtime => {
                     await collectIllustrations(bot, config, runtime)
                     updateDeliveryTraceFields({

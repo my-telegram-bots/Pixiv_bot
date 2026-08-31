@@ -1,4 +1,3 @@
-import { catchily } from '#handlers/telegram/sender'
 import {
     IllustrationLifecycleState,
     markIllustrationOutputQueued,
@@ -30,7 +29,7 @@ export function recordOutputQueued(lifecycle, output) {
 export async function reportIndependentFailure(runtime, error, fields = {}) {
     const errorCode = fields.errorCode || error?.code || 'UNEXPECTED_PROCESSING_FAILURE'
     runtime.deliveryErrors.push(errorCode)
-    const result = await catchily(error, runtime.chatId, runtime.ctx.l, {
+    const result = await runtime.reportError(error, runtime.chatId, runtime.ctx.l, {
         notifyUser: false,
         illustIds: fields.illustIds,
         illustId: fields.illustId,
