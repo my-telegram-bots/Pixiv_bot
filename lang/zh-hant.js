@@ -8,6 +8,7 @@ export default {
     media_refresh_failed: "作品仍然存在，但無法重新整理圖片連結。請稍後重試。(PIXIV_MEDIA_REFRESH_FAILED)",
     media_send_failed: "重新整理圖片連結後仍無法傳送該作品。請稍後重試。(PIXIV_MEDIA_STALE)",
     media_delivery_failed: "Telegram 無法傳送該作品。請檢查目前聊天的媒體傳送權限後重試。(TELEGRAM_MEDIA_SEND_FAILED)",
+    photo_too_large: "Pixiv regular 圖片超過 Telegram 的相片大小上限。請加入 +file，改為以檔案傳送。(TELEGRAM_PHOTO_TOO_LARGE)",
     illustration_refresh_id_mismatch: "重新整理圖片連結時 Pixiv 傳回了不一致的作品 ID，因此未能傳送該作品。請重試；若仍然失敗，請將錯誤碼 ILLUSTRATION_REFRESH_ID_MISMATCH 提供給維運人員。",
     request_processing_failed: "請求未能完成。\n原因：{}\n請重試；若仍然失敗，請將錯誤碼 {} 提供給維運人員。",
     document_too_large: "原始檔案超過 Telegram 上傳限制，請從這裡手動下載：\n{}\n(TELEGRAM_DOCUMENT_TOO_LARGE)",

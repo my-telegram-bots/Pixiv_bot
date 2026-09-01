@@ -27,7 +27,7 @@ const GENERIC_HTTP_CODES = new Set([
 
 export async function handleTelegramError(e, chatId, languageCode = 'en', options) {
     const { bot, logger, masterId, refetchApi } = options
-    const mediaFailure = classifyMediaSendError(e)
+    const mediaFailure = classifyMediaSendError(e, options.mediaType)
     const rawDescription = telegramErrorDescription(e)
     const description = rawDescription.toLowerCase()
     const httpStatus = Number(e?.response?.status)

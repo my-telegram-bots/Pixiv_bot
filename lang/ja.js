@@ -8,6 +8,7 @@ export default {
     media_refresh_failed: "作品は存在しますが、画像リンクを更新できませんでした。時間をおいて再試行してください。(PIXIV_MEDIA_REFRESH_FAILED)",
     media_send_failed: "画像リンクを更新した後も作品を送信できませんでした。時間をおいて再試行してください。(PIXIV_MEDIA_STALE)",
     media_delivery_failed: "Telegramでこの作品を送信できませんでした。チャットのメディア送信権限を確認して再試行してください。(TELEGRAM_MEDIA_SEND_FAILED)",
+    photo_too_large: "Pixiv の regular 画像が Telegram の写真サイズ上限を超えています。+file を付けてファイルとして送信してください。(TELEGRAM_PHOTO_TOO_LARGE)",
     illustration_refresh_id_mismatch: "画像リンクの更新中に Pixiv から不整合な作品 ID が返されたため、作品を送信できませんでした。再試行し、続く場合はコード ILLUSTRATION_REFRESH_ID_MISMATCH を添えて運用者へ連絡してください。",
     request_processing_failed: "リクエストを完了できませんでした。\n理由：{}\n再試行し、続く場合はエラーコード {} を添えて運用者へ連絡してください。",
     document_too_large: "元ファイルがTelegramのアップロード上限を超えています。次のリンクから手動でダウンロードしてください:\n{}\n(TELEGRAM_DOCUMENT_TOO_LARGE)",

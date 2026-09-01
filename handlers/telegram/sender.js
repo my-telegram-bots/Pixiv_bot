@@ -262,18 +262,32 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
     while (attempts < attemptLimit && candidates.length > 0) {
         attempts++
         const candidate = candidates.shift()
+        const source = typeof candidate === 'string' ? candidate : candidate.source
+        const candidateType = typeof candidate === 'string' ? undefined : candidate.type
+        const local = typeof candidate === 'string'
+            ? candidate.startsWith('dl-')
+            : candidate.local
         try {
-            const photo = candidate.startsWith('dl-')
-                ? new InputFile(await fetch_tmp_file(candidate.substring(3)))
-                : candidate
+            const photo = local
+                ? new InputFile(await fetch_tmp_file(
+                    typeof candidate === 'string' ? source.substring(3) : source
+                ))
+                : source
             const result = await bot.api.sendPhoto(chat_id, photo, extra)
             return { kind: MediaSendKind.SENT, result, attempts }
         } catch (error) {
             lastError = error
-            const classification = classifyMediaSendError(error)
+            let classification = classifyMediaSendError(error, candidateType)
+            if (classification.retryRegular && !candidates.some(item =>
+                typeof item !== 'string' && ['r', 'dlr'].includes(item.type)
+            )) {
+                classification = classifyMediaSendError(error, 'r')
+            }
+            if (classification.retryRegular) continue
             const catchResult = await catchily(error, chat_id, language_code, {
                 method: 'sendPhoto',
                 attempt: attempts,
+                mediaType: candidateType,
                 errorCode: classification.code
             })
             if (classification.stale) {
@@ -281,6 +295,15 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
                     kind: MediaSendKind.STALE_MEDIA,
                     code: classification.code,
                     error,
+                    attempts
+                }
+            }
+            if (classification.terminal) {
+                return {
+                    kind: MediaSendKind.FAILED,
+                    code: classification.code,
+                    error,
+                    userNotified: catchResult.userNotified,
                     attempts
                 }
             }

@@ -35,6 +35,7 @@ export async function runMediaGroupAttempts(options) {
     const queue = [...mediaTypes]
     let lastError
     let lastClassification
+    let knownFailedIndex = null
     let attempts = 0
 
     for (let attempt = 1; attempt <= maxAttempts && queue.length > 0; attempt++) {
@@ -45,7 +46,29 @@ export async function runMediaGroupAttempts(options) {
             return { kind: MediaSendKind.SENT, result, attempts: attempt }
         } catch (error) {
             lastError = error
-            const classification = classifyError(error, currentType)
+            let classification = classifyError(error, currentType)
+            if (Number.isInteger(classification.failedIndex)) {
+                knownFailedIndex = classification.failedIndex
+            } else if (classification.code === 'TELEGRAM_PHOTO_TOO_LARGE' &&
+                Number.isInteger(knownFailedIndex)) {
+                classification = { ...classification, failedIndex: knownFailedIndex }
+            }
+            if (classification.retryRegular) {
+                const failedItems = Number.isInteger(classification.failedIndex)
+                    ? [mediaGroup[classification.failedIndex]]
+                    : mediaGroup
+                if (failedItems.every(item => item?.media_r)) {
+                    lastClassification = classification
+                    traceFailedAttempt(mediaGroup, currentType, attempt, classification)
+                    if (!queue.includes('r')) queue.unshift('r')
+                    continue
+                }
+                classification = {
+                    ...classification,
+                    retryRegular: false,
+                    terminal: true
+                }
+            }
             lastClassification = classification
             traceFailedAttempt(mediaGroup, currentType, attempt, classification)
             let reportResult = {
@@ -56,6 +79,7 @@ export async function runMediaGroupAttempts(options) {
             try {
                 reportResult = await reportError(error, {
                     attempt,
+                    mediaType: currentType,
                     failedIndex: Number.isInteger(classification.failedIndex)
                         ? classification.failedIndex + 1
                         : undefined,

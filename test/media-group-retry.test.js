@@ -81,9 +81,108 @@ test('ordinary Error descriptions are safe to classify', t => {
     t.deepEqual(classifyMediaSendError(error), {
         stale: false,
         retryLocal: false,
+        retryRegular: false,
         terminal: false,
         failedIndex: null,
         code: 'TELEGRAM_MEDIA_SEND_FAILED'
+    })
+})
+
+test('oversized local original retries the same album with Pixiv regular without an admin report', async t => {
+    const mediaGroup = [134096350, 145292793, 148658870, 145135071].map((id, index) => ({
+        type: 'photo',
+        id,
+        p: 0,
+        media_o: `https://i.pximg.net/original-${index}.jpg`,
+        media_r: `https://i.pximg.net/regular-${index}.jpg`
+    }))
+    const attemptedTypes = []
+    const reports = []
+
+    const result = await runMediaGroupAttempts({
+        mediaGroup,
+        mediaTypes: ['dlo'],
+        buildMedia: async (items, requestedType) => {
+            attemptedTypes.push(requestedType)
+            return items.map((item, index) => ({
+                media: requestedType === 'dlo'
+                    ? new InputFile(Buffer.alloc(index + 1), `${item.id}.jpg`)
+                    : item.media_r
+            }))
+        },
+        sendMedia: async media => {
+            if (attemptedTypes.at(-1) === 'dlo') {
+                throw {
+                    description: 'Bad Request: file of size 3 bytes is too big for a photo; the maximum size is 10485760 bytes',
+                    payload: { media }
+                }
+            }
+            return [{ message_id: 1 }]
+        },
+        classifyError: classifyMediaSendError,
+        reportError: async (...args) => {
+            reports.push(args)
+            return { decision: 'next_source', userNotified: false }
+        }
+    })
+
+    t.is(result.kind, 'sent')
+    t.is(result.attempts, 2)
+    t.deepEqual(attemptedTypes, ['dlo', 'r'])
+    t.is(reports.length, 0)
+})
+
+test('oversized regular preserves the original failed album item and reports only the terminal attempt', async t => {
+    const mediaGroup = [134096350, 145292793, 148658870, 145135071].map((id, index) => ({
+        type: 'photo',
+        id,
+        p: index,
+        media_o: `https://i.pximg.net/original-${index}.jpg`,
+        media_r: `https://i.pximg.net/regular-${index}.jpg`
+    }))
+    const attemptedTypes = []
+    const reports = []
+
+    const result = await runMediaGroupAttempts({
+        mediaGroup,
+        mediaTypes: ['dlo'],
+        buildMedia: async (items, requestedType) => {
+            attemptedTypes.push(requestedType)
+            return items.map((item, index) => ({
+                media: requestedType === 'dlo'
+                    ? new InputFile(Buffer.alloc(index + 1), `${item.id}.jpg`)
+                    : item.media_r
+            }))
+        },
+        sendMedia: async media => {
+            if (attemptedTypes.at(-1) === 'dlo') {
+                throw {
+                    description: 'Bad Request: file of size 3 bytes is too big for a photo; the maximum size is 10485760 bytes',
+                    payload: { media }
+                }
+            }
+            throw {
+                description: 'Bad Request: file of size 3 bytes is too big for a photo; the maximum size is 10485760 bytes'
+            }
+        },
+        classifyError: classifyMediaSendError,
+        reportError: async (error, fields) => {
+            reports.push({ error, fields })
+            return { decision: 'terminal', userNotified: false, errorCode: fields.errorCode }
+        }
+    })
+
+    t.is(result.kind, 'failed')
+    t.is(result.code, 'TELEGRAM_PHOTO_TOO_LARGE')
+    t.is(result.attempts, 2)
+    t.is(result.failedIndex, 2)
+    t.deepEqual(attemptedTypes, ['dlo', 'r'])
+    t.is(reports.length, 1)
+    t.like(reports[0].fields, {
+        attempt: 2,
+        mediaType: 'r',
+        failedIndex: 3,
+        errorCode: 'TELEGRAM_PHOTO_TOO_LARGE'
     })
 })
 

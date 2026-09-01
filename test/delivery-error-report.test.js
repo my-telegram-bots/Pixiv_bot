@@ -131,6 +131,39 @@ test('administrator report failure is contained and never changes catchily decis
     })
 })
 
+test('oversized regular photo stays terminal after administrator reporting', async t => {
+    const reports = []
+    const bot = {
+        api: {
+            async sendMessage(chatId, text) {
+                reports.push({ chatId, text })
+                return { message_id: 1 }
+            }
+        }
+    }
+    const result = await catchily({
+        ok: false,
+        method: 'sendPhoto',
+        error_code: 400,
+        description: 'Bad Request: file of size 18247428 bytes is too big for a photo; the maximum size is 10485760 bytes'
+    }, 10, 'en', {
+        bot,
+        masterId: 99,
+        refetchApi: null,
+        logger: quietLogger,
+        notifyUser: false,
+        mediaType: 'r',
+        errorCode: 'TELEGRAM_PHOTO_TOO_LARGE'
+    })
+
+    t.deepEqual(result, {
+        decision: CatchilyDecision.TERMINAL,
+        userNotified: false,
+        errorCode: 'TELEGRAM_PHOTO_TOO_LARGE'
+    })
+    t.is(reports.length, 1)
+})
+
 test('administrator report failure does not change finite flood-wait retry decision', async t => {
     const bot = { api: { sendMessage: async () => { throw new Error('admin blocked') } } }
     const result = await catchily({

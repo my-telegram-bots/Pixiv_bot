@@ -277,11 +277,13 @@ test('document failure localization stays synchronized and exposes stable codes'
         'document_format_failed',
         'document_topic_failed',
         'document_retry_exhausted',
-        'document_delivery_failed'
+        'document_delivery_failed',
+        'photo_too_large'
     ]
     for (const language of languages) {
         for (const key of keys) t.truthy(language[key])
         t.regex(language.document_too_large, /TELEGRAM_DOCUMENT_TOO_LARGE/)
+        t.regex(language.photo_too_large, /TELEGRAM_PHOTO_TOO_LARGE/)
         t.regex(language.illust_404, /PIXIV_ILLUSTRATION_NOT_FOUND/)
         t.false(Object.hasOwn(language, 'file_too_large'))
     }

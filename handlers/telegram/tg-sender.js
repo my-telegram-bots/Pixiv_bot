@@ -20,6 +20,7 @@ import {
     sendMediaGroupWithRetry,
     sendPhotoWithRetry
 } from '#handlers/telegram/sender'
+import { buildPhotoCandidates } from '#handlers/telegram/media-send-result'
 import {
     rateLimit,
     sendDocumentWithChain,
@@ -234,7 +235,8 @@ async function notifyIllustrationFailure(bot, runtime, lifecycle) {
         ILLUSTRATION_REFRESH_ID_MISMATCH: ['illustration_refresh_id_mismatch'],
         PIXIV_MEDIA_REFRESH_FAILED: ['media_refresh_failed'],
         PIXIV_DETAIL_REQUEST_FAILED: ['media_refresh_failed'],
-        PIXIV_MEDIA_STALE: ['media_send_failed']
+        PIXIV_MEDIA_STALE: ['media_send_failed'],
+        TELEGRAM_PHOTO_TOO_LARGE: ['photo_too_large']
     }
     const documentMessage = documentFailureMessage({
         code: lifecycle.errorCode,
@@ -272,11 +274,6 @@ function createMediaExtra(ctx, defaultExtra, illust) {
     return extra
 }
 
-function photoCandidates(item) {
-    const urls = [item.media_r, item.media_o].filter(Boolean)
-    return [...urls, ...urls.map(url => `dl-${url}`)]
-}
-
 async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
     const { ctx, chatId, defaultExtra, files } = runtime
     let { reply_to_message_id: replyToMessageId } = extra
@@ -306,7 +303,7 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
             }, () => sendPhotoWithRetry(
                 chatId,
                 ctx.l,
-                photoCandidates(item),
+                buildPhotoCandidates(item),
                 { ...extraOne, reply_to_message_id: replyToMessageId }
             ))
             if (result.kind === MediaSendKind.STALE_MEDIA && await refreshIllustration(runtime, lifecycle, page)) {
@@ -318,7 +315,7 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
                 }, () => sendPhotoWithRetry(
                     chatId,
                     ctx.l,
-                    photoCandidates(item),
+                    buildPhotoCandidates(item),
                     { ...extraOne, reply_to_message_id: replyToMessageId }
                 ))
             }

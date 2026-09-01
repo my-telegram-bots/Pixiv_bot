@@ -8,6 +8,7 @@ export default {
     media_refresh_failed: "The artwork exists, but its image links could not be refreshed. Please try again later. (PIXIV_MEDIA_REFRESH_FAILED)",
     media_send_failed: "The artwork could not be sent after its image links were refreshed. Please try again later. (PIXIV_MEDIA_STALE)",
     media_delivery_failed: "Telegram could not deliver this artwork. Check the chat's media permissions and try again. (TELEGRAM_MEDIA_SEND_FAILED)",
+    photo_too_large: "The Pixiv regular image exceeds Telegram's photo size limit. Send the artwork with +file instead. (TELEGRAM_PHOTO_TOO_LARGE)",
     illustration_refresh_id_mismatch: "The artwork could not be sent because Pixiv returned inconsistent identity data while refreshing its image links. Please retry; if it continues, contact the operator with code ILLUSTRATION_REFRESH_ID_MISMATCH.",
     request_processing_failed: "The request could not be completed.\nReason: {}\nPlease retry; if it keeps happening, contact the operator with error code {}.",
     document_too_large: "The original file exceeds Telegram's upload limit. Download it manually here:\n{}\n(TELEGRAM_DOCUMENT_TOO_LARGE)",
