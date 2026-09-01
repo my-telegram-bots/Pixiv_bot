@@ -52,6 +52,9 @@ export function publicDocumentRecoveryUrl(url, pximgProxy) {
 
 export function classifyDocumentFailure(error, phase = 'send') {
     const description = String(error?.description || error?.message || '').toLowerCase()
+    if (error?.code === 'TELEGRAM_FLOOD_GATE_ACTIVE' || error?.parameters?.flood_gate === true) {
+        return { kind: MediaSendKind.FAILED, code: 'TELEGRAM_FLOOD_GATE_ACTIVE', retryable: false }
+    }
     if (error?.code === 'PIXIV_MEDIA_STALE') {
         return { kind: MediaSendKind.STALE_MEDIA, code: 'PIXIV_MEDIA_STALE', retryable: false }
     }

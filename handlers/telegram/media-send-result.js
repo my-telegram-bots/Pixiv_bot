@@ -19,8 +19,12 @@ export function classifyMediaSendError(error) {
     const description = telegramErrorDescription(error).toLowerCase()
     const failedIndexMatch = description.match(/failed to send message #(\d+)/)
     const stale = error?.code === 'PIXIV_MEDIA_STALE'
+    const floodGateActive = error?.code === 'TELEGRAM_FLOOD_GATE_ACTIVE' ||
+        error?.parameters?.flood_gate === true
     const retryLocal = !stale && telegramRemoteFetchDescriptions.some(value => description.includes(value))
-    const terminalCode = description.includes('media_caption_too_long')
+    const terminalCode = floodGateActive
+        ? 'TELEGRAM_FLOOD_GATE_ACTIVE'
+        : description.includes('media_caption_too_long')
         ? 'TELEGRAM_CAPTION_TOO_LONG'
         : description.includes("can't parse entities: character")
             ? 'TELEGRAM_FORMAT_INVALID'
@@ -45,7 +49,7 @@ export function classifyMediaSendError(error) {
 }
 
 export function telegramErrorDescription(error) {
-    return String(error?.description || error?.message || '')
+    return String(error?.description || error?.error?.description || error?.message || '')
 }
 
 export function telegramRetryAfter(error) {

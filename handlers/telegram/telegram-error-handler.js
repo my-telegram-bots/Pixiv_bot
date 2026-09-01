@@ -5,7 +5,10 @@ import {
     telegramErrorDescription,
     telegramRetryAfter
 } from '#handlers/telegram/media-send-result'
-import { logTelegramFailure } from '#handlers/telegram/delivery-telemetry'
+import {
+    logTelegramFailure,
+    telegramTransportAttempts
+} from '#handlers/telegram/delivery-telemetry'
 import { reportAdminDeliveryError } from '#handlers/telegram/delivery-error-report'
 
 export const CatchilyDecision = Object.freeze({
@@ -29,15 +32,21 @@ export async function handleTelegramError(e, chatId, languageCode = 'en', option
     const description = rawDescription.toLowerCase()
     const httpStatus = Number(e?.response?.status)
     const isTelegramError = Boolean(e?.method || Number.isInteger(e?.error_code) || e?.ok === false)
+    const floodGateActive = e?.parameters?.flood_gate === true
+    const rateLimited = e?.error_code === 429 || description.includes('too many requests')
     const preserveHttpStatus = !isTelegramError && Number.isInteger(httpStatus) && (
         !options.errorCode || GENERIC_HTTP_CODES.has(options.errorCode)
     )
-    const errorCode = preserveHttpStatus
+    const errorCode = floodGateActive
+        ? 'TELEGRAM_FLOOD_GATE_ACTIVE'
+        : rateLimited
+        ? 'TELEGRAM_RATE_LIMITED'
+        : preserveHttpStatus
         ? `HTTP_${httpStatus}`
         : options.errorCode || mediaFailure.code
-    const decision = mediaFailure.terminal
+    const decision = floodGateActive || mediaFailure.terminal
         ? CatchilyDecision.TERMINAL
-        : description.includes('too many requests') || e?.error_code === 429
+        : rateLimited
             ? CatchilyDecision.RETRY_TRANSPORT
             : CatchilyDecision.NEXT_SOURCE
     const failedIndex = Number.isInteger(mediaFailure.failedIndex)
@@ -52,6 +61,7 @@ export async function handleTelegramError(e, chatId, languageCode = 'en', option
         method: options.method,
         errorCode,
         attempt: options.attempt,
+        transportAttempts: options.transportAttempts ?? telegramTransportAttempts(e),
         failedIndex
     }
     logTelegramFailure(logger, e, diagnosticFields)
@@ -60,6 +70,7 @@ export async function handleTelegramError(e, chatId, languageCode = 'en', option
         masterId,
         sendMessage: (targetId, report) => bot.api.sendMessage(targetId, report),
         logger,
+        floodAggregator: options.floodAggregator,
         ...diagnosticFields
     })
 

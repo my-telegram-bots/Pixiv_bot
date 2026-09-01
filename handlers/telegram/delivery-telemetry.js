@@ -24,8 +24,12 @@ const allowedFields = new Set([
     'attempt',
     'retryAfter',
     'mediaType',
-    'mediaMode'
+    'mediaMode',
+    'transportAttempt',
+    'transportAttempts'
 ])
+
+const transportAttempts = new WeakMap()
 
 function safeInteger(value) {
     if (typeof value === 'number' && Number.isSafeInteger(value)) return value
@@ -55,7 +59,7 @@ function safeFields(fields) {
             result[key] = Array.isArray(value)
                 ? value.map(safeInteger).filter(item => item !== undefined)
                 : []
-        } else if (['chatId', 'userId', 'illustId', 'page', 'resolvedCount', 'failedIndex', 'attempt', 'retryAfter', 'durationMs', 'elapsedMs'].includes(key)) {
+        } else if (['chatId', 'userId', 'illustId', 'page', 'resolvedCount', 'failedIndex', 'attempt', 'retryAfter', 'durationMs', 'elapsedMs', 'transportAttempt', 'transportAttempts'].includes(key)) {
             const integer = safeInteger(value)
             if (integer !== undefined) result[key] = integer
         } else if (key === 'errorCode') {
@@ -156,14 +160,18 @@ export function logTelegramFailure(logger, error, fields = {}) {
 export function createTelegramAttemptTraceTransformer(options = {}) {
     const now = options.now || Date.now
     return async (previous, method, payload, signal) => {
+        const canTrack = payload !== null && typeof payload === 'object'
+        const transportAttempt = canTrack ? (transportAttempts.get(payload) || 0) + 1 : 1
+        if (canTrack) transportAttempts.set(payload, transportAttempt)
         const startedAt = now()
-        deliveryTraceEvent('api_started', { method, chatId: payload?.chat_id })
+        deliveryTraceEvent('api_started', { method, chatId: payload?.chat_id, transportAttempt })
         try {
             const response = await previous(method, payload, signal)
             const fields = {
                 method,
                 chatId: payload?.chat_id,
                 durationMs: Math.max(0, now() - startedAt),
+                transportAttempt,
                 status: response?.ok === false ? 'failed' : 'sent'
             }
             if (response?.ok === false) {
@@ -171,6 +179,7 @@ export function createTelegramAttemptTraceTransformer(options = {}) {
                 deliveryTraceEvent('api_failed', fields)
             } else {
                 deliveryTraceEvent('api_finished', fields)
+                if (canTrack) transportAttempts.delete(payload)
             }
             return response
         } catch (error) {
@@ -178,12 +187,19 @@ export function createTelegramAttemptTraceTransformer(options = {}) {
                 method,
                 chatId: payload?.chat_id,
                 durationMs: Math.max(0, now() - startedAt),
+                transportAttempt,
                 status: 'failed',
                 errorCode: safeDeliveryErrorCode(error)
             })
             throw error
         }
     }
+}
+
+export function telegramTransportAttempts(error) {
+    const payload = error?.payload
+    if (payload === null || typeof payload !== 'object') return undefined
+    return transportAttempts.get(payload)
 }
 
 export function createTelegramQueueTraceTransformer() {

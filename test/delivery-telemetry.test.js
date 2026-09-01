@@ -1,4 +1,5 @@
 import test from 'ava'
+import { autoRetry } from '@grammyjs/auto-retry'
 import {
     createDeliveryTraceContext,
     createTelegramAttemptTraceTransformer,
@@ -97,8 +98,64 @@ test('Telegram transformers emit queued, started, and finished stages without pa
     t.true(logger.records.every(item => item.record.deliveryMode === 'file_only'))
     t.true(logger.records.every(item => item.record.illustId === 148795480))
     t.true(logger.records.every(item => item.record.page === 1))
+    t.is(logger.records[1].record.transportAttempt, 1)
+    t.is(logger.records[2].record.transportAttempt, 1)
     t.false(JSON.stringify(logger.records).includes('pximg'))
     t.false(JSON.stringify(logger.records).includes('document'))
+})
+
+test('automatic retries emit distinct physical transport attempt numbers', async t => {
+    const logger = captureLogger()
+    const context = createDeliveryTraceContext({ chat_id: -100, user_id: 34 }, logger, {
+        requestId: 'request-physical-attempts',
+        now: () => 1000
+    })
+    const attempt = createTelegramAttemptTraceTransformer({ now: () => 1000 })
+    const queued = createTelegramQueueTraceTransformer()
+    const retry = autoRetry({
+        maxDelaySeconds: 1,
+        maxRetryAttempts: 1,
+        rethrowHttpErrors: true
+    })
+    let calls = 0
+    const raw = async () => {
+        calls++
+        return calls === 1
+            ? { ok: false, error_code: 429, parameters: { retry_after: 0 } }
+            : { ok: true, result: [{ message_id: 1 }] }
+    }
+
+    await runWithDeliveryTrace(context, () => queued(
+        (method, payload, signal) => retry(
+            (nextMethod, nextPayload, nextSignal) => attempt(
+                raw,
+                nextMethod,
+                nextPayload,
+                nextSignal
+            ),
+            method,
+            payload,
+            signal
+        ),
+        'sendMediaGroup',
+        { chat_id: -100, media: [{ type: 'photo', media: 'redacted' }] }
+    ))
+
+    t.is(calls, 2)
+    t.deepEqual(logger.records.map(item => item.record.stage), [
+        'telegram_queued',
+        'api_started',
+        'api_failed',
+        'api_started',
+        'api_finished'
+    ])
+    t.deepEqual(
+        logger.records
+            .filter(item => item.record.stage === 'api_started')
+            .map(item => item.record.transportAttempt),
+        [1, 2]
+    )
+    t.false(JSON.stringify(logger.records).includes('redacted'))
 })
 
 test('Telegram failures retain safe codes but never serialize Grammy payloads', t => {

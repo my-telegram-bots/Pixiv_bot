@@ -35,6 +35,18 @@ test('media error classifier does not refresh generic Telegram failures', t => {
     t.is(result.code, 'TELEGRAM_MEDIA_SEND_FAILED')
 })
 
+test('active flood gate is terminal and cannot re-enter the sender retry loop', t => {
+    const result = classifyMediaSendError({
+        error_code: 429,
+        description: 'Too Many Requests: shared flood gate is active',
+        parameters: { retry_after: 120, flood_gate: true }
+    })
+
+    t.true(result.terminal)
+    t.false(result.retryLocal)
+    t.is(result.code, 'TELEGRAM_FLOOD_GATE_ACTIVE')
+})
+
 test('media fetch error code is stale without relying on message text', t => {
     const result = classifyMediaSendError({ code: 'PIXIV_MEDIA_STALE', message: 'not found' })
     t.true(result.stale)

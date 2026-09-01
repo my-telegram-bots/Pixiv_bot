@@ -8,17 +8,30 @@ import {
 import {
     TELEGRAM_AUTO_RETRY_OPTIONS,
     TELEGRAM_CLIENT_TIMEOUT_SECONDS,
+    TELEGRAM_DELIVERY_GATE_OPTIONS,
     TELEGRAM_THROTTLER_OPTIONS
 } from '#handlers/telegram/transport-policy'
+import { createTelegramDeliveryGate } from '#handlers/telegram/telegram-transport-gate'
 
 let botInstance = null
 const nonDeliveryMethods = new Set(['sendChatAction', 'setMessageReaction'])
 
-export function createDeliveryThrottler(options) {
+export function createDeliveryThrottler(options, gateOptions = TELEGRAM_DELIVERY_GATE_OPTIONS) {
     const throttler = apiThrottler(options)
+    const deliveryGate = createTelegramDeliveryGate(gateOptions)
     return (previous, method, payload, signal) => nonDeliveryMethods.has(method)
         ? previous(method, payload, signal)
-        : throttler(previous, method, payload, signal)
+        : deliveryGate(
+            (nextMethod, nextPayload, nextSignal) => throttler(
+                previous,
+                nextMethod,
+                nextPayload,
+                nextSignal
+            ),
+            method,
+            payload,
+            signal
+        )
 }
 
 /**

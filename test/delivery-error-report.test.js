@@ -1,6 +1,8 @@
 import test from 'ava'
 import {
     ADMIN_ERROR_REPORT_LIMIT,
+    ADMIN_FLOOD_OCCURRENCE_LIMIT,
+    createAdminFloodReportAggregator,
     formatAdminDeliveryError,
     reportAdminDeliveryError
 } from '../handlers/telegram/delivery-error-report.js'
@@ -57,6 +59,21 @@ test('item-level report prefers the exact illustration and page over request IDs
     t.true(report.includes('page=3'))
     t.true(report.includes('method=sendDocument'))
     t.false(report.includes('131538411,'))
+})
+
+test('request-level report keeps every requested illustration ahead of a long reason', async t => {
+    const illustIds = Array.from({ length: 40 }, (_, index) => 121000000 + index)
+    const report = formatAdminDeliveryError(new Error('x'.repeat(2000)), {
+        requestId: 'request-many-illustrations',
+        chatId: -1003312324002,
+        method: 'sendMediaGroup',
+        errorCode: 'TELEGRAM_RATE_LIMITED',
+        illustIds
+    })
+
+    t.true(report.includes(`illust=${illustIds.join(',')}`))
+    t.true(report.indexOf('illust=') < report.indexOf('reason='))
+    t.true(report.length <= ADMIN_ERROR_REPORT_LIMIT)
 })
 
 test('Grammy-style and ordinary errors each reach the administrator exactly once through catchily', async t => {
@@ -128,6 +145,7 @@ test('administrator report failure does not change finite flood-wait retry decis
         refetchApi: null,
         logger: quietLogger,
         notifyUser: false,
+        floodAggregator: { queue() {} },
         illustId: 131538411,
         method: 'sendMediaGroup',
         attempt: 2
@@ -135,6 +153,32 @@ test('administrator report failure does not change finite flood-wait retry decis
 
     t.is(result.decision, CatchilyDecision.RETRY_TRANSPORT)
     t.is(result.userNotified, false)
+    t.is(result.errorCode, 'TELEGRAM_RATE_LIMITED')
+})
+
+test('an active shared flood gate is terminal for the current item without another retry', async t => {
+    const bot = { api: { sendMessage: async () => ({ message_id: 1 }) } }
+    const result = await catchily({
+        ok: false,
+        method: 'sendMediaGroup',
+        error_code: 429,
+        description: 'Too Many Requests: shared flood gate is active',
+        parameters: { retry_after: 120, flood_gate: true }
+    }, -100, 'en', {
+        bot,
+        masterId: 99,
+        refetchApi: null,
+        logger: quietLogger,
+        notifyUser: false,
+        floodAggregator: { queue() {} },
+        errorCode: 'TELEGRAM_MEDIA_SEND_FAILED'
+    })
+
+    t.deepEqual(result, {
+        decision: CatchilyDecision.TERMINAL,
+        userNotified: false,
+        errorCode: 'TELEGRAM_FLOOD_GATE_ACTIVE'
+    })
 })
 
 test('ordinary HTTP failure keeps its status code and requested illustration ID', async t => {
@@ -169,4 +213,82 @@ test('standalone administrator reporter never throws when its send fails', async
         sendMessage: async () => { throw new Error('report failed') },
         logger: quietLogger
     }))
+})
+
+test('same-chat flood reports are coalesced with a bounded occurrence count', async t => {
+    const scheduled = []
+    const reports = []
+    let now = 0
+    const aggregator = createAdminFloodReportAggregator({
+        now: () => now,
+        schedule: (callback, delayMs) => scheduled.push({ callback, delayMs })
+    })
+    const options = {
+        error: {
+            ok: false,
+            error_code: 429,
+            method: 'sendMediaGroup',
+            description: 'Too Many Requests: retry after 5',
+            parameters: { retry_after: 5 }
+        },
+        masterId: 99,
+        sendMessage: async (_chatId, report) => reports.push(report),
+        logger: quietLogger,
+        floodAggregator: aggregator,
+        chatId: -100,
+        method: 'sendMediaGroup',
+        illustIds: [131538411]
+    }
+
+    await reportAdminDeliveryError(options)
+    await reportAdminDeliveryError(options)
+    await reportAdminDeliveryError(options)
+    t.is(scheduled.length, 1)
+    t.is(reports.length, 0)
+
+    now = 5000
+    await scheduled[0].callback()
+    t.is(reports.length, 1)
+    t.true(reports[0].includes('occurrences=3'))
+    t.true(reports[0].includes('retryAfter=5'))
+    t.false(reports[0].includes('payload'))
+
+    await reportAdminDeliveryError(options)
+    t.is(reports.length, 1)
+    t.is(scheduled.length, 2)
+})
+
+test('flood report occurrence count is capped and report delivery failure is contained', async t => {
+    const scheduled = []
+    const warnings = []
+    let now = 0
+    const aggregator = createAdminFloodReportAggregator({
+        now: () => now,
+        schedule: (callback, delayMs) => scheduled.push({ callback, delayMs })
+    })
+    const options = {
+        error: {
+            ok: false,
+            error_code: 429,
+            method: 'sendMediaGroup',
+            description: 'Too Many Requests: retry after 1',
+            parameters: { retry_after: 1 }
+        },
+        masterId: 99,
+        sendMessage: async () => { throw new Error('admin blocked') },
+        logger: { log() {}, warn: (...args) => warnings.push(args) },
+        floodAggregator: aggregator,
+        chatId: -100,
+        method: 'sendMediaGroup'
+    }
+
+    for (let index = 0; index < ADMIN_FLOOD_OCCURRENCE_LIMIT + 2; index++) {
+        await reportAdminDeliveryError(options)
+    }
+    t.is(scheduled.length, 1)
+
+    now = 1000
+    await t.notThrowsAsync(() => scheduled[0].callback())
+    t.is(warnings.length, 1)
+    t.true(warnings[0].join(' ').includes('ADMIN_ERROR_REPORT_FAILED'))
 })

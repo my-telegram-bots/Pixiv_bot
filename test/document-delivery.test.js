@@ -208,6 +208,24 @@ test('exhausted transient upload returns a stable retry code', async t => {
     t.is(result.attempts, 2)
 })
 
+test('active flood gate stops document retry immediately', async t => {
+    const f = deliveryFixture({
+        async sendDocument() {
+            throw {
+                error_code: 429,
+                description: 'Too Many Requests: shared flood gate is active',
+                parameters: { retry_after: 120, flood_gate: true }
+            }
+        }
+    })
+
+    const result = await deliverDocument(f.fixture)
+
+    t.is(result.kind, 'failed')
+    t.is(result.code, 'TELEGRAM_FLOOD_GATE_ACTIVE')
+    t.is(result.attempts, 1)
+})
+
 test('document mode distinguishes file-only, delayed append, and immediate append', t => {
     const resolve = text => resolveRequestSettings(
         createDefaultUserSettings(),
@@ -267,6 +285,12 @@ test('document failure localization stays synchronized and exposes stable codes'
         t.regex(language.illust_404, /PIXIV_ILLUSTRATION_NOT_FOUND/)
         t.false(Object.hasOwn(language, 'file_too_large'))
     }
+})
+
+test('internal flood gate does not produce a user-facing recovery message', t => {
+    t.is(documentFailureMessage({
+        code: 'TELEGRAM_FLOOD_GATE_ACTIVE'
+    }), null)
 })
 
 test('document classifier never treats a CDN stale response as confirmed deletion', t => {

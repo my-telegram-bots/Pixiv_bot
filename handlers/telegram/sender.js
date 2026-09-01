@@ -255,6 +255,7 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
 
     let lastError
     let userNotified = false
+    let finalErrorCode = 'TELEGRAM_MEDIA_SEND_FAILED'
     const candidates = [...photo_urls]
     const attemptLimit = photo_urls.length + 1
     let attempts = 0
@@ -287,6 +288,7 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
                 candidates.unshift(candidate)
             } else if (catchResult.decision === CatchilyDecision.TERMINAL) {
                 userNotified = catchResult.userNotified
+                finalErrorCode = catchResult.errorCode || classification.code
                 break
             }
         }
@@ -294,7 +296,7 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
     honsole.warn('error send photo', chat_id, 'candidate count', photo_urls.length)
     return {
         kind: MediaSendKind.FAILED,
-        code: 'TELEGRAM_MEDIA_SEND_FAILED',
+        code: finalErrorCode,
         error: lastError,
         userNotified,
         attempts

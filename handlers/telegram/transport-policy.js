@@ -28,3 +28,13 @@ export const TELEGRAM_AUTO_RETRY_OPTIONS = Object.freeze({
     rethrowHttpErrors: true,
     rethrowInternalServerErrors: false
 })
+
+export const TELEGRAM_DELIVERY_GATE_OPTIONS = Object.freeze({
+    mediaWeight: Object.freeze({
+        capacity: 20,
+        windowMs: 60_000
+    }),
+    flood: Object.freeze({
+        maxWaitSeconds: TELEGRAM_AUTO_RETRY_OPTIONS.maxDelaySeconds
+    })
+})

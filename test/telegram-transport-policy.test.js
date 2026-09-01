@@ -6,9 +6,16 @@ import { createDeliveryThrottler } from '../bot.js'
 import {
     TELEGRAM_AUTO_RETRY_OPTIONS,
     TELEGRAM_CLIENT_TIMEOUT_SECONDS,
+    TELEGRAM_DELIVERY_GATE_OPTIONS,
     TELEGRAM_THROTTLER_OPTIONS,
     TELEGRAM_UPDATE_CONCURRENCY
 } from '../handlers/telegram/transport-policy.js'
+import {
+    createTelegramFloodGate,
+    createTelegramMediaWeightGate,
+    TELEGRAM_FLOOD_GATE_ACTIVE,
+    telegramDeliveryWeight
+} from '../handlers/telegram/telegram-transport-gate.js'
 
 test('Telegram client and automatic retry budgets are finite', t => {
     t.true(Number.isInteger(TELEGRAM_UPDATE_CONCURRENCY))
@@ -26,6 +33,88 @@ test('Telegram client and automatic retry budgets are finite', t => {
     t.false(Object.isFrozen(TELEGRAM_THROTTLER_OPTIONS.global))
     t.false(Object.isFrozen(TELEGRAM_THROTTLER_OPTIONS.group))
     t.false(Object.isFrozen(TELEGRAM_THROTTLER_OPTIONS.out))
+    t.is(TELEGRAM_DELIVERY_GATE_OPTIONS.mediaWeight.capacity, 20)
+    t.is(
+        TELEGRAM_DELIVERY_GATE_OPTIONS.flood.maxWaitSeconds,
+        TELEGRAM_AUTO_RETRY_OPTIONS.maxDelaySeconds
+    )
+})
+
+test('media-group delivery weight equals its bounded item count', t => {
+    t.is(telegramDeliveryWeight('sendMediaGroup', { media: Array(10).fill({}) }), 10)
+    t.is(telegramDeliveryWeight('sendPhoto', { photo: 'redacted' }), 1)
+    t.is(telegramDeliveryWeight('sendMediaGroup', { media: Array(30).fill({}) }), 20)
+})
+
+test('group media weight waits outside the network call after twenty delivered units', async t => {
+    let now = 0
+    const waits = []
+    const calls = []
+    const gate = createTelegramMediaWeightGate({
+        capacity: 20,
+        windowMs: 60_000,
+        now: () => now,
+        async wait(delayMs) {
+            waits.push(delayMs)
+            now += delayMs
+        }
+    })
+    const previous = async (_method, payload) => {
+        calls.push(payload.chat_id)
+        return { ok: true }
+    }
+    const media = Array(10).fill({ type: 'photo', media: 'redacted' })
+
+    await gate(previous, 'sendMediaGroup', { chat_id: -100, media })
+    await gate(previous, 'sendMediaGroup', { chat_id: -100, media })
+    await gate(previous, 'sendMediaGroup', { chat_id: -100, media })
+
+    t.deepEqual(calls, [-100, -100, -100])
+    t.deepEqual(waits, [60_000])
+})
+
+test('shared flood gate blocks same-chat sends but lets another chat continue', async t => {
+    let now = 0
+    let calls = 0
+    const waits = []
+    const gate = createTelegramFloodGate({
+        maxWaitSeconds: 10,
+        now: () => now,
+        async wait(delayMs) {
+            waits.push(delayMs)
+            now += delayMs
+        }
+    })
+    const previous = async () => {
+        calls++
+        return calls === 1
+            ? { ok: false, error_code: 429, parameters: { retry_after: 5 } }
+            : { ok: true }
+    }
+
+    await gate(previous, 'sendMediaGroup', { chat_id: -100, media: [] })
+    await gate(previous, 'sendMessage', { chat_id: -200, text: 'safe' })
+    await gate(previous, 'sendMediaGroup', { chat_id: -100, media: [] })
+
+    t.is(calls, 3)
+    t.deepEqual(waits, [5000])
+})
+
+test('long shared flood deadline fails fast without another Telegram request', async t => {
+    let calls = 0
+    const gate = createTelegramFloodGate({ maxWaitSeconds: 10, now: () => 0 })
+    const previous = async () => {
+        calls++
+        return { ok: false, error_code: 429, parameters: { retry_after: 120 } }
+    }
+
+    await gate(previous, 'sendMediaGroup', { chat_id: -100, media: [] })
+    const blocked = await gate(previous, 'sendMediaGroup', { chat_id: -100, media: [] })
+
+    t.is(calls, 1)
+    t.is(blocked.error_code, 429)
+    t.true(blocked.parameters.flood_gate)
+    t.is(TELEGRAM_FLOOD_GATE_ACTIVE, 'TELEGRAM_FLOOD_GATE_ACTIVE')
 })
 
 test('application starts the concurrent runner with the explicit update budget', t => {

@@ -229,6 +229,7 @@ async function refreshIllustration(runtime, lifecycle, failedPage) {
 async function notifyIllustrationFailure(bot, runtime, lifecycle) {
     if (lifecycle.failureNotified) return
     lifecycle.failureNotified = true
+    if (lifecycle.errorCode === 'TELEGRAM_FLOOD_GATE_ACTIVE') return
     const messages = {
         ILLUSTRATION_REFRESH_ID_MISMATCH: ['illustration_refresh_id_mismatch'],
         PIXIV_MEDIA_REFRESH_FAILED: ['media_refresh_failed'],
