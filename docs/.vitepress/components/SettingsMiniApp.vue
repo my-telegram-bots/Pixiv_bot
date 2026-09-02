@@ -1,11 +1,16 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
   BOOLEAN_KEYS,
   cloneSettings,
   consumeInitialFragment
 } from '../mini-app/protocol.js'
 import { createTelegramBridge } from '../mini-app/telegram-bridge.js'
+import {
+  copyLegacyPayload,
+  encodeLegacySettings,
+  legacyTelegramShareUrl
+} from '../mini-app/legacy-export.js'
 import {
   DEFAULT_PREVIEW_FORMATS,
   DEFAULT_TEMPLATE_CHOICES,
@@ -37,6 +42,9 @@ const templateMarketOpen = ref(false)
 const selectedTemplateIndex = ref(0)
 const templateMarketTrigger = ref(null)
 const presetButtons = ref([])
+const legacyPayloadField = ref(null)
+const legacyTransferState = ref('legacyIdle')
+const legacyExportTime = ref(0)
 const settings = reactive({
   format: { ...DEFAULT_PREVIEW_FORMATS },
   default: {
@@ -75,6 +83,7 @@ const canCancelTarget = computed(() => launchState.value === 'ready' && [
 const launchMessage = computed(() => text[launchState.value])
 const submissionMessage = computed(() => text[submissionState.value])
 const targetMessage = computed(() => text[targetState.value])
+const legacyTransferMessage = computed(() => text[legacyTransferState.value])
 const targetTypeLabel = computed(() => text[`targetType${
   target.type[0].toUpperCase()}${target.type.slice(1)}`])
 const targetHandle = computed(() => target.username ? `@${target.username}` : text.usernameUnavailable)
@@ -94,6 +103,13 @@ const fileDeliveryMode = computed({
     applyNormalized()
   }
 })
+const legacyExport = computed(() => encodeLegacySettings(
+  outboundSettings(),
+  legacyExportTime.value
+))
+const legacyPayload = computed(() => legacyExport.value.ok ? legacyExport.value.data : '')
+const legacyShareUrl = computed(() => legacyTelegramShareUrl(legacyPayload.value))
+const canTransferLegacy = computed(() => canEdit.value && legacyExport.value.ok)
 
 function applyNormalized() {
   const normalized = normalizeSettings(cloneSettings(settings))
@@ -193,7 +209,34 @@ function cancelTargetSelection() {
   controller.value?.cancelTarget()
 }
 
+function selectLegacyPayload() {
+  legacyPayloadField.value?.select()
+}
+
+async function copyLegacyExport() {
+  if (!canTransferLegacy.value) return
+  const copied = await copyLegacyPayload(legacyPayload.value)
+  legacyTransferState.value = copied ? 'legacyCopied' : 'legacyCopyFailed'
+  if (!copied) {
+    await nextTick()
+    selectLegacyPayload()
+  }
+}
+
+function beginLegacyShare(event) {
+  if (!canTransferLegacy.value) {
+    event.preventDefault()
+    return
+  }
+  legacyTransferState.value = 'legacySharing'
+}
+
+watch(legacyPayload, (payload, previous) => {
+  if (previous && payload !== previous) legacyTransferState.value = 'legacyIdle'
+})
+
 onMounted(async () => {
+  legacyExportTime.value = Date.now()
   const parsed = consumeInitialFragment(window)
   const bridge = createTelegramBridge()
   if (!parsed.ok) {
@@ -371,6 +414,37 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
       <label><span>{{ text.telegraphUrl }}</span><input v-model="settings.default.telegraph_author_url" type="url" maxlength="511" inputmode="url" :aria-invalid="submissionState === 'validationFailed'"></label>
     </fieldset>
 
+    <section class="surface-card legacy-transfer-section" aria-labelledby="legacy-transfer-heading">
+      <h2 id="legacy-transfer-heading">{{ text.legacyHeading }}</h2>
+      <p class="section-help">{{ text.legacyHelp }}</p>
+      <label class="legacy-payload-field">
+        <span>{{ text.legacyPayloadLabel }}</span>
+        <textarea
+          ref="legacyPayloadField"
+          :value="legacyPayload"
+          rows="5"
+          readonly
+          spellcheck="false"
+          @click="selectLegacyPayload"
+          @focus="selectLegacyPayload"
+        />
+      </label>
+      <div class="button-row legacy-transfer-actions">
+        <button type="button" :disabled="!canTransferLegacy" @click="copyLegacyExport">{{ text.legacyCopy }}</button>
+        <a
+          class="button-link primary"
+          :href="canTransferLegacy ? legacyShareUrl : undefined"
+          :aria-disabled="!canTransferLegacy"
+          :tabindex="canTransferLegacy ? 0 : -1"
+          target="_tshare"
+          @click="beginLegacyShare"
+        >{{ text.legacySend }}</a>
+      </div>
+      <div class="surface-status legacy-transfer-status" aria-live="polite">
+        <p>{{ legacyTransferMessage }}</p>
+      </div>
+    </section>
+
     <section class="surface-card action-section" aria-labelledby="actions-heading">
       <h2 id="actions-heading">{{ text.actionsHeading }}</h2>
       <div class="button-row action-row">
@@ -469,10 +543,11 @@ fieldset.surface-card { min-inline-size: 0; }
 .template-tabs, .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .template-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 16px 0; }
 button, input, textarea, select { font: inherit; }
-button { min-height: 46px; border: 1px solid var(--vp-c-divider); border-radius: 9px; padding: 8px 12px; color: var(--surface-text); background: var(--tg-theme-bg-color, var(--vp-c-bg)); cursor: pointer; }
-button[aria-selected="true"], button.primary { border-color: var(--surface-accent); color: var(--surface-accent-text); background: var(--surface-accent); }
+button, .button-link { min-height: 46px; border: 1px solid var(--vp-c-divider); border-radius: 9px; padding: 8px 12px; color: var(--surface-text); background: var(--tg-theme-bg-color, var(--vp-c-bg)); cursor: pointer; box-sizing: border-box; }
+.button-link { display: grid; place-items: center; text-align: center; text-decoration: none; }
+button[aria-selected="true"], button.primary, .button-link.primary { border-color: var(--surface-accent); color: var(--surface-accent-text); background: var(--surface-accent); }
 button.danger { border-color: var(--vp-c-danger-1); color: var(--vp-c-danger-1); }
-button:disabled { cursor: not-allowed; opacity: .55; }
+button:disabled, .button-link[aria-disabled="true"] { cursor: not-allowed; opacity: .55; }
 .template-field, .telegraph-editor label, .version-field { display: grid; gap: 7px; margin: 12px 0; }
 textarea, input[type="text"], input[type="url"], select { width: 100%; color: var(--surface-text); background: var(--tg-theme-bg-color, var(--vp-c-bg)); border: 1px solid var(--vp-c-divider); border-radius: 8px; padding: 10px; box-sizing: border-box; }
 textarea { min-height: 168px; resize: vertical; }
@@ -499,6 +574,10 @@ textarea { min-height: 168px; resize: vertical; }
 .option-row { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .option-row input { width: 20px; height: 20px; flex: 0 0 auto; }
 .telegraph-editor { min-height: 326px; }
+.legacy-transfer-section { min-height: 410px; }
+.legacy-payload-field { display: grid; gap: 7px; margin: 12px 0; }
+.legacy-payload-field textarea { min-height: 126px; resize: vertical; overflow-wrap: anywhere; }
+.legacy-transfer-status { min-height: 88px; margin-top: 12px; }
 .target-selector { min-height: 404px; }
 .target-identity { display: flex; align-items: center; gap: 14px; min-height: 112px; margin: 14px 0; padding: 12px; border: 1px solid var(--vp-c-divider); border-radius: 12px; background: var(--tg-theme-bg-color, var(--vp-c-bg)); box-sizing: border-box; }
 .target-avatar { display: block; width: 78px; height: 78px; flex: 0 0 78px; border-radius: 50%; object-fit: cover; background: var(--surface-accent); }

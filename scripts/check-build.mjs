@@ -60,8 +60,43 @@ for (const [path, language, marker] of routes) {
     if (html.indexOf(sdkUrl, sdkIndex + sdkUrl.length) >= 0) {
       failures.push(`${path}: Telegram SDK is emitted more than once`)
     }
-  } else if (sdkIndex >= 0) {
-    failures.push(`${path}: ordinary or legacy route must not load the Telegram SDK`)
+    const targetIndex = html.indexOf('class="surface-card target-selector"')
+    const formatIndex = html.indexOf('class="surface-card format-editor"')
+    for (const required of [
+      'class="target-avatar"',
+      'class="target-copy"',
+      'class="artwork-preview-card"',
+      'class="preview-message"',
+      'class="template-market-layer"',
+      'class="preset-gallery"',
+      'class="surface-card legacy-transfer-section"',
+      'class="surface-status legacy-transfer-status"',
+      'target="_tshare"'
+    ]) {
+      if (!html.includes(required)) failures.push(`${path}: missing ${required}`)
+    }
+    if (targetIndex < 0 || formatIndex < 0 || targetIndex > formatIndex) {
+      failures.push(`${path}: target identity must precede the editors`)
+    }
+    const previewStart = html.indexOf('class="preview-message"')
+    const previewEnd = html.indexOf('</article>', previewStart)
+    const renderedPreview = html.slice(previewStart, previewEnd)
+    if (/\*\*&gt;|&gt;\*\*|\|\|/.test(renderedPreview)) {
+      failures.push(`${path}: rendered preview leaks Telegram quote controls`)
+    }
+  } else {
+    if (sdkIndex >= 0) {
+      failures.push(`${path}: ordinary or legacy route must not load the Telegram SDK`)
+    }
+    if (/(?:^|\/)s\.html$/.test(path)) {
+      if (!html.includes('tg://msg_url?url=')) {
+        failures.push(`${path}: missing permanent legacy Telegram handoff`)
+      }
+      const readonlyAreas = html.match(/<textarea\b[^>]*\breadonly\b[^>]*>/g) || []
+      if (readonlyAreas.length < 2) {
+        failures.push(`${path}: missing permanent raw Base64 or JSON output area`)
+      }
+    }
   }
 }
 
@@ -98,6 +133,16 @@ const compiledCss = await Promise.all(
 )
 if (!compiledCss.some((css) => css.includes('#save>a{') && css.includes('#setting .cards{'))) {
   failures.push('compiled CSS is missing the legacy settings layout')
+}
+for (const css of compiledCss) {
+  const previewRule = css.match(/\.preview-slot\[[^}]+\}|\.preview-slot\{[^}]+\}/)?.[0] || ''
+  const galleryRule = css.match(/\.preset-gallery\[[^}]+\}|\.preset-gallery\{[^}]+\}/)?.[0] || ''
+  if (/overflow:(?:auto|scroll|hidden)|(?:^|[;{])height:/.test(previewRule)) {
+    failures.push('compiled Mini App preview creates an inner scrolling or clipped region')
+  }
+  if (/overflow:(?:auto|scroll|hidden)|(?:^|[;{])height:/.test(galleryRule)) {
+    failures.push('compiled template gallery creates an inner scrolling or clipped region')
+  }
 }
 
 if (failures.length > 0) {

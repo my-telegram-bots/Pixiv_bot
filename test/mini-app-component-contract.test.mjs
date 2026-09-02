@@ -18,7 +18,8 @@ const vitePressConfig = readFileSync(
 test('all stable geometry regions remain mounted across state changes', () => {
   for (const region of [
     'launch-status', 'format-editor', 'options-editor', 'telegraph-editor',
-    'target-selector', 'action-section', 'terminal-guidance', 'dialog-layer',
+    'target-selector', 'legacy-transfer-section', 'action-section',
+    'terminal-guidance', 'dialog-layer',
     'template-market-layer'
   ]) assert.match(component, new RegExp(region))
   assert.doesNotMatch(component, /v-if|v-else|v-show/)
@@ -37,6 +38,19 @@ test('focus order controls remain present and invalid actions are disabled', () 
 test('component has no identity input or browser persistence API', () => {
   assert.doesNotMatch(component, /chat_id|user_id|sessionStorage|localStorage/)
   assert.doesNotMatch(component, /type="number"/)
+})
+
+test('Mini App preserves the legacy Base64 copy and destination-chat handoff', () => {
+  const legacy = component.indexOf('class="surface-card legacy-transfer-section"')
+  const actions = component.indexOf('class="surface-card action-section"')
+  assert.ok(legacy > 0)
+  assert.ok(legacy < actions, 'legacy transfer must precede Mini App save/reset')
+  assert.match(component, /:value="legacyPayload"/)
+  assert.match(component, /readonly/)
+  assert.match(component, /@click="copyLegacyExport"/)
+  assert.match(component, /:href="canTransferLegacy \? legacyShareUrl : undefined"/)
+  assert.match(component, /target="_tshare"/)
+  assert.match(component, /class="surface-status legacy-transfer-status"/)
 })
 
 test('Mini App keeps the original visual live-preview workflow', () => {
@@ -74,9 +88,9 @@ test('delivery behavior is grouped and mutually exclusive in the UI', () => {
   assert.match(component, /type="radio"/)
   assert.match(component, /name="file-delivery"/)
   assert.match(component, /v-model="fileDeliveryMode"/)
-  assert.match(component, /:disabled="!canEdit \|\| settings\.default\.remove_keyboard"/)
-  assert.match(component, /:disabled="!canEdit \|\| settings\.default\.remove_caption"/)
-  assert.match(component, /:disabled="!canEdit \|\| !settings\.default\.album"/)
+  assert.match(component, /key !== 'remove_keyboard' && settings\.default\.remove_keyboard/)
+  assert.match(component, /key !== 'remove_caption' && settings\.default\.remove_caption/)
+  assert.match(component, /key !== 'album' && !settings\.default\.album/)
   assert.doesNotMatch(component, /v-for="key in BOOLEAN_KEYS"/)
 })
 
