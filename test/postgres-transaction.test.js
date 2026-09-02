@@ -155,5 +155,5 @@ test('runtime transaction entry points do not issue transaction control through 
     const source = readFileSync(new URL('../db.js', import.meta.url), 'utf-8')
 
     t.false(/\b(?:pool|queryPool)\.query\(\s*['"](?:BEGIN|COMMIT|ROLLBACK)['"]/.test(source))
-    t.is((source.match(/withTransaction\(/g) || []).length, 5)
+    t.is((source.match(/withTransaction\(/g) || []).length, 4)
 })

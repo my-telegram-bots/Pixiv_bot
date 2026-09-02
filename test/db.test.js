@@ -1,6 +1,7 @@
 import test from 'ava'
 import { createTestDb, getTestPool, seedTestData } from './helpers/db-setup.js'
 import {
+    createIllustCollection,
     getIllust,
     updateIllust,
     updateIllustImageFileIds,
@@ -216,6 +217,25 @@ test('updateIllust updates tg_file_id for ugoira separately', async t => {
     // Verify update
     const illust = await getIllust(222222, pool)
     t.is(illust.tg_file_id, 'ugoira_file_id_updated')
+})
+
+test('illust collection partial update preserves required columns without an implicit insert', async t => {
+    const { pool } = t.context
+    const illustCollection = createIllustCollection(pool)
+
+    await illustCollection.updateOne({ id: 222222 }, {
+        $set: { type: 2, tg_file_id: 'wrapper-ugoira-file-id' }
+    })
+
+    const illust = await getIllust(222222, pool)
+    t.is(illust.title, 'Test Ugoira')
+    t.is(illust.tg_file_id, 'wrapper-ugoira-file-id')
+
+    const error = await t.throwsAsync(illustCollection.updateOne({ id: 999999 }, {
+        $set: { type: 2, tg_file_id: 'must-not-create-placeholder' }
+    }))
+    t.is(error.message, 'Record not exist: illust 999999')
+    t.is(await getIllust(999999, pool), null)
 })
 
 // Test 9: Delete illust

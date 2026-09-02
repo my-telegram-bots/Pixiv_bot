@@ -335,13 +335,13 @@ function rebuildIllustFromRow(illust, images, ugoira) {
 // ============================================
 // Illust Collection Wrapper
 // ============================================
-function createIllustCollection() {
+export function createIllustCollection(queryPool = pool) {
     return {
         findOne: async (query) => {
             if (!query || query.id === undefined) return null
             const id = query.id
 
-            const illustResult = await pool.query(
+            const illustResult = await queryPool.query(
                 'SELECT i.*, a.author_name FROM illust i LEFT JOIN author a ON i.author_id = a.author_id WHERE i.id = $1',
                 [id]
             )
@@ -351,7 +351,7 @@ function createIllustCollection() {
 
             // For ugoira (type=2), get ugoira_meta
             if (illust.type === 2) {
-                const ugoiraResult = await pool.query(
+                const ugoiraResult = await queryPool.query(
                     'SELECT * FROM ugoira_meta WHERE illust_id = $1',
                     [id]
                 )
@@ -362,7 +362,7 @@ function createIllustCollection() {
             }
 
             // For regular illusts, get images
-            const imagesResult = await pool.query(
+            const imagesResult = await queryPool.query(
                 'SELECT * FROM illust_image WHERE illust_id = $1 ORDER BY page_index',
                 [id]
             )
@@ -371,110 +371,24 @@ function createIllustCollection() {
         },
 
         find: (query) => {
-            return new PostgresCursor('illust', query, pool)
+            return new PostgresCursor('illust', query, queryPool)
         },
 
         updateOne: async (query, update, options = {}) => {
             const id = query.id
             const data = update.$set || {}
             const upsert = options.upsert || false
-
-            try {
-                return await withTransaction(pool, async (client) => {
-
-                // Extract illust main fields
-                const illustFields = ['title', 'type', 'comment', 'description', 'author_id',
-                    'tags', 'sl', 'restrict', 'x_restrict', 'ai_type', 'page_count', 'deleted', 'deleted_at']
-                const illustData = {}
-                for (const field of illustFields) {
-                    if (data[field] !== undefined) {
-                        illustData[field] = data[field]
-                    }
-                }
-
-                // Handle author - insert or update author_name
-                if (data.author_id && data.author_name) {
-                    await client.query(`
-                        INSERT INTO author (author_id, author_name)
-                        VALUES ($1, $2)
-                        ON CONFLICT (author_id) DO UPDATE SET author_name = $2, updated_at = NOW()
-                    `, [data.author_id, data.author_name])
-                }
-
-                // Upsert illust main table
-                if (Object.keys(illustData).length > 0 || upsert) {
-                    const columns = ['id', ...Object.keys(illustData)]
-                    const values = [id, ...Object.values(illustData)]
-                    const placeholders = values.map((_, i) => `$${i + 1}`).join(', ')
-
-                    const updateClauses = Object.keys(illustData)
-                        .map((col, i) => `${col} = $${i + 2}`)
-                        .join(', ')
-
-                    if (updateClauses) {
-                        await client.query(`
-                            INSERT INTO illust (${columns.join(', ')})
-                            VALUES (${placeholders})
-                            ON CONFLICT (id) DO UPDATE SET ${updateClauses}, updated_at = NOW()
-                        `, values)
-                    } else if (upsert) {
-                        await client.query(`
-                            INSERT INTO illust (id, title) VALUES ($1, $2)
-                            ON CONFLICT (id) DO NOTHING
-                        `, [id, data.title || ''])
-                    }
-                }
-
-                // Handle imgs_ field - convert to illust_image rows
-                if (data.imgs_) {
-                    const imgs = data.imgs_
-                    const type = data.type ?? 0
-
-                    if (type === 2 && imgs.cover_img_url) {
-                        // Ugoira - update ugoira_meta
-                        await client.query(`
-                            INSERT INTO ugoira_meta (illust_id, cover_img_url, width, height)
-                            VALUES ($1, $2, $3, $4)
-                            ON CONFLICT (illust_id) DO UPDATE SET
-                                cover_img_url = $2, width = $3, height = $4, updated_at = NOW()
-                        `, [
-                            id,
-                            imgs.cover_img_url,
-                            imgs.size?.[0]?.width || null,
-                            imgs.size?.[0]?.height || null
-                        ])
-                    } else if (imgs.thumb_urls) {
-                        await syncIllustImages(client, id, imgs)
-                    }
-                }
-
-                // Handle tg_file_id update for ugoira
-                if (data.tg_file_id !== undefined) {
-                    if (data.type !== 2) {
-                        throw new TypeError('Regular illustration file IDs must be written by page')
-                    }
-                    await client.query(`
-                            UPDATE ugoira_meta SET tg_file_id = $1, updated_at = NOW()
-                            WHERE illust_id = $2
-                        `, [data.tg_file_id, id])
-                }
-
-                    return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
-                })
-            } catch (error) {
-                console.error('updateOne error:', error)
-                throw error
-            }
+            return updateIllust(id, data, queryPool, { upsert })
         },
 
         insertOne: async (doc) => {
             // Use direct updateIllust with upsert
-            return await updateIllust(doc.id, doc, pool, { upsert: true })
+            return await updateIllust(doc.id, doc, queryPool, { upsert: true })
         },
 
         deleteOne: async (query) => {
             // Use direct deleteIllust
-            return await deleteIllust(query.id, pool)
+            return await deleteIllust(query.id, queryPool)
         },
 
         createIndex: async () => {

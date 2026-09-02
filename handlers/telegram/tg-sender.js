@@ -68,6 +68,7 @@ import {
     sendNovels
 } from '#handlers/telegram/tg-sender-secondary-phases'
 import { sendTelegraph } from '#handlers/telegram/tg-sender-telegraph'
+import { cacheUgoiraFileId } from '#handlers/telegram/ugoira-file-id-cache'
 
 const terminalIllustrationStates = new Set([
     IllustrationLifecycleState.COMPLETED,
@@ -450,11 +451,14 @@ async function sendUgoiraAnimation(bot, config, runtime, illust, media, extra) {
         }
     }
 
-    if (!illust.tg_file_id && result?.animation?.file_id) {
-        await db.collection.illust.updateOne({ id: illust.id }, {
-            $set: { type: 2, tg_file_id: result.animation.file_id }
-        })
-    }
+    await cacheUgoiraFileId({
+        store: db,
+        illustration: illust,
+        sentMessage: result,
+        reportError: runtime.reportError,
+        chatId,
+        languageCode: ctx.l
+    })
     if (result) {
         extra.reply_to_message_id = result.message_id
         return { kind: MediaSendKind.SENT, result }
