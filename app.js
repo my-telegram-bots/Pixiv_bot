@@ -53,20 +53,29 @@ const bot = getBot()
 const guestMediaCacheChatIds = process.env.DBLESS
     ? []
     : config.tg.media_cache_chat_ids || []
+async function persistRegularIllustrationFileIds(illustId, pages) {
+    const result = await updateIllustImageFileIds(illustId, pages)
+    if (!result.acknowledged) {
+        throw new Error('Regular illustration file ID cache database is unavailable')
+    }
+}
 const guestMediaPrewarmer = createGuestMediaPrewarmer({
     bot,
     cacheChatIds: guestMediaCacheChatIds,
-    writeFileIds: async (illustId, pages) => {
-        const result = await updateIllustImageFileIds(illustId, pages)
-        if (!result.acknowledged) throw new Error('Guest media cache database is unavailable')
-    },
+    writeFileIds: persistRegularIllustrationFileIds,
     logger: honsole
 })
 const settingsLifecycle = createSettingsLifecycle({ bot, store: db, logger: honsole })
 const { resolveUserSettings, handleSettingsCommand } = settingsLifecycle
 const settingsMiniAppLifecycle = createSettingsMiniAppLifecycle({ bot, store: db, logger: honsole })
 const resolveInlineSettings = createInlineSettingsResolver({ resolveUserSettings, logger: honsole })
-const tg_sender = createTgSender({ bot, config, resolveUserSettings, logger: honsole })
+const tg_sender = createTgSender({
+    bot,
+    config,
+    resolveUserSettings,
+    logger: honsole,
+    writeFileIds: process.env.DBLESS ? undefined : persistRegularIllustrationFileIds
+})
 const linkStore = createChatLinkStore({ getPool })
 const linkLifecycle = createLinkLifecycle({ bot, linkStore, tgSender: tg_sender, logger: honsole })
 const inlineQueryHandler = createInlineQueryHandler({

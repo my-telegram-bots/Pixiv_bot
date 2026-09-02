@@ -69,6 +69,7 @@ import {
 } from '#handlers/telegram/tg-sender-secondary-phases'
 import { sendTelegraph } from '#handlers/telegram/tg-sender-telegraph'
 import { cacheUgoiraFileId } from '#handlers/telegram/ugoira-file-id-cache'
+import { runRegularIllustrationFileIdHook } from '#handlers/telegram/regular-illustration-file-id-cache'
 
 const terminalIllustrationStates = new Set([
     IllustrationLifecycleState.COMPLETED,
@@ -81,7 +82,7 @@ function messageThreadOptions(ctx) {
     return messageThreadId ? { message_thread_id: messageThreadId } : {}
 }
 
-async function initializeInvocation(resolveUserSettings, ctx) {
+async function initializeInvocation(resolveUserSettings, ctx, writeFileIds) {
     const runtime = {
         ctx,
         chatId: ctx.chat_id || ctx.message.chat.id,
@@ -94,6 +95,7 @@ async function initializeInvocation(resolveUserSettings, ctx) {
         mediaGroups: [],
         files: [],
         deliveryErrors: [],
+        writeFileIds,
         mediaGroupExtra: ctx.message?.message_thread_id
             ? { message_thread_id: ctx.message.message_thread_id }
             : {}
@@ -323,6 +325,7 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
             if (result.kind === MediaSendKind.SENT) {
                 replyToMessageId = result.result.message_id
                 recordPageSent(lifecycle, page)
+                await runRegularIllustrationFileIdHook(runtime, [item], [result.result])
             } else {
                 honsole.warn('Failed to send photo for illust', illust.id, 'page', page)
                 if (!terminalIllustrationStates.has(lifecycle.state)) {
@@ -680,6 +683,7 @@ async function sendAlbumBatch(bot, runtime, mediaGroups, asDocuments) {
                 if (result.kind === MediaSendKind.SENT) {
                     updateReplyChain(mediaGroupExtra, result.result?.[0]?.message_id)
                     markAlbumOutputs(runtime, mediaGroup, `album:${index}`)
+                    await runRegularIllustrationFileIdHook(runtime, mediaGroup, result.result)
                 } else {
                     delete mediaGroupExtra.reply_to_message_id
                     logTelegramFailure(honsole, result.error, {
@@ -914,7 +918,13 @@ async function runNonfatalPhase(runtime, method, callback) {
     }
 }
 
-export function createTgSender({ bot, config, resolveUserSettings, logger = honsole }) {
+export function createTgSender({
+    bot,
+    config,
+    resolveUserSettings,
+    logger = honsole,
+    writeFileIds
+}) {
     if (!bot || !config || !resolveUserSettings) {
         throw new Error('createTgSender requires bot, config, and resolveUserSettings')
     }
@@ -929,7 +939,11 @@ export function createTgSender({ bot, config, resolveUserSettings, logger = hons
             const machine = createTgSenderMachine()
             const runtime = await runTgSenderStateMachine(machine, {
                 initialize: async () => {
-                    const runtime = await initializeInvocation(resolveUserSettings, ctx)
+                    const runtime = await initializeInvocation(
+                        resolveUserSettings,
+                        ctx,
+                        writeFileIds
+                    )
                     runtime.reportError = (error, chatId, languageCode, options) => catchily(
                         error,
                         chatId,
