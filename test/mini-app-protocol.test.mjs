@@ -82,15 +82,16 @@ test('save and reset serialization are compact and contain no identity or UI fie
 })
 
 test('save serialization enforces 4095, 4096, and 4097 UTF-8 byte boundaries', () => {
-  const settings = { format: {}, default: { telegraph_title: '' } }
+  const settings = { format: { message: '' }, default: {} }
   const overhead = serializeSave(initial.session, settings).bytes
   for (const boundary of [4095, 4096, 4097]) {
-    settings.default.telegraph_title = 'a'.repeat(boundary - overhead)
+    settings.format.message = 'a'.repeat(boundary - overhead)
     const result = serializeSave(initial.session, settings)
     assert.equal(result.bytes, boundary)
     assert.equal(result.ok, boundary <= MAX_PAYLOAD_BYTES)
   }
-  settings.default.telegraph_title = '界'.repeat(1400)
+  settings.format.message = '界'.repeat(1400)
   const utf8 = serializeSave(initial.session, settings)
-  assert.ok(utf8.bytes > JSON.stringify(JSON.parse(utf8.reason ? '{}' : utf8.data)).length)
+  assert.equal(utf8.reason, 'too_large')
+  assert.ok(utf8.bytes > MAX_PAYLOAD_BYTES)
 })

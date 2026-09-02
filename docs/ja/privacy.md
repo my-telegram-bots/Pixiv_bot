@@ -23,6 +23,8 @@ Bot の利用時、次の機能では Telegram のユーザー ID が記録さ�
 次の場合、Bot または Cloudflare が現在の IP アドレスを取得する場合があります。
 
 - Telegraph ページをブラウザで開いた場合
+  - Cloudflare が元画像への直接リンクを提供します。
+  - Bot が動画への直接リンクを提供します。
 - このドキュメントへアクセスした場合
 
 Telegram の Instant View だけを利用した場合、Telegraph ページへの通信はこのサービスを経由しません。

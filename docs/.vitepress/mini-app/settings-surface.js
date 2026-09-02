@@ -22,6 +22,7 @@ const en = {
   idle: 'Changes are sent only after you choose Save or confirm Reset.', submitting: 'Sending your request to the bot…',
   handedBack: 'Your request was handed to the bot. The Telegram chat will show the final result.',
   sendFailed: 'The request could not be sent from this client. Reopen settings from the bot and try again. [SETTINGS_MINI_APP_SEND_FAILED]',
+  validationFailed: 'Some Telegraph details are invalid or too long. Correct the highlighted fields, then try again. [SETTINGS_MINI_APP_VALIDATION_FAILED]',
   tooLarge: 'These settings are too large to send. Shorten the message templates, then try again. [SETTINGS_MINI_APP_TOO_LARGE]',
   confirmTitle: 'Reset all settings?', confirmBody: 'This asks the bot to remove the selected target’s saved settings and restore defaults.',
   cancel: 'Cancel', confirmReset: 'Confirm reset', terminal: 'The bot is the final authority. If the session expired or saving failed, reopen settings from the bot and retry.',
@@ -45,6 +46,7 @@ const ja = {
   actionsHeading: '保存またはリセット', save: '設定を保存', reset: '初期値に戻す', idle: '「保存」を選ぶかリセットを確認するまで、変更は送信されません。',
   submitting: 'Bot にリクエストを送信しています…', handedBack: 'リクエストを Bot に渡しました。最終結果は Telegram チャットに表示されます。',
   sendFailed: 'このクライアントからリクエストを送信できませんでした。Bot から設定を開き直して再試行してください。[SETTINGS_MINI_APP_SEND_FAILED]',
+  validationFailed: 'Telegraph 情報が正しくないか長すぎます。該当項目を修正して再試行してください。[SETTINGS_MINI_APP_VALIDATION_FAILED]',
   tooLarge: '設定が大きすぎて送信できません。メッセージテンプレートを短くして再試行してください。[SETTINGS_MINI_APP_TOO_LARGE]',
   confirmTitle: 'すべての設定をリセットしますか？', confirmBody: '選択した対象の保存済み設定を削除し、初期値へ戻すよう Bot に依頼します。',
   cancel: 'キャンセル', confirmReset: 'リセットを確定', terminal: '最終結果は Bot が判断します。セッション切れや保存失敗の場合は、Bot から設定を開き直してください。',
@@ -63,6 +65,7 @@ const zhHans = {
   targetUnsupported: '当前 Telegram 客户端不能选择群组或频道。请更新 Telegram，或继续编辑个人设置。[SETTINGS_MINI_APP_TARGET_UNSUPPORTED]',
   actionsHeading: '保存或重置', save: '保存设置', reset: '恢复默认值', idle: '只有点击“保存”或确认重置后，才会发送更改。', submitting: '正在向 Bot 发送请求…',
   handedBack: '请求已交给 Bot；最终结果会显示在 Telegram 聊天中。', sendFailed: '当前客户端未能发送请求。请从 Bot 重新打开设置后再试。[SETTINGS_MINI_APP_SEND_FAILED]',
+  validationFailed: '部分 Telegraph 信息无效或过长。请修正对应字段后再试。[SETTINGS_MINI_APP_VALIDATION_FAILED]',
   tooLarge: '设置内容过大，无法发送。请缩短消息模板后重试。[SETTINGS_MINI_APP_TOO_LARGE]', confirmTitle: '重置全部设置？', confirmBody: '这会请求 Bot 删除所选目标的已保存设置并恢复默认值。', cancel: '取消', confirmReset: '确认重置',
   terminal: '最终结果由 Bot 确认。如会话已过期或保存失败，请从 Bot 重新打开设置后重试。', sample: '示例作品——预览内容会在这个固定区域内更新。'
 }
@@ -79,6 +82,7 @@ const zhHant = {
   targetUnsupported: '目前 Telegram 用戶端不能選擇群組或頻道。請更新 Telegram，或繼續編輯個人設定。[SETTINGS_MINI_APP_TARGET_UNSUPPORTED]',
   actionsHeading: '儲存或重設', save: '儲存設定', reset: '恢復預設值', idle: '只有點擊「儲存」或確認重設後，才會傳送變更。', submitting: '正在向 Bot 傳送請求…',
   handedBack: '請求已交給 Bot；最終結果會顯示在 Telegram 聊天中。', sendFailed: '目前用戶端未能傳送請求。請從 Bot 重新開啟設定後再試。[SETTINGS_MINI_APP_SEND_FAILED]',
+  validationFailed: '部分 Telegraph 資訊無效或過長。請修正對應欄位後再試。[SETTINGS_MINI_APP_VALIDATION_FAILED]',
   tooLarge: '設定內容過大，無法傳送。請縮短訊息範本後重試。[SETTINGS_MINI_APP_TOO_LARGE]', confirmTitle: '重設全部設定？', confirmBody: '這會請求 Bot 刪除所選目標的已儲存設定並恢復預設值。', cancel: '取消', confirmReset: '確認重設',
   terminal: '最終結果由 Bot 確認。如工作階段已逾期或儲存失敗，請從 Bot 重新開啟設定後重試。', sample: '範例作品——預覽內容會在這個固定區域內更新。'
 }
@@ -110,11 +114,25 @@ export function normalizeSettings(settings, targetType = 'private') {
   if (values.asfile) {
     values.album = false
     values.album_one = false
-    values.album_equal = false
     values.single_caption = false
   }
   if (targetType === 'channel') values.share = false
   return normalized
+}
+
+export function validateEditableSettings(settings) {
+  const values = settings.default
+  if ((values.telegraph_title || '').length >= 256 ||
+    (values.telegraph_author_name || '').length >= 128 ||
+    (values.telegraph_author_url || '').length >= 512) return false
+  if (values.telegraph_author_url) {
+    try {
+      new URL(values.telegraph_author_url)
+    } catch (error) {
+      return false
+    }
+  }
+  return true
 }
 
 export function createActionController({ bridge, session, onState = () => {} }) {

@@ -11,7 +11,8 @@ import {
   copyFor,
   createActionController,
   normalizeSettings,
-  renderTemplatePreview
+  renderTemplatePreview,
+  validateEditableSettings
 } from '../mini-app/settings-surface.js'
 
 const props = defineProps({
@@ -25,6 +26,7 @@ const labels = Object.freeze(Object.fromEntries(
 const launchState = ref('loading')
 const submissionState = ref('idle')
 const targetState = ref('targetIdle')
+const busy = ref(false)
 const confirmReset = ref(false)
 const settings = reactive({ format: {}, default: {} })
 const initial = ref(null)
@@ -37,7 +39,7 @@ const templateTabs = Object.freeze([
   ['inline', 'inlineTemplate']
 ])
 
-const canEdit = computed(() => launchState.value === 'ready' && !controller.value?.pending)
+const canEdit = computed(() => launchState.value === 'ready' && !busy.value)
 const launchMessage = computed(() => text[launchState.value])
 const submissionMessage = computed(() => text[submissionState.value])
 const targetMessage = computed(() => text[targetState.value])
@@ -58,6 +60,10 @@ function onBooleanChange() {
 
 async function save() {
   applyNormalized()
+  if (!validateEditableSettings(settings)) {
+    submissionState.value = 'validationFailed'
+    return
+  }
   await controller.value?.save(cloneSettings(settings))
 }
 
@@ -99,6 +105,8 @@ onMounted(async () => {
     onState(region, state) {
       if (region === 'target') targetState.value = state
       else submissionState.value = state
+      busy.value = ['submitting', 'handedBack', 'targetPendingGroup',
+        'targetPendingChannel', 'targetSent'].includes(state)
     }
   })
   launchState.value = 'ready'
@@ -159,9 +167,9 @@ onMounted(async () => {
 
     <fieldset class="surface-card telegraph-editor" :disabled="!canEdit">
       <legend>{{ text.telegraphHeading }}</legend>
-      <label><span>{{ text.telegraphTitle }}</span><input v-model="settings.default.telegraph_title" type="text" maxlength="255"></label>
-      <label><span>{{ text.telegraphAuthor }}</span><input v-model="settings.default.telegraph_author_name" type="text" maxlength="127"></label>
-      <label><span>{{ text.telegraphUrl }}</span><input v-model="settings.default.telegraph_author_url" type="url" maxlength="511" inputmode="url"></label>
+      <label><span>{{ text.telegraphTitle }}</span><input v-model="settings.default.telegraph_title" type="text" maxlength="255" :aria-invalid="submissionState === 'validationFailed'"></label>
+      <label><span>{{ text.telegraphAuthor }}</span><input v-model="settings.default.telegraph_author_name" type="text" maxlength="127" :aria-invalid="submissionState === 'validationFailed'"></label>
+      <label><span>{{ text.telegraphUrl }}</span><input v-model="settings.default.telegraph_author_url" type="url" maxlength="511" inputmode="url" :aria-invalid="submissionState === 'validationFailed'"></label>
     </fieldset>
 
     <section class="surface-card target-selector" aria-labelledby="target-heading">

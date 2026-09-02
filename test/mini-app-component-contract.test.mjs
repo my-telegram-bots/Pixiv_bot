@@ -43,4 +43,5 @@ test('Japanese locale exposes guide, legacy settings, privacy, and Mini App rout
   assert.match(japaneseLegacyComponent, /メッセージ形式の設定/)
   assert.match(japaneseLegacyComponent, /変更を保存/)
   assert.match(japaneseLegacyComponent, /Bot の <code>\/s<\/code> コマンドからこのページを開き直してください/)
+  assert.match(japaneseLegacyComponent, /current_templates\.inline = setting\.format\.inline/)
 })

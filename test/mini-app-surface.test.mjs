@@ -8,7 +8,8 @@ import {
   SUPPORTED_LOCALES,
   copyFor,
   createActionController,
-  normalizeSettings
+  normalizeSettings,
+  validateEditableSettings
 } from '../docs/.vitepress/mini-app/settings-surface.js'
 
 const settings = () => ({
@@ -65,9 +66,22 @@ test('dependency normalization matches persisted delivery invariants', () => {
   const fileOnly = normalizeSettings(value)
   assert.equal(fileOnly.default.album, false)
   assert.equal(fileOnly.default.album_one, false)
-  assert.equal(fileOnly.default.album_equal, false)
+  assert.equal(fileOnly.default.album_equal, true)
   assert.equal(fileOnly.default.single_caption, false)
   assert.equal(normalizeSettings(settings(), 'channel').default.share, false)
+})
+
+test('Telegraph metadata validation matches Bot limits and URL rules', () => {
+  const value = settings()
+  value.default.telegraph_title = 'x'.repeat(255)
+  value.default.telegraph_author_name = 'x'.repeat(127)
+  value.default.telegraph_author_url = 'https://example.com'
+  assert.equal(validateEditableSettings(value), true)
+  value.default.telegraph_author_url = 'not a URL'
+  assert.equal(validateEditableSettings(value), false)
+  value.default.telegraph_author_url = ''
+  value.default.telegraph_title += 'x'
+  assert.equal(validateEditableSettings(value), false)
 })
 
 test('bridge detects SDK capabilities and calls ready/send/close without identity data', () => {
