@@ -6,10 +6,11 @@ const component = readFileSync(
   new URL('../docs/.vitepress/components/SettingsMiniApp.vue', import.meta.url),
   'utf8'
 )
-const japaneseLegacyComponent = readFileSync(
-  new URL('../docs/.vitepress/components/LegacySettingsJa.vue', import.meta.url),
+const legacyComponents = ['En', 'Ja', 'ZhHans', 'ZhHant'].map(locale => readFileSync(
+  new URL(`../docs/.vitepress/components/LegacySettings${locale}.vue`, import.meta.url),
   'utf8'
-)
+))
+const japaneseLegacyComponent = legacyComponents[1]
 const vitePressConfig = readFileSync(
   new URL('../docs/.vitepress/config.mts', import.meta.url),
   'utf8'
@@ -109,4 +110,12 @@ test('Japanese locale exposes guide, legacy settings, privacy, and Mini App rout
   assert.match(japaneseLegacyComponent, /変更を保存/)
   assert.match(japaneseLegacyComponent, /Bot の <code>\/s<\/code> コマンドからこのページを開き直してください/)
   assert.match(japaneseLegacyComponent, /current_templates\.inline = setting\.format\.inline/)
+})
+
+test('every legacy editor preserves normal and inline templates independently', () => {
+  for (const legacyComponent of legacyComponents) {
+    assert.match(legacyComponent, /current_templates\.message = setting\.format\.message/)
+    assert.match(legacyComponent, /current_templates\.inline = setting\.format\.inline/)
+    assert.doesNotMatch(legacyComponent, /current_templates\.message = setting\.format\.inline/)
+  }
 })

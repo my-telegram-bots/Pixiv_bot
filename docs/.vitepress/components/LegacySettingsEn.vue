@@ -191,7 +191,7 @@
         if (setting = JSON.parse(decodeUnicode(hash))) {
           // this.current_template = setting.format.message
           this.current_templates.message = setting.format.message
-          this.current_templates.message = setting.format.inline
+          this.current_templates.inline = setting.format.inline
           this.current_templates.mediagroup_message = setting.format.mediagroup_message
           this.bot_confiuration_time = setting.time
           if (+new Date() - setting.time > 120000 && setting.time !== undefined && setting.time !== 0) { // time - bot generate time > 120s
