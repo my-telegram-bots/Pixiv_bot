@@ -32,6 +32,19 @@ The migration from VuePress is complete only when all of these invariants hold:
   the separate Settings Mini App rollout contract authorizes its removal.
 - The Mini App preserves the visual template workflow: default templates,
   normal/album/inline mode switching, and a live rendered sample artwork card.
+  The renderer consumes Telegram template/MarkdownV2 control syntax instead of
+  displaying it literally, and this primary preview never uses inner scrolling.
+  Default templates live in a modal browser and modify the active template only
+  after an explicit apply action.
+- Mini App delivery controls preserve the Bot's behavioral combinations:
+  mutually exclusive file-delivery modes are one choice and dependent album,
+  caption, and keyboard controls are visibly grouped and disabled together.
+- Cancelling the native group/channel selector always returns the stable target
+  region to an immediately retryable state, including clients that omit the
+  documented failure callback; stale callbacks cannot close the page later.
+- Target selection and the explanation that current stored settings are loaded
+  precede all editable controls; users choose whose settings to inspect before
+  changing them.
 - The official Telegram Mini App SDK is emitted only on the four Mini App pages
   and precedes the VitePress application module script in each generated page.
 - A production build must be followed by inspection of every generated locale

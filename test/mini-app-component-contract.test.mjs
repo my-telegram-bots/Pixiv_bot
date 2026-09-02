@@ -29,6 +29,8 @@ test('focus order controls remain present and invalid actions are disabled', () 
   assert.match(component, /@click="confirmReset = true"/)
   assert.match(component, /@click="chooseTarget\('group'\)"/)
   assert.match(component, /@click="chooseTarget\('channel'\)"/)
+  assert.match(component, /@click="cancelTargetSelection"/)
+  assert.match(component, /:disabled="!canCancelTarget"/)
 })
 
 test('component has no identity input or browser persistence API', () => {
@@ -37,13 +39,39 @@ test('component has no identity input or browser persistence API', () => {
 })
 
 test('Mini App keeps the original visual live-preview workflow', () => {
-  assert.match(component, /class="preset-gallery"/)
-  assert.match(component, /@click="applyTemplate\(preset\.template\)"/)
+  assert.match(component, /class="template-market-layer"/)
+  assert.match(component, /@click="confirmTemplateChoice"/)
+  assert.match(component, /@click="closeTemplateMarket"/)
+  assert.doesNotMatch(component, /@click="applyTemplate\(preset\.template\)"/)
   assert.match(component, /src="\/img\/67953985_p0\.jpg"/)
   assert.match(component, /class="artwork-preview-card"/)
   assert.match(component, /class="preview-message" v-html="previewHtml"/)
   assert.match(component, /settings\.format\[activeTemplate\.value\]/)
   assert.doesNotMatch(component, /<pre>\{\{ preview \}\}<\/pre>/)
+  const previewCss = component.match(/\.preview-slot\s*\{([^}]*)\}/)?.[1] || ''
+  assert.doesNotMatch(previewCss, /(?:^|;)\s*height\s*:|overflow\s*:\s*(?:auto|scroll|hidden)/)
+})
+
+test('target context and current-settings loading precede every editor', () => {
+  const target = component.indexOf('class="surface-card target-selector"')
+  assert.ok(target > 0)
+  for (const editor of ['format-editor', 'options-editor', 'telegraph-editor']) {
+    assert.ok(target < component.indexOf(editor), `${editor} must follow target selection`)
+  }
+})
+
+test('delivery behavior is grouped and mutually exclusive in the UI', () => {
+  for (const group of [
+    'file-delivery-group', 'album-options-group', 'caption-options-group',
+    'keyboard-options-group', 'content-options-group', 'scope-options-group'
+  ]) assert.match(component, new RegExp(`class="option-group ${group}`))
+  assert.match(component, /type="radio"/)
+  assert.match(component, /name="file-delivery"/)
+  assert.match(component, /v-model="fileDeliveryMode"/)
+  assert.match(component, /:disabled="!canEdit \|\| settings\.default\.remove_keyboard"/)
+  assert.match(component, /:disabled="!canEdit \|\| settings\.default\.remove_caption"/)
+  assert.match(component, /:disabled="!canEdit \|\| !settings\.default\.album"/)
+  assert.doesNotMatch(component, /v-for="key in BOOLEAN_KEYS"/)
 })
 
 test('Mini App does not silently reinterpret server default templates as v1', () => {

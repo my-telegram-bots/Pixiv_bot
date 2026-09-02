@@ -11,7 +11,8 @@ const en = {
   unsupported: 'This Telegram client cannot send settings. Update Telegram, then open settings from the bot again. [SETTINGS_MINI_APP_UNSUPPORTED]',
   formatHeading: 'Message templates', formatHelp: 'Edit the templates used for normal messages, albums, and inline results.', presetHeading: 'Default templates — choose one to apply',
   normalTemplate: 'Normal message', albumTemplate: 'Album message', inlineTemplate: 'Inline result', protocolVersion: 'Template version', protocolAutomatic: 'Current/default', preview: 'Preview',
-  optionsHeading: 'Delivery options', telegraphHeading: 'Telegraph details',
+  optionsHeading: 'Delivery options', fileDeliveryHeading: 'What to send', mediaOnly: 'Media only', fileOnly: 'Original files only', mediaWithFiles: 'Media, then original files', mediaWithImmediateFiles: 'Media and original files immediately',
+  albumOptionsHeading: 'Album layout', captionOptionsHeading: 'Captions', keyboardOptionsHeading: 'Message buttons', contentOptionsHeading: 'Caption content', scopeOptionsHeading: 'Order and group behavior', telegraphHeading: 'Telegraph details',
   telegraphTitle: 'Page title', telegraphAuthor: 'Author name', telegraphUrl: 'Author URL',
   targetHeading: 'Whose settings?', personalTarget: 'You are editing the target selected by the bot. Choose another target here if needed.',
   group: 'Choose group', channel: 'Choose channel', targetIdle: 'No target selection is in progress.',
@@ -26,7 +27,7 @@ const en = {
   validationFailed: 'Some Telegraph details are invalid or too long. Correct the highlighted fields, then try again. [SETTINGS_MINI_APP_VALIDATION_FAILED]',
   tooLarge: 'These settings are too large to send. Shorten the message templates, then try again. [SETTINGS_MINI_APP_TOO_LARGE]',
   confirmTitle: 'Reset all settings?', confirmBody: 'This asks the bot to remove the selected target’s saved settings and restore defaults.',
-  cancel: 'Cancel', confirmReset: 'Confirm reset', terminal: 'The bot is the final authority. If the session expired or saving failed, reopen settings from the bot and retry.',
+  cancel: 'Cancel', continueEditing: 'Continue editing', confirmReset: 'Confirm reset', terminal: 'The bot is the final authority. If the session expired or saving failed, reopen settings from the bot and retry.',
   sample: 'Sample artwork description, updated live from the active template.', previewImageAlt: 'Sample Pixiv artwork preview'
 }
 
@@ -38,7 +39,8 @@ const ja = {
   unsupported: 'この Telegram クライアントから設定を送信できません。Telegram を更新し、Bot から設定を開き直してください。[SETTINGS_MINI_APP_UNSUPPORTED]',
   formatHeading: 'メッセージテンプレート', formatHelp: '通常メッセージ、アルバム、インライン結果のテンプレートを編集します。', presetHeading: '標準テンプレート — 選択して適用',
   normalTemplate: '通常メッセージ', albumTemplate: 'アルバムメッセージ', inlineTemplate: 'インライン結果', protocolVersion: 'テンプレート版', protocolAutomatic: '現在値／標準', preview: 'プレビュー',
-  optionsHeading: '送信オプション', telegraphHeading: 'Telegraph 情報', telegraphTitle: 'ページタイトル', telegraphAuthor: '作者名', telegraphUrl: '作者 URL',
+  optionsHeading: '送信オプション', fileDeliveryHeading: '送信する内容', mediaOnly: 'メディアのみ', fileOnly: '元ファイルのみ', mediaWithFiles: 'メディアの後に元ファイル', mediaWithImmediateFiles: 'メディアと元ファイルをすぐ送信',
+  albumOptionsHeading: 'アルバム配置', captionOptionsHeading: 'キャプション', keyboardOptionsHeading: 'メッセージボタン', contentOptionsHeading: 'キャプション内容', scopeOptionsHeading: '順序とグループ動作', telegraphHeading: 'Telegraph 情報', telegraphTitle: 'ページタイトル', telegraphAuthor: '作者名', telegraphUrl: '作者 URL',
   targetHeading: 'どの設定を編集しますか？', personalTarget: 'Bot が選んだ対象を編集中です。必要なら別の対象を選べます。',
   group: 'グループを選択', channel: 'チャンネルを選択', targetIdle: '対象の選択は開始されていません。',
   targetPendingGroup: 'Telegram でグループを選択してください。', targetPendingChannel: 'Telegram でチャンネルを選択してください。',
@@ -50,7 +52,7 @@ const ja = {
   validationFailed: 'Telegraph 情報が正しくないか長すぎます。該当項目を修正して再試行してください。[SETTINGS_MINI_APP_VALIDATION_FAILED]',
   tooLarge: '設定が大きすぎて送信できません。メッセージテンプレートを短くして再試行してください。[SETTINGS_MINI_APP_TOO_LARGE]',
   confirmTitle: 'すべての設定をリセットしますか？', confirmBody: '選択した対象の保存済み設定を削除し、初期値へ戻すよう Bot に依頼します。',
-  cancel: 'キャンセル', confirmReset: 'リセットを確定', terminal: '最終結果は Bot が判断します。セッション切れや保存失敗の場合は、Bot から設定を開き直してください。',
+  cancel: 'キャンセル', continueEditing: '編集を続ける', confirmReset: 'リセットを確定', terminal: '最終結果は Bot が判断します。セッション切れや保存失敗の場合は、Bot から設定を開き直してください。',
   sample: 'サンプル作品の説明です。選択中のテンプレートからリアルタイムで更新されます。', previewImageAlt: 'Pixiv サンプル作品のプレビュー'
 }
 
@@ -60,14 +62,15 @@ const zhHans = {
   noTelegram: '请从 Telegram 内的 Bot 打开此页面。返回 Bot 后点击“打开设置”。[SETTINGS_MINI_APP_TELEGRAM_REQUIRED]',
   unsupported: '当前 Telegram 客户端无法发送设置。请更新 Telegram，再从 Bot 重新打开设置。[SETTINGS_MINI_APP_UNSUPPORTED]',
   formatHeading: '消息模板', formatHelp: '编辑普通消息、媒体组和内联结果所用的模板。', presetHeading: '默认模板——选择后应用', normalTemplate: '普通消息', albumTemplate: '媒体组消息', inlineTemplate: '内联结果', protocolVersion: '模板版本', protocolAutomatic: '当前值／默认值', preview: '预览',
-  optionsHeading: '发送选项', telegraphHeading: 'Telegraph 信息', telegraphTitle: '页面标题', telegraphAuthor: '作者名称', telegraphUrl: '作者 URL',
+  optionsHeading: '发送选项', fileDeliveryHeading: '发送方式', mediaOnly: '仅发送媒体', fileOnly: '仅发送原文件', mediaWithFiles: '先发送媒体，再附加原文件', mediaWithImmediateFiles: '同时立即发送媒体和原文件',
+  albumOptionsHeading: '媒体组安排', captionOptionsHeading: '说明文字', keyboardOptionsHeading: '消息按钮', contentOptionsHeading: '说明内容', scopeOptionsHeading: '顺序与群组行为', telegraphHeading: 'Telegraph 信息', telegraphTitle: '页面标题', telegraphAuthor: '作者名称', telegraphUrl: '作者 URL',
   targetHeading: '编辑谁的设置？', personalTarget: '当前正在编辑 Bot 选定的目标；如有需要，可在此选择其他目标。', group: '选择群组', channel: '选择频道', targetIdle: '当前没有进行目标选择。',
   targetPendingGroup: '请在 Telegram 中选择一个群组。', targetPendingChannel: '请在 Telegram 中选择一个频道。', targetSent: '选择结果已发送给 Bot，请在 Telegram 聊天中继续。', targetCancelled: '没有选择目标，您可以重试。',
   targetUnsupported: '当前 Telegram 客户端不能选择群组或频道。请更新 Telegram，或继续编辑个人设置。[SETTINGS_MINI_APP_TARGET_UNSUPPORTED]',
   actionsHeading: '保存或重置', save: '保存设置', reset: '恢复默认值', idle: '只有点击“保存”或确认重置后，才会发送更改。', submitting: '正在向 Bot 发送请求…',
   handedBack: '请求已交给 Bot；最终结果会显示在 Telegram 聊天中。', sendFailed: '当前客户端未能发送请求。请从 Bot 重新打开设置后再试。[SETTINGS_MINI_APP_SEND_FAILED]',
   validationFailed: '部分 Telegraph 信息无效或过长。请修正对应字段后再试。[SETTINGS_MINI_APP_VALIDATION_FAILED]',
-  tooLarge: '设置内容过大，无法发送。请缩短消息模板后重试。[SETTINGS_MINI_APP_TOO_LARGE]', confirmTitle: '重置全部设置？', confirmBody: '这会请求 Bot 删除所选目标的已保存设置并恢复默认值。', cancel: '取消', confirmReset: '确认重置',
+  tooLarge: '设置内容过大，无法发送。请缩短消息模板后重试。[SETTINGS_MINI_APP_TOO_LARGE]', confirmTitle: '重置全部设置？', confirmBody: '这会请求 Bot 删除所选目标的已保存设置并恢复默认值。', cancel: '取消', continueEditing: '继续编辑', confirmReset: '确认重置',
   terminal: '最终结果由 Bot 确认。如会话已过期或保存失败，请从 Bot 重新打开设置后重试。', sample: '这是示例作品说明，会根据当前模板实时更新。', previewImageAlt: 'Pixiv 示例作品预览'
 }
 
@@ -77,14 +80,15 @@ const zhHant = {
   noTelegram: '請從 Telegram 內的 Bot 開啟此頁面。返回 Bot 後點擊「開啟設定」。[SETTINGS_MINI_APP_TELEGRAM_REQUIRED]',
   unsupported: '目前 Telegram 用戶端無法傳送設定。請更新 Telegram，再從 Bot 重新開啟設定。[SETTINGS_MINI_APP_UNSUPPORTED]',
   formatHeading: '訊息範本', formatHelp: '編輯一般訊息、媒體群組和行內結果所用的範本。', presetHeading: '預設範本——選擇後套用', normalTemplate: '一般訊息', albumTemplate: '媒體群組訊息', inlineTemplate: '行內結果', protocolVersion: '範本版本', protocolAutomatic: '目前值／預設值', preview: '預覽',
-  optionsHeading: '傳送選項', telegraphHeading: 'Telegraph 資訊', telegraphTitle: '頁面標題', telegraphAuthor: '作者名稱', telegraphUrl: '作者 URL',
+  optionsHeading: '傳送選項', fileDeliveryHeading: '傳送方式', mediaOnly: '只傳送媒體', fileOnly: '只傳送原始檔', mediaWithFiles: '先傳送媒體，再附加原始檔', mediaWithImmediateFiles: '立即傳送媒體和原始檔',
+  albumOptionsHeading: '媒體群組安排', captionOptionsHeading: '說明文字', keyboardOptionsHeading: '訊息按鈕', contentOptionsHeading: '說明內容', scopeOptionsHeading: '順序與群組行為', telegraphHeading: 'Telegraph 資訊', telegraphTitle: '頁面標題', telegraphAuthor: '作者名稱', telegraphUrl: '作者 URL',
   targetHeading: '編輯誰的設定？', personalTarget: '目前正在編輯 Bot 選定的目標；如有需要，可在此選擇其他目標。', group: '選擇群組', channel: '選擇頻道', targetIdle: '目前沒有進行目標選擇。',
   targetPendingGroup: '請在 Telegram 中選擇一個群組。', targetPendingChannel: '請在 Telegram 中選擇一個頻道。', targetSent: '選擇結果已傳送給 Bot，請在 Telegram 聊天中繼續。', targetCancelled: '沒有選擇目標，您可以重試。',
   targetUnsupported: '目前 Telegram 用戶端不能選擇群組或頻道。請更新 Telegram，或繼續編輯個人設定。[SETTINGS_MINI_APP_TARGET_UNSUPPORTED]',
   actionsHeading: '儲存或重設', save: '儲存設定', reset: '恢復預設值', idle: '只有點擊「儲存」或確認重設後，才會傳送變更。', submitting: '正在向 Bot 傳送請求…',
   handedBack: '請求已交給 Bot；最終結果會顯示在 Telegram 聊天中。', sendFailed: '目前用戶端未能傳送請求。請從 Bot 重新開啟設定後再試。[SETTINGS_MINI_APP_SEND_FAILED]',
   validationFailed: '部分 Telegraph 資訊無效或過長。請修正對應欄位後再試。[SETTINGS_MINI_APP_VALIDATION_FAILED]',
-  tooLarge: '設定內容過大，無法傳送。請縮短訊息範本後重試。[SETTINGS_MINI_APP_TOO_LARGE]', confirmTitle: '重設全部設定？', confirmBody: '這會請求 Bot 刪除所選目標的已儲存設定並恢復預設值。', cancel: '取消', confirmReset: '確認重設',
+  tooLarge: '設定內容過大，無法傳送。請縮短訊息範本後重試。[SETTINGS_MINI_APP_TOO_LARGE]', confirmTitle: '重設全部設定？', confirmBody: '這會請求 Bot 刪除所選目標的已儲存設定並恢復預設值。', cancel: '取消', continueEditing: '繼續編輯', confirmReset: '確認重設',
   terminal: '最終結果由 Bot 確認。如工作階段已逾期或儲存失敗，請從 Bot 重新開啟設定後重試。', sample: '這是範例作品說明，會依目前範本即時更新。', previewImageAlt: 'Pixiv 範例作品預覽'
 }
 
@@ -118,6 +122,7 @@ export const DEFAULT_PREVIEW_FORMATS = Object.freeze({
 const previewMarkdown = new MarkdownIt({ html: false, linkify: false, breaks: true })
 previewMarkdown.renderer.rules.link_open = () => '<span class="preview-link">'
 previewMarkdown.renderer.rules.link_close = () => '</span>'
+previewMarkdown.renderer.rules.blockquote_open = () => '<blockquote class="preview-quote">\n'
 previewMarkdown.renderer.rules.image = (tokens, index) =>
   previewMarkdown.utils.escapeHtml(tokens[index].content || '')
 const ESCAPED_PERCENT = '\uff69'
@@ -153,6 +158,25 @@ function replacePreviewToken(token, values) {
   return typeof value === 'boolean' ? prefix + suffix : prefix + String(value) + suffix
 }
 
+function renderTelegramQuotes(markdown) {
+  const lines = markdown.split('\n')
+  let expandable = false
+  return lines.map(line => {
+    if (line.startsWith('**>')) {
+      expandable = true
+      line = `>${line.slice(3)}`
+    } else if (line.startsWith('>**')) {
+      expandable = true
+      line = `>${line.slice(3)}`
+    }
+    if (expandable && line.startsWith('>') && line.endsWith('||')) {
+      line = line.slice(0, -2)
+      expandable = false
+    }
+    return line
+  }).join('\n')
+}
+
 export function renderTemplateText(template, settings = {}, sample = COPY.en.sample) {
   const values = previewValues(settings, sample)
   return String(template || '')
@@ -165,7 +189,36 @@ export function renderTemplateText(template, settings = {}, sample = COPY.en.sam
 }
 
 export function renderTemplatePreview(template, settings = {}, sample = COPY.en.sample) {
-  return previewMarkdown.render(renderTemplateText(template, settings, sample))
+  return previewMarkdown.render(renderTelegramQuotes(
+    renderTemplateText(template, settings, sample)
+  ))
+}
+
+export const FILE_DELIVERY_MODES = Object.freeze([
+  'mediaOnly',
+  'fileOnly',
+  'mediaWithFiles',
+  'mediaWithImmediateFiles'
+])
+
+export function fileDeliveryModeFor(values = {}) {
+  if (values.asfile) return 'fileOnly'
+  if (values.append_file_immediate) return 'mediaWithImmediateFiles'
+  if (values.append_file) return 'mediaWithFiles'
+  return 'mediaOnly'
+}
+
+export function applyFileDeliveryMode(values, mode) {
+  if (!FILE_DELIVERY_MODES.includes(mode)) throw new Error(`Unknown file delivery mode: ${mode}`)
+  values.asfile = mode === 'fileOnly'
+  values.append_file = mode === 'mediaWithFiles' || mode === 'mediaWithImmediateFiles'
+  values.append_file_immediate = mode === 'mediaWithImmediateFiles'
+  if (values.asfile) {
+    values.album = false
+    values.album_one = false
+    values.album_equal = false
+    values.single_caption = false
+  }
 }
 
 export function copyFor(locale) {
@@ -186,6 +239,7 @@ export function normalizeSettings(settings, targetType = 'private') {
   if (values.asfile) {
     values.album = false
     values.album_one = false
+    values.album_equal = false
     values.single_caption = false
   }
   if (targetType === 'channel') values.share = false
@@ -209,6 +263,8 @@ export function validateEditableSettings(settings) {
 
 export function createActionController({ bridge, session, onState = () => {} }) {
   let pending = false
+  let targetRequest = 0
+  let targetPending = false
   async function handoff(kind, serialized) {
     if (pending) return false
     if (!serialized.ok) {
@@ -229,6 +285,7 @@ export function createActionController({ bridge, session, onState = () => {} }) 
   }
   return {
     get pending() { return pending },
+    get pendingTarget() { return targetPending },
     save(settings) { return handoff('submit', serializeSave(session, settings)) },
     reset() { return handoff('submit', serializeReset(session)) },
     async requestTarget(kind, preparedId) {
@@ -238,9 +295,13 @@ export function createActionController({ bridge, session, onState = () => {} }) 
         return false
       }
       pending = true
+      targetPending = true
+      const request = ++targetRequest
       onState('target', kind === 'group' ? 'targetPendingGroup' : 'targetPendingChannel')
       try {
         const selected = await bridge.requestChat(preparedId)
+        if (request !== targetRequest) return false
+        targetPending = false
         if (!selected) {
           pending = false
           onState('target', 'targetCancelled')
@@ -250,10 +311,20 @@ export function createActionController({ bridge, session, onState = () => {} }) 
         bridge.close()
         return true
       } catch (error) {
+        if (request !== targetRequest) return false
         pending = false
+        targetPending = false
         onState('target', 'targetCancelled')
         return false
       }
+    },
+    cancelTarget() {
+      if (!targetPending) return false
+      targetRequest++
+      targetPending = false
+      pending = false
+      onState('target', 'targetCancelled')
+      return true
     }
   }
 }

@@ -6,10 +6,13 @@ import {
   COPY,
   DEFAULT_PREVIEW_FORMATS,
   DEFAULT_TEMPLATE_CHOICES,
+  FILE_DELIVERY_MODES,
   OPTION_LABELS,
   SUPPORTED_LOCALES,
+  applyFileDeliveryMode,
   copyFor,
   createActionController,
+  fileDeliveryModeFor,
   normalizeSettings,
   renderTemplatePreview,
   renderTemplateText,
@@ -53,6 +56,66 @@ test('preview produces safe rendered markup and presets change the rendered resu
     /<img|<script|https:\/\/example\.com/
   )
   assert.match(renderTemplatePreview(DEFAULT_PREVIEW_FORMATS.message, value), /XX:Me/)
+})
+
+test('Telegram expandable quote markers render as message content, never literal controls', () => {
+  const value = settings()
+  Object.assign(value.default, { tags: true, description: true })
+  const html = renderTemplatePreview(
+    '%title%%\n**>|description%',
+    value,
+    'description line 1\ndescription line 2'
+  )
+  assert.match(html, /<blockquote>/)
+  assert.match(html, /description line 1/)
+  assert.match(html, /description line 2/)
+  assert.doesNotMatch(html, /\*\*&gt;|&gt;\*\*|\|\|/)
+
+  const legacyExpandable = renderTemplatePreview(
+    '%title%%\n>**|description%',
+    value,
+    'legacy description'
+  )
+  assert.match(legacyExpandable, /<blockquote>/)
+  assert.doesNotMatch(legacyExpandable, /&gt;\*\*|\*\*/)
+})
+
+test('file delivery is one four-way exclusive choice', () => {
+  const expected = {
+    mediaOnly: [false, false, false],
+    fileOnly: [true, false, false],
+    mediaWithFiles: [false, true, false],
+    mediaWithImmediateFiles: [false, true, true]
+  }
+  assert.deepEqual(FILE_DELIVERY_MODES, Object.keys(expected))
+  for (const [mode, flags] of Object.entries(expected)) {
+    const value = settings()
+    Object.assign(value.default, {
+      asfile: true,
+      append_file: true,
+      append_file_immediate: true,
+      album: true,
+      album_one: true,
+      album_equal: true,
+      single_caption: true
+    })
+    applyFileDeliveryMode(value.default, mode)
+    assert.deepEqual([
+      value.default.asfile,
+      value.default.append_file,
+      value.default.append_file_immediate
+    ], flags)
+    assert.equal(fileDeliveryModeFor(value.default), mode)
+    if (mode === 'fileOnly') {
+      assert.deepEqual([
+        value.default.album,
+        value.default.album_one,
+        value.default.album_equal,
+        value.default.single_caption
+      ], [false, false, false, false])
+    }
+  }
+  assert.throws(() => applyFileDeliveryMode(settings().default, 'invalid'))
 })
 
 test('all four locales implement identical UI state keys and every option label', () => {
@@ -105,7 +168,7 @@ test('dependency normalization matches persisted delivery invariants', () => {
   const fileOnly = normalizeSettings(value)
   assert.equal(fileOnly.default.album, false)
   assert.equal(fileOnly.default.album_one, false)
-  assert.equal(fileOnly.default.album_equal, true)
+  assert.equal(fileOnly.default.album_equal, false)
   assert.equal(fileOnly.default.single_caption, false)
   assert.equal(normalizeSettings(settings(), 'channel').default.share, false)
 })
@@ -211,4 +274,27 @@ test('bridge requestChat maps Telegram callback values without exposing chat IDs
   })
   assert.equal(await bridge.requestChat('prepared-only'), true)
   assert.deepEqual(ids, ['prepared-only'])
+})
+
+test('controller can recover a selector whose client omits the cancel callback', async () => {
+  const states = []
+  let settleRequest
+  const controller = createActionController({
+    bridge: {
+      canRequestChat: true,
+      requestChat: () => new Promise(resolve => { settleRequest = resolve }),
+      close() { throw new Error('stale success must not close') }
+    },
+    session: 'opaque-token',
+    onState: (...state) => states.push(state)
+  })
+  const first = controller.requestTarget('group', 'prepared-id')
+  assert.equal(controller.pendingTarget, true)
+  assert.equal(controller.cancelTarget(), true)
+  assert.equal(controller.pending, false)
+  assert.equal(controller.pendingTarget, false)
+  assert.deepEqual(states.at(-1), ['target', 'targetCancelled'])
+  settleRequest(true)
+  assert.equal(await first, false)
+  assert.deepEqual(states.at(-1), ['target', 'targetCancelled'])
 })

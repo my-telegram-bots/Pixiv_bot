@@ -1,4 +1,7 @@
-export function createTelegramBridge(webApp = globalThis.window?.Telegram?.WebApp) {
+export function createTelegramBridge(
+  webApp = globalThis.window?.Telegram?.WebApp,
+  hostWindow = globalThis.window
+) {
   const available = webApp !== null && typeof webApp === 'object'
 
   return {
@@ -19,9 +22,40 @@ export function createTelegramBridge(webApp = globalThis.window?.Telegram?.WebAp
         return Promise.resolve(false)
       }
       return new Promise((resolve, reject) => {
+        let leftForSelector = false
+        let returnTimer
+        const hostDocument = hostWindow?.document
+        const finish = selected => {
+          if (returnTimer) hostWindow.clearTimeout(returnTimer)
+          hostWindow?.removeEventListener?.('blur', onLeave)
+          hostWindow?.removeEventListener?.('focus', onReturn)
+          hostDocument?.removeEventListener?.('visibilitychange', onVisibilityChange)
+          webApp.offEvent?.('deactivated', onLeave)
+          webApp.offEvent?.('activated', onReturn)
+          resolve(selected === true)
+        }
+        const onLeave = () => { leftForSelector = true }
+        const onReturn = () => {
+          if (!leftForSelector || returnTimer) return
+          returnTimer = hostWindow?.setTimeout?.(() => finish(false), 250)
+        }
+        const onVisibilityChange = () => {
+          if (hostDocument?.visibilityState === 'hidden') onLeave()
+          else if (hostDocument?.visibilityState === 'visible') onReturn()
+        }
         try {
-          webApp.requestChat(preparedId, selected => resolve(selected === true))
+          hostWindow?.addEventListener?.('blur', onLeave)
+          hostWindow?.addEventListener?.('focus', onReturn)
+          hostDocument?.addEventListener?.('visibilitychange', onVisibilityChange)
+          webApp.onEvent?.('deactivated', onLeave)
+          webApp.onEvent?.('activated', onReturn)
+          webApp.requestChat(preparedId, finish)
         } catch (error) {
+          hostWindow?.removeEventListener?.('blur', onLeave)
+          hostWindow?.removeEventListener?.('focus', onReturn)
+          hostDocument?.removeEventListener?.('visibilitychange', onVisibilityChange)
+          webApp.offEvent?.('deactivated', onLeave)
+          webApp.offEvent?.('activated', onReturn)
           reject(new Error('request_chat_failed'))
         }
       })

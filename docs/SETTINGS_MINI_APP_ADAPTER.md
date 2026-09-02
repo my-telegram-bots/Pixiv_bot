@@ -193,6 +193,13 @@ selection. They are presentation capabilities, not chat identities.
   then sends a new Web App button for that target's complete current settings.
 - If the callback reports `false`, restore the ready state and explain that no
   target was selected and the user can retry.
+- Closing or cancelling the native selector must never leave the page in a
+  permanent pending state. Treat the SDK failure callback as cancellation; for
+  clients that omit it, settle cancellation when the Mini App demonstrably
+  returns from the selector. Keep an always-mounted, pending-only-enabled
+  “continue editing” recovery control beside the selector so a client defect
+  cannot trap the session. A late callback from a cancelled selector must not
+  close the app or overwrite the newer state.
 - If `requestChat` is unavailable, explain that this Telegram client cannot
   select a group/channel and tell the user to update Telegram or configure
   personal settings. Do not fall back to a text chat ID field.
@@ -213,6 +220,13 @@ implemented:
   cancelled/failed, and unsupported client;
 - terminal guidance: reopen/retry through the bot when the session is stale or
   persistence failed.
+
+Target context and the group/channel load controls appear immediately after the
+launch status, before any editable field, because the selected target determines
+which current settings the user is inspecting and editing. The target region
+states plainly that the Bot-selected target's stored values are already loaded;
+choosing another target returns to Telegram and reopens the editor with that
+target's current values before edits begin.
 
 Status text, validation errors, button labels, focus, and async transitions must
 not move the editor, action row, target selector, or focus order. Save and reset
@@ -247,9 +261,35 @@ card with the existing preview image and renders the active normal, album, or
 inline template through the v1 placeholder and conditional syntax. Every edit
 updates that rendered preview immediately. A localized, keyboard-operable
 default-template gallery applies a complete template to the active mode without
-moving the editor, preview, action row, or focus order. Invalid/non-Telegram
+moving the editor, preview, action row, or focus order. The gallery is opened
+from one compact control into a modal browser; navigating among choices does not
+change the active template. A separate explicit “apply this template” action is
+required before the editor changes, and cancelling the modal preserves the
+current template exactly. Invalid/non-Telegram
 launches still show the representative preview in its reserved slot so the
 surface never appears to have lost preview support.
+
+The preview must use the established Telegram-template rendering semantics,
+including conditional prefixes/suffixes, MarkdownV2 escaping, links, ordinary
+block quotes, and expandable block quotes. Telegram control markers such as
+`**>`, `>**`, and the terminal `||` marker must render as their visible message
+effect and must never leak as literal preview text. The sample card and template
+gallery are primary content: neither may use a fixed-height inner scroller or
+clip message content. The document owns vertical scrolling. User-entered
+template output may therefore grow the format section downward; controls before
+the preview retain their bounds and the later sections follow the complete
+preview without overlap, while focus order remains unchanged.
+
+Delivery settings are presented by behavior, not as one undifferentiated list
+of implementation booleans. File delivery is one four-way exclusive choice:
+media only, files only, media followed by files, or media with files sent
+immediately. The selected choice maps atomically to `asfile`, `append_file`, and
+`append_file_immediate`. Related album, caption, keyboard, content, ordering,
+and scope settings stay in labeled groups. Album-only controls are disabled
+when albums are off; open/share are disabled when the keyboard is removed; and
+caption-placement controls are disabled when captions are removed. Disabled
+dependent values keep their stored value when the Bot contract does not require
+normalizing it away, so restoring the parent option restores the user's choice.
 
 Pure protocol code must accept dependencies such as the Web App object and text
 encoder so it can be tested without inventing a Telegram identity. Browser or
@@ -268,7 +308,16 @@ Before changing the public `/s` behavior:
    Test v1 placeholder/conditional rendering, live preview source changes,
    active-mode switching, and default-template application; assert that the
    preview contains the sample artwork image and rendered message content rather
-   than a plain `<pre>` echo.
+   than a plain `<pre>` echo. Assert that expandable-quote control markers render
+   as a quote rather than literal `**>`/`>**`/`||` text, and that neither the
+   preview nor template gallery creates an inner scrolling region. Test all four
+   exclusive file-delivery combinations and every parent/dependent disabled
+   relationship. Test native-selector cancel callbacks, return-without-callback,
+   explicit pending recovery, and stale callbacks after cancellation; each path
+   must re-enable group/channel selection without changing focus order. Assert
+   that target/current-settings context precedes every editor control, and that
+   opening, browsing, and cancelling the template modal cannot apply a template;
+   only its explicit confirmation action may do so.
 3. Build with `yarn build`. Inspect the generated English, Japanese, Simplified
    Chinese, and Traditional Chinese `/mini-app` pages and prove the official SDK
    script is loaded before the VitePress application code, while legacy `/s`
