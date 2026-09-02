@@ -36,6 +36,22 @@ test('component has no identity input or browser persistence API', () => {
   assert.doesNotMatch(component, /type="number"/)
 })
 
+test('Mini App keeps the original visual live-preview workflow', () => {
+  assert.match(component, /class="preset-gallery"/)
+  assert.match(component, /@click="applyTemplate\(preset\.template\)"/)
+  assert.match(component, /src="\/img\/67953985_p0\.jpg"/)
+  assert.match(component, /class="artwork-preview-card"/)
+  assert.match(component, /class="preview-message" v-html="previewHtml"/)
+  assert.match(component, /settings\.format\[activeTemplate\.value\]/)
+  assert.doesNotMatch(component, /<pre>\{\{ preview \}\}<\/pre>/)
+})
+
+test('Mini App does not silently reinterpret server default templates as v1', () => {
+  assert.match(component, /settings\.format\.version \|\|= ''/)
+  assert.match(component, /delete outbound\.format\.version/)
+  assert.doesNotMatch(component, /settings\.format\.version \|\|= 'v1'/)
+})
+
 test('Japanese locale exposes guide, legacy settings, privacy, and Mini App routes', () => {
   for (const route of ['/ja/', '/ja/s', '/ja/privacy']) {
     assert.match(vitePressConfig, new RegExp(`link: '${route.replace('/', '\\/')}'`))

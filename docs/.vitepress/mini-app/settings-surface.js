@@ -1,3 +1,4 @@
+import MarkdownIt from 'markdown-it'
 import { cloneSettings, serializeReset, serializeSave } from './protocol.js'
 
 export const SUPPORTED_LOCALES = Object.freeze(['en', 'ja', 'zh-hans', 'zh-hant'])
@@ -8,8 +9,8 @@ const en = {
   invalid: 'These settings could not be opened because the launch link is invalid. Return to the bot and open settings again. [SETTINGS_MINI_APP_INVALID]',
   noTelegram: 'This page must be opened from the bot in Telegram. Return to the bot and tap Open settings. [SETTINGS_MINI_APP_TELEGRAM_REQUIRED]',
   unsupported: 'This Telegram client cannot send settings. Update Telegram, then open settings from the bot again. [SETTINGS_MINI_APP_UNSUPPORTED]',
-  formatHeading: 'Message templates', formatHelp: 'Edit the templates used for normal messages, albums, and inline results.',
-  normalTemplate: 'Normal message', albumTemplate: 'Album message', inlineTemplate: 'Inline result', protocolVersion: 'Template version', preview: 'Preview',
+  formatHeading: 'Message templates', formatHelp: 'Edit the templates used for normal messages, albums, and inline results.', presetHeading: 'Default templates — choose one to apply',
+  normalTemplate: 'Normal message', albumTemplate: 'Album message', inlineTemplate: 'Inline result', protocolVersion: 'Template version', protocolAutomatic: 'Current/default', preview: 'Preview',
   optionsHeading: 'Delivery options', telegraphHeading: 'Telegraph details',
   telegraphTitle: 'Page title', telegraphAuthor: 'Author name', telegraphUrl: 'Author URL',
   targetHeading: 'Whose settings?', personalTarget: 'You are editing the target selected by the bot. Choose another target here if needed.',
@@ -26,7 +27,7 @@ const en = {
   tooLarge: 'These settings are too large to send. Shorten the message templates, then try again. [SETTINGS_MINI_APP_TOO_LARGE]',
   confirmTitle: 'Reset all settings?', confirmBody: 'This asks the bot to remove the selected target’s saved settings and restore defaults.',
   cancel: 'Cancel', confirmReset: 'Confirm reset', terminal: 'The bot is the final authority. If the session expired or saving failed, reopen settings from the bot and retry.',
-  sample: 'Sample artwork — preview text stays inside this reserved area.'
+  sample: 'Sample artwork description, updated live from the active template.', previewImageAlt: 'Sample Pixiv artwork preview'
 }
 
 const ja = {
@@ -35,8 +36,8 @@ const ja = {
   invalid: '起動リンクが正しくないため、設定を開けませんでした。Bot に戻って設定を開き直してください。[SETTINGS_MINI_APP_INVALID]',
   noTelegram: 'このページは Telegram 内の Bot から開いてください。Bot に戻り、「設定を開く」をタップしてください。[SETTINGS_MINI_APP_TELEGRAM_REQUIRED]',
   unsupported: 'この Telegram クライアントから設定を送信できません。Telegram を更新し、Bot から設定を開き直してください。[SETTINGS_MINI_APP_UNSUPPORTED]',
-  formatHeading: 'メッセージテンプレート', formatHelp: '通常メッセージ、アルバム、インライン結果のテンプレートを編集します。',
-  normalTemplate: '通常メッセージ', albumTemplate: 'アルバムメッセージ', inlineTemplate: 'インライン結果', protocolVersion: 'テンプレート版', preview: 'プレビュー',
+  formatHeading: 'メッセージテンプレート', formatHelp: '通常メッセージ、アルバム、インライン結果のテンプレートを編集します。', presetHeading: '標準テンプレート — 選択して適用',
+  normalTemplate: '通常メッセージ', albumTemplate: 'アルバムメッセージ', inlineTemplate: 'インライン結果', protocolVersion: 'テンプレート版', protocolAutomatic: '現在値／標準', preview: 'プレビュー',
   optionsHeading: '送信オプション', telegraphHeading: 'Telegraph 情報', telegraphTitle: 'ページタイトル', telegraphAuthor: '作者名', telegraphUrl: '作者 URL',
   targetHeading: 'どの設定を編集しますか？', personalTarget: 'Bot が選んだ対象を編集中です。必要なら別の対象を選べます。',
   group: 'グループを選択', channel: 'チャンネルを選択', targetIdle: '対象の選択は開始されていません。',
@@ -50,7 +51,7 @@ const ja = {
   tooLarge: '設定が大きすぎて送信できません。メッセージテンプレートを短くして再試行してください。[SETTINGS_MINI_APP_TOO_LARGE]',
   confirmTitle: 'すべての設定をリセットしますか？', confirmBody: '選択した対象の保存済み設定を削除し、初期値へ戻すよう Bot に依頼します。',
   cancel: 'キャンセル', confirmReset: 'リセットを確定', terminal: '最終結果は Bot が判断します。セッション切れや保存失敗の場合は、Bot から設定を開き直してください。',
-  sample: 'サンプル作品 — プレビューはこの固定領域内で更新されます。'
+  sample: 'サンプル作品の説明です。選択中のテンプレートからリアルタイムで更新されます。', previewImageAlt: 'Pixiv サンプル作品のプレビュー'
 }
 
 const zhHans = {
@@ -58,7 +59,7 @@ const zhHans = {
   invalid: '启动链接无效，无法打开设置。请返回 Bot 并重新打开设置。[SETTINGS_MINI_APP_INVALID]',
   noTelegram: '请从 Telegram 内的 Bot 打开此页面。返回 Bot 后点击“打开设置”。[SETTINGS_MINI_APP_TELEGRAM_REQUIRED]',
   unsupported: '当前 Telegram 客户端无法发送设置。请更新 Telegram，再从 Bot 重新打开设置。[SETTINGS_MINI_APP_UNSUPPORTED]',
-  formatHeading: '消息模板', formatHelp: '编辑普通消息、媒体组和内联结果所用的模板。', normalTemplate: '普通消息', albumTemplate: '媒体组消息', inlineTemplate: '内联结果', protocolVersion: '模板版本', preview: '预览',
+  formatHeading: '消息模板', formatHelp: '编辑普通消息、媒体组和内联结果所用的模板。', presetHeading: '默认模板——选择后应用', normalTemplate: '普通消息', albumTemplate: '媒体组消息', inlineTemplate: '内联结果', protocolVersion: '模板版本', protocolAutomatic: '当前值／默认值', preview: '预览',
   optionsHeading: '发送选项', telegraphHeading: 'Telegraph 信息', telegraphTitle: '页面标题', telegraphAuthor: '作者名称', telegraphUrl: '作者 URL',
   targetHeading: '编辑谁的设置？', personalTarget: '当前正在编辑 Bot 选定的目标；如有需要，可在此选择其他目标。', group: '选择群组', channel: '选择频道', targetIdle: '当前没有进行目标选择。',
   targetPendingGroup: '请在 Telegram 中选择一个群组。', targetPendingChannel: '请在 Telegram 中选择一个频道。', targetSent: '选择结果已发送给 Bot，请在 Telegram 聊天中继续。', targetCancelled: '没有选择目标，您可以重试。',
@@ -67,7 +68,7 @@ const zhHans = {
   handedBack: '请求已交给 Bot；最终结果会显示在 Telegram 聊天中。', sendFailed: '当前客户端未能发送请求。请从 Bot 重新打开设置后再试。[SETTINGS_MINI_APP_SEND_FAILED]',
   validationFailed: '部分 Telegraph 信息无效或过长。请修正对应字段后再试。[SETTINGS_MINI_APP_VALIDATION_FAILED]',
   tooLarge: '设置内容过大，无法发送。请缩短消息模板后重试。[SETTINGS_MINI_APP_TOO_LARGE]', confirmTitle: '重置全部设置？', confirmBody: '这会请求 Bot 删除所选目标的已保存设置并恢复默认值。', cancel: '取消', confirmReset: '确认重置',
-  terminal: '最终结果由 Bot 确认。如会话已过期或保存失败，请从 Bot 重新打开设置后重试。', sample: '示例作品——预览内容会在这个固定区域内更新。'
+  terminal: '最终结果由 Bot 确认。如会话已过期或保存失败，请从 Bot 重新打开设置后重试。', sample: '这是示例作品说明，会根据当前模板实时更新。', previewImageAlt: 'Pixiv 示例作品预览'
 }
 
 const zhHant = {
@@ -75,7 +76,7 @@ const zhHant = {
   invalid: '啟動連結無效，無法開啟設定。請返回 Bot 並重新開啟設定。[SETTINGS_MINI_APP_INVALID]',
   noTelegram: '請從 Telegram 內的 Bot 開啟此頁面。返回 Bot 後點擊「開啟設定」。[SETTINGS_MINI_APP_TELEGRAM_REQUIRED]',
   unsupported: '目前 Telegram 用戶端無法傳送設定。請更新 Telegram，再從 Bot 重新開啟設定。[SETTINGS_MINI_APP_UNSUPPORTED]',
-  formatHeading: '訊息範本', formatHelp: '編輯一般訊息、媒體群組和行內結果所用的範本。', normalTemplate: '一般訊息', albumTemplate: '媒體群組訊息', inlineTemplate: '行內結果', protocolVersion: '範本版本', preview: '預覽',
+  formatHeading: '訊息範本', formatHelp: '編輯一般訊息、媒體群組和行內結果所用的範本。', presetHeading: '預設範本——選擇後套用', normalTemplate: '一般訊息', albumTemplate: '媒體群組訊息', inlineTemplate: '行內結果', protocolVersion: '範本版本', protocolAutomatic: '目前值／預設值', preview: '預覽',
   optionsHeading: '傳送選項', telegraphHeading: 'Telegraph 資訊', telegraphTitle: '頁面標題', telegraphAuthor: '作者名稱', telegraphUrl: '作者 URL',
   targetHeading: '編輯誰的設定？', personalTarget: '目前正在編輯 Bot 選定的目標；如有需要，可在此選擇其他目標。', group: '選擇群組', channel: '選擇頻道', targetIdle: '目前沒有進行目標選擇。',
   targetPendingGroup: '請在 Telegram 中選擇一個群組。', targetPendingChannel: '請在 Telegram 中選擇一個頻道。', targetSent: '選擇結果已傳送給 Bot，請在 Telegram 聊天中繼續。', targetCancelled: '沒有選擇目標，您可以重試。',
@@ -84,7 +85,7 @@ const zhHant = {
   handedBack: '請求已交給 Bot；最終結果會顯示在 Telegram 聊天中。', sendFailed: '目前用戶端未能傳送請求。請從 Bot 重新開啟設定後再試。[SETTINGS_MINI_APP_SEND_FAILED]',
   validationFailed: '部分 Telegraph 資訊無效或過長。請修正對應欄位後再試。[SETTINGS_MINI_APP_VALIDATION_FAILED]',
   tooLarge: '設定內容過大，無法傳送。請縮短訊息範本後重試。[SETTINGS_MINI_APP_TOO_LARGE]', confirmTitle: '重設全部設定？', confirmBody: '這會請求 Bot 刪除所選目標的已儲存設定並恢復預設值。', cancel: '取消', confirmReset: '確認重設',
-  terminal: '最終結果由 Bot 確認。如工作階段已逾期或儲存失敗，請從 Bot 重新開啟設定後重試。', sample: '範例作品——預覽內容會在這個固定區域內更新。'
+  terminal: '最終結果由 Bot 確認。如工作階段已逾期或儲存失敗，請從 Bot 重新開啟設定後重試。', sample: '這是範例作品說明，會依目前範本即時更新。', previewImageAlt: 'Pixiv 範例作品預覽'
 }
 
 export const COPY = Object.freeze({ en, ja, 'zh-hans': zhHans, 'zh-hant': zhHant })
@@ -95,6 +96,77 @@ export const OPTION_LABELS = Object.freeze({
   'zh-hans': ['显示标签', '显示描述', '显示打开按钮', '显示分享按钮', '移除键盘', '移除说明文字', '媒体组单一说明', '合并为媒体组', '单张也使用媒体组', '媒体组均等布局', '反转图片顺序', '覆盖用户设置', '仅以文件发送', '附加原文件', '立即附加文件', '提取说明文字', '说明文字置于媒体上方', '显示作品 ID', '自动剧透'],
   'zh-hant': ['顯示標籤', '顯示描述', '顯示開啟按鈕', '顯示分享按鈕', '移除鍵盤', '移除說明文字', '媒體群組單一說明', '合併為媒體群組', '單張也使用媒體群組', '媒體群組均等排列', '反轉圖片順序', '覆蓋使用者設定', '僅以檔案傳送', '附加原始檔', '立即附加檔案', '擷取說明文字', '說明文字置於媒體上方', '顯示作品 ID', '自動劇透']
 })
+
+export const DEFAULT_TEMPLATE_CHOICES = Object.freeze([
+  '%\\#NSFW |NSFW%%\\#AI |AI%%title% \\| %author_name% \\#pixiv [%url%](%url%) %p%%\n|tags%%\n|description%',
+  '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%%\n|description%',
+  '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / %id\\=|id% / [%author_name%](%author_url%) %p%%\n|tags%%\n|description%',
+  '%\\#NSFW |NSFW%%\\#AI |AI%%title% \\| %author_name% \\#pixiv [%url%](%url%) %p%%\n|tags%%\n>**|description%',
+  '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%)% |p%%\n|tags%%\n>**|description%',
+  '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / %id\\=|id% / [%author_name%](%author_url%) %p%%\n|tags%%\n>**|description%'
+])
+
+export const DEFAULT_PREVIEW_FORMATS = Object.freeze({
+  message: '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%)% |p%' +
+    '%\n|tags%' + '%\n**>|description%',
+  mediagroup_message: '[%mid| %%title%% |p%](%url%)' +
+    '%\n|tags%' + '%\n**>|description%',
+  inline: '%\\#NSFW |NSFW%%\\#AI |AI%[%title%](%url%) / [%author_name%](%author_url%)% |p%' +
+    '%\n|tags%' + '%\n**>|description%'
+})
+
+const previewMarkdown = new MarkdownIt({ html: false, linkify: false, breaks: true })
+previewMarkdown.renderer.rules.link_open = () => '<span class="preview-link">'
+previewMarkdown.renderer.rules.link_close = () => '</span>'
+previewMarkdown.renderer.rules.image = (tokens, index) =>
+  previewMarkdown.utils.escapeHtml(tokens[index].content || '')
+const ESCAPED_PERCENT = '\uff69'
+const ESCAPED_PIPE = '\uffb4'
+
+function previewValues(settings, sample) {
+  const defaults = settings?.default || {}
+  return {
+    title: 'XX:Me',
+    id: defaults.show_id ? '67953985' : false,
+    url: 'https://www.pixiv.net/artworks/67953985',
+    NSFW: true,
+    AI: true,
+    author_id: '3654183',
+    author_url: 'https://www.pixiv.net/users/3654183',
+    author_name: 'rumikuu',
+    p: '2/4',
+    tags: defaults.tags ? '#DARLINGintheFRANXX #ゼロツー #pixiv' : false,
+    description: defaults.description ? sample : false,
+    mid: defaults.single_caption ? '2' : false
+  }
+}
+
+function replacePreviewToken(token, values) {
+  const escaped = token.replaceAll('\\|', ESCAPED_PIPE)
+  const parts = escaped.split('|')
+  const keyIndex = parts.findIndex(part => Object.hasOwn(values, part))
+  if (keyIndex < 0) return token
+  const value = values[parts[keyIndex]]
+  if (value === false || value === null || value === undefined || value === '') return ''
+  const prefix = parts.slice(0, keyIndex).join('|').replaceAll(ESCAPED_PIPE, '|')
+  const suffix = parts.slice(keyIndex + 1).join('|').replaceAll(ESCAPED_PIPE, '|')
+  return typeof value === 'boolean' ? prefix + suffix : prefix + String(value) + suffix
+}
+
+export function renderTemplateText(template, settings = {}, sample = COPY.en.sample) {
+  const values = previewValues(settings, sample)
+  return String(template || '')
+    .replaceAll('\\%', ESCAPED_PERCENT)
+    .split('%')
+    .map(part => replacePreviewToken(part, values))
+    .join('')
+    .replaceAll(ESCAPED_PERCENT, '%')
+    .trim()
+}
+
+export function renderTemplatePreview(template, settings = {}, sample = COPY.en.sample) {
+  return previewMarkdown.render(renderTemplateText(template, settings, sample))
+}
 
 export function copyFor(locale) {
   if (!SUPPORTED_LOCALES.includes(locale)) throw new Error(`Unsupported locale: ${locale}`)
@@ -184,15 +256,4 @@ export function createActionController({ bridge, session, onState = () => {} }) 
       }
     }
   }
-}
-
-export function renderTemplatePreview(template, sample) {
-  return String(template || '')
-    .replaceAll('%title%', sample)
-    .replaceAll('%url%', 'https://www.pixiv.net/artworks/67953985')
-    .replaceAll('%author_name%', 'Pixiv artist')
-    .replaceAll('%author_url%', 'https://www.pixiv.net/users/3654183')
-    .replaceAll('%id%', '67953985')
-    .replaceAll('%tags%', '#illustration #pixiv')
-    .replaceAll('%description%', sample)
 }

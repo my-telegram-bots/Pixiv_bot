@@ -7,6 +7,8 @@ import {
 } from '../mini-app/protocol.js'
 import { createTelegramBridge } from '../mini-app/telegram-bridge.js'
 import {
+  DEFAULT_PREVIEW_FORMATS,
+  DEFAULT_TEMPLATE_CHOICES,
   OPTION_LABELS,
   copyFor,
   createActionController,
@@ -28,7 +30,19 @@ const submissionState = ref('idle')
 const targetState = ref('targetIdle')
 const busy = ref(false)
 const confirmReset = ref(false)
-const settings = reactive({ format: {}, default: {} })
+const settings = reactive({
+  format: { ...DEFAULT_PREVIEW_FORMATS },
+  default: {
+    tags: true,
+    description: true,
+    open: true,
+    share: true,
+    single_caption: true,
+    album: true,
+    album_one: true,
+    show_id: true
+  }
+})
 const initial = ref(null)
 const controller = ref(null)
 const activeTemplate = ref('message')
@@ -43,10 +57,15 @@ const canEdit = computed(() => launchState.value === 'ready' && !busy.value)
 const launchMessage = computed(() => text[launchState.value])
 const submissionMessage = computed(() => text[submissionState.value])
 const targetMessage = computed(() => text[targetState.value])
-const preview = computed(() => renderTemplatePreview(
+const previewHtml = computed(() => renderTemplatePreview(
   settings.format[activeTemplate.value],
+  settings,
   text.sample
 ))
+const presetPreviews = computed(() => DEFAULT_TEMPLATE_CHOICES.map(template => ({
+  template,
+  html: renderTemplatePreview(template, settings, text.sample)
+})))
 
 function applyNormalized() {
   const normalized = normalizeSettings(cloneSettings(settings))
@@ -54,17 +73,29 @@ function applyNormalized() {
   Object.assign(settings.default, normalized.default)
 }
 
+function outboundSettings() {
+  const outbound = cloneSettings(settings)
+  if (!outbound.format.version) delete outbound.format.version
+  return outbound
+}
+
 function onBooleanChange() {
   applyNormalized()
 }
 
+function applyTemplate(template) {
+  settings.format[activeTemplate.value] = template
+  settings.format.version = 'v1'
+}
+
 async function save() {
   applyNormalized()
-  if (!validateEditableSettings(settings)) {
+  const outbound = outboundSettings()
+  if (!validateEditableSettings(outbound)) {
     submissionState.value = 'validationFailed'
     return
   }
-  await controller.value?.save(cloneSettings(settings))
+  await controller.value?.save(outbound)
 }
 
 async function reset() {
@@ -84,12 +115,14 @@ onMounted(async () => {
     return
   }
   initial.value = parsed.value
+  for (const key of Object.keys(settings.format)) delete settings.format[key]
+  for (const key of Object.keys(settings.default)) delete settings.default[key]
   Object.assign(settings.format, parsed.value.settings.format)
   Object.assign(settings.default, parsed.value.settings.default)
   for (const key of BOOLEAN_KEYS) {
     if (!Object.hasOwn(settings.default, key)) settings.default[key] = false
   }
-  settings.format.version ||= 'v1'
+  settings.format.version ||= ''
   if (!bridge.available) {
     launchState.value = 'noTelegram'
     return
@@ -139,6 +172,16 @@ onMounted(async () => {
           @click="activeTemplate = key"
         >{{ text[label] }}</button>
       </div>
+      <p class="preset-heading">{{ text.presetHeading }}</p>
+      <div class="preset-gallery">
+        <button
+          v-for="(preset, index) in presetPreviews"
+          :key="preset.template"
+          type="button"
+          :aria-label="`${text.presetHeading} ${index + 1}`"
+          @click="applyTemplate(preset.template)"
+        ><span v-html="preset.html" /></button>
+      </div>
       <label class="template-field">
         <span>{{ text[templateTabs.find(([key]) => key === activeTemplate)[1]] }}</span>
         <textarea v-model="settings.format[activeTemplate]" rows="7" spellcheck="false" />
@@ -146,12 +189,16 @@ onMounted(async () => {
       <label class="version-field">
         <span>{{ text.protocolVersion }}</span>
         <select v-model="settings.format.version">
+          <option value="">{{ text.protocolAutomatic }}</option>
           <option value="v1">v1</option>
         </select>
       </label>
       <div class="preview-slot" aria-live="polite">
         <strong>{{ text.preview }}</strong>
-        <pre>{{ preview }}</pre>
+        <article class="artwork-preview-card">
+          <img src="/img/67953985_p0.jpg" :alt="text.previewImageAlt">
+          <div class="preview-message" v-html="previewHtml" />
+        </article>
       </div>
     </fieldset>
 
@@ -248,7 +295,7 @@ fieldset.surface-card { min-inline-size: 0; }
 .launch-status { min-height: 76px; }
 .target-status, .submission-status { min-height: 88px; margin-top: 12px; }
 .terminal-guidance { min-height: 96px; margin-top: 16px; }
-.format-editor { min-height: 620px; }
+.format-editor { min-height: 1030px; }
 .template-tabs, .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .template-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 16px 0; }
 button, input, textarea, select { font: inherit; }
@@ -260,8 +307,15 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 textarea, input[type="text"], input[type="url"], select { width: 100%; color: var(--surface-text); background: var(--tg-theme-bg-color, var(--vp-c-bg)); border: 1px solid var(--vp-c-divider); border-radius: 8px; padding: 10px; box-sizing: border-box; }
 textarea { min-height: 168px; resize: vertical; }
 .version-field { max-width: 180px; }
-.preview-slot { min-height: 168px; padding: 12px; border: 1px solid var(--vp-c-divider); border-radius: 8px; overflow: auto; }
-.preview-slot pre { min-height: 108px; margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.preset-heading { margin: 14px 0 8px; font-weight: 600; }
+.preset-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; height: 250px; overflow: auto; align-content: start; }
+.preset-gallery button { min-height: 112px; padding: 10px; text-align: left; overflow: auto; }
+.preset-gallery :deep(p), .preview-message :deep(p) { margin: 0 0 7px; }
+.preset-gallery :deep(.preview-link), .preview-message :deep(.preview-link) { color: var(--tg-theme-link-color, var(--vp-c-brand-1)); text-decoration: underline; }
+.preview-slot { height: 330px; padding: 12px; border: 1px solid var(--vp-c-divider); border-radius: 8px; overflow: auto; box-sizing: border-box; }
+.artwork-preview-card { width: min(360px, 100%); min-height: 270px; margin: 10px auto 0; border-radius: 12px; overflow: hidden; background: var(--tg-theme-bg-color, var(--vp-c-bg)); box-shadow: 0 5px 18px rgba(0, 0, 0, .16); }
+.artwork-preview-card img { display: block; width: 100%; height: 190px; object-fit: cover; object-position: center 38%; }
+.preview-message { min-height: 80px; padding: 12px; overflow-wrap: anywhere; white-space: normal; }
 .options-editor { min-height: 544px; }
 .option-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 20px; }
 .option-row { display: flex; align-items: center; gap: 10px; min-height: 44px; }
@@ -277,7 +331,8 @@ textarea { min-height: 168px; resize: vertical; }
 @media (max-width: 640px) {
   .settings-mini-app { padding-inline: max(12px, var(--tg-safe-area-inset-left, 0px)); }
   .template-tabs, .option-grid { grid-template-columns: 1fr; }
-  .format-editor { min-height: 760px; }
+  .preset-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); height: 370px; }
+  .format-editor { min-height: 1290px; }
   .options-editor { min-height: 972px; }
   .target-selector { min-height: 316px; }
   .surface-card { padding: 16px; }

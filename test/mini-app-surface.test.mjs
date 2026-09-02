@@ -4,17 +4,55 @@ import { BOOLEAN_KEYS } from '../docs/.vitepress/mini-app/protocol.js'
 import { createTelegramBridge } from '../docs/.vitepress/mini-app/telegram-bridge.js'
 import {
   COPY,
+  DEFAULT_PREVIEW_FORMATS,
+  DEFAULT_TEMPLATE_CHOICES,
   OPTION_LABELS,
   SUPPORTED_LOCALES,
   copyFor,
   createActionController,
   normalizeSettings,
+  renderTemplatePreview,
+  renderTemplateText,
   validateEditableSettings
 } from '../docs/.vitepress/mini-app/settings-surface.js'
 
 const settings = () => ({
   format: { message: 'm', mediagroup_message: 'g', inline: 'i', version: 'v1' },
   default: Object.fromEntries(BOOLEAN_KEYS.map(key => [key, false]))
+})
+
+test('visual preview renders v1 conditionals and reacts to delivery options', () => {
+  const value = settings()
+  Object.assign(value.default, { tags: true, description: true, show_id: true })
+  const template = '%\\#NSFW |NSFW%%title% %ID: |id%\n%tags%\n%description%'
+  const visible = renderTemplateText(template, value, 'Live description')
+  assert.match(visible, /\\#NSFW/)
+  assert.match(visible, /XX:Me/)
+  assert.match(visible, /ID: 67953985/)
+  assert.match(visible, /#DARLINGintheFRANXX/)
+  assert.match(visible, /Live description/)
+
+  value.default.tags = false
+  value.default.description = false
+  value.default.show_id = false
+  const hidden = renderTemplateText(template, value, 'Live description')
+  assert.doesNotMatch(hidden, /67953985|DARLING|Live description/)
+})
+
+test('preview produces safe rendered markup and presets change the rendered result', () => {
+  const value = settings()
+  Object.assign(value.default, { tags: true, description: true, show_id: true })
+  assert.equal(DEFAULT_TEMPLATE_CHOICES.length, 6)
+  const first = renderTemplatePreview(DEFAULT_TEMPLATE_CHOICES[0], value, 'Description')
+  const second = renderTemplatePreview(DEFAULT_TEMPLATE_CHOICES[1], value, 'Description')
+  assert.match(first, /<p>/)
+  assert.match(first, /preview-link/)
+  assert.notEqual(first, second)
+  assert.doesNotMatch(
+    renderTemplatePreview('![tracker](https://example.com/pixel) <script>x</script>', value),
+    /<img|<script|https:\/\/example\.com/
+  )
+  assert.match(renderTemplatePreview(DEFAULT_PREVIEW_FORMATS.message, value), /XX:Me/)
 })
 
 test('all four locales implement identical UI state keys and every option label', () => {
@@ -30,7 +68,8 @@ test('all four locales implement identical UI state keys and every option label'
 test('Japanese Mini App states and recovery guidance do not fall back to English', () => {
   const japanese = copyFor('ja')
   for (const key of ['loading', 'ready', 'invalid', 'noTelegram', 'unsupported',
-    'targetCancelled', 'targetUnsupported', 'sendFailed', 'tooLarge', 'terminal']) {
+    'targetCancelled', 'targetUnsupported', 'sendFailed', 'validationFailed',
+    'tooLarge', 'terminal']) {
     assert.match(japanese[key], /[\u3040-\u30ff\u3400-\u9fff]/, `${key} must contain Japanese copy`)
     assert.notEqual(japanese[key], COPY.en[key])
   }

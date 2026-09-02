@@ -160,6 +160,12 @@ The Web allowlist must match the Bot v1 protocol:
 - String `default` fields: `telegraph_title`, `telegraph_author_name`, and
   `telegraph_author_url`.
 
+Both Web feedback and the Bot save boundary enforce the same dependency order:
+album caption/layout options require albums; removing the keyboard disables
+open/share; immediate append enables append; append disables file-only
+delivery; file-only delivery disables albums, album-one, and the single
+caption; channel targets disable share. The Bot remains authoritative.
+
 `sendData` closes the Mini App. Therefore the page must not claim a successful
 save before closing. The Telegram chat receives the authoritative saved, reset,
 invalid, expired, permission, target, or persistence result from the bot. A
@@ -230,6 +236,16 @@ by all four locale pages. Keep these responsibilities separate:
 - settings surface: stable visual state, editor bindings, confirmation, and
   localized human messages.
 
+The message-template editor must preserve the existing visual editing value,
+not replace it with a raw-text echo. It always shows a reserved sample artwork
+card with the existing preview image and renders the active normal, album, or
+inline template through the v1 placeholder and conditional syntax. Every edit
+updates that rendered preview immediately. A localized, keyboard-operable
+default-template gallery applies a complete template to the active mode without
+moving the editor, preview, action row, or focus order. Invalid/non-Telegram
+launches still show the representative preview in its reserved slot so the
+surface never appears to have lost preview support.
+
 Pure protocol code must accept dependencies such as the Web App object and text
 encoder so it can be tested without inventing a Telegram identity. Browser or
 unit mocks are diagnostic evidence only; they do not count as real Telegram
@@ -243,6 +259,10 @@ Before changing the public `/s` behavior:
    allowlists, dangerous keys, save/reset serialization, and the 4096-byte edge.
 2. Test SDK absence, unsupported `requestChat`, save/reset duplicate prevention,
    cancellation, successful handoff, and group/channel selection callbacks.
+   Test v1 placeholder/conditional rendering, live preview source changes,
+   active-mode switching, and default-template application; assert that the
+   preview contains the sample artwork image and rendered message content rather
+   than a plain `<pre>` echo.
 3. Build with `yarn build`. Inspect the generated English, Japanese, Simplified
    Chinese, and Traditional Chinese `/mini-app` pages and prove the official SDK
    script is loaded before the VitePress application code, while legacy `/s`

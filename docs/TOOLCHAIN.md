@@ -30,6 +30,8 @@ The migration from VuePress is complete only when all of these invariants hold:
   owned by VitePress configuration, not by post-processing generated files.
 - The existing legacy Base64 settings editor behavior remains unchanged until
   the separate Settings Mini App rollout contract authorizes its removal.
+- The Mini App preserves the visual template workflow: default templates,
+  normal/album/inline mode switching, and a live rendered sample artwork card.
 - The official Telegram Mini App SDK is emitted only on the four Mini App pages
   and precedes the VitePress application module script in each generated page.
 - A production build must be followed by inspection of every generated locale
