@@ -49,6 +49,7 @@ test('Mini App preserves the legacy Base64 copy and destination-chat handoff', (
   assert.match(component, /readonly/)
   assert.match(component, /@click="copyLegacyExport"/)
   assert.match(component, /:href="canTransferLegacy \? legacyShareUrl : undefined"/)
+  assert.match(component, /initial\.value !== null && !busy\.value/)
   assert.match(component, /target="_tshare"/)
   assert.match(component, /class="surface-status legacy-transfer-status"/)
 })

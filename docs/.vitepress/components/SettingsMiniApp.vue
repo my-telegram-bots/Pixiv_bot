@@ -109,10 +109,10 @@ const legacyExport = computed(() => encodeLegacySettings(
 ))
 const legacyPayload = computed(() => legacyExport.value.ok ? legacyExport.value.data : '')
 const legacyShareUrl = computed(() => legacyTelegramShareUrl(legacyPayload.value))
-const canTransferLegacy = computed(() => canEdit.value && legacyExport.value.ok)
+const canTransferLegacy = computed(() => initial.value !== null && !busy.value && legacyExport.value.ok)
 
 function applyNormalized() {
-  const normalized = normalizeSettings(cloneSettings(settings))
+  const normalized = normalizeSettings(cloneSettings(settings), target.type)
   Object.assign(settings.format, normalized.format)
   Object.assign(settings.default, normalized.default)
 }
@@ -577,7 +577,7 @@ textarea { min-height: 168px; resize: vertical; }
 .legacy-transfer-section { min-height: 410px; }
 .legacy-payload-field { display: grid; gap: 7px; margin: 12px 0; }
 .legacy-payload-field textarea { min-height: 126px; resize: vertical; overflow-wrap: anywhere; }
-.legacy-transfer-status { min-height: 88px; margin-top: 12px; }
+.legacy-transfer-status { min-height: 164px; margin-top: 12px; }
 .target-selector { min-height: 404px; }
 .target-identity { display: flex; align-items: center; gap: 14px; min-height: 112px; margin: 14px 0; padding: 12px; border: 1px solid var(--vp-c-divider); border-radius: 12px; background: var(--tg-theme-bg-color, var(--vp-c-bg)); box-sizing: border-box; }
 .target-avatar { display: block; width: 78px; height: 78px; flex: 0 0 78px; border-radius: 50%; object-fit: cover; background: var(--surface-accent); }
@@ -604,6 +604,7 @@ textarea { min-height: 168px; resize: vertical; }
   .format-editor { min-height: 790px; }
   .options-editor { min-height: 1540px; }
   .target-selector { min-height: 536px; }
+  .legacy-transfer-status { min-height: 236px; }
   .target-avatar { width: 68px; height: 68px; flex-basis: 68px; }
   .template-market-dialog { padding: 16px; }
   .surface-card { padding: 16px; }
