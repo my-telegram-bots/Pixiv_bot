@@ -86,11 +86,42 @@ function validateDefaults(defaults) {
         }
         if (STRING_KEYS.has(key)) {
             if (typeof value !== 'string') return false
+            if (key === 'telegraph_title' && value.length >= 256) return false
+            if (key === 'telegraph_author_name' && value.length >= 128) return false
+            if (key === 'telegraph_author_url' && value.length > 0) {
+                if (value.length >= 512) return false
+                try {
+                    new URL(value)
+                } catch (error) {
+                    return false
+                }
+            }
             continue
         }
         return false
     }
     return true
+}
+
+export function normalizeSettingsMiniAppDependencies(settings, targetType = 'private') {
+    const normalized = JSON.parse(JSON.stringify(settings))
+    const values = normalized.default
+    if (values.single_caption || values.album_one || values.album_equal) {
+        values.album = true
+    }
+    if (values.remove_keyboard) {
+        values.open = false
+        values.share = false
+    }
+    if (values.append_file_immediate) values.append_file = true
+    if (values.append_file) values.asfile = false
+    if (values.asfile) {
+        values.album = false
+        values.album_one = false
+        values.single_caption = false
+    }
+    if (targetType === 'channel') values.share = false
+    return normalized
 }
 
 function validateSettings(settings) {

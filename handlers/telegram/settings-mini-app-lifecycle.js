@@ -4,6 +4,7 @@ import { _l } from '#handlers/telegram/i18n'
 import { reescape_strings } from '#handlers/telegram/format'
 import { createDefaultUserSettings } from '#handlers/telegram/settings-resolver'
 import {
+    normalizeSettingsMiniAppDependencies,
     parseSettingsMiniAppPayload,
     projectStoredSettings
 } from '#handlers/telegram/settings-mini-app-protocol'
@@ -155,7 +156,7 @@ export function createSettingsMiniAppLifecycle({
             await send(userId, ctx.l, 'setting_mini_app_target_unavailable')
             return false
         }
-        const url = `${baseUrl}${localePath(ctx.l)}/s#${encodeFragment({
+        const url = `${baseUrl}${localePath(ctx.l)}/mini-app#${encodeFragment({
             v: 1,
             session: session.token,
             settings: initialSettings,
@@ -185,6 +186,15 @@ export function createSettingsMiniAppLifecycle({
             return false
         }
         return openTargetSettings(ctx, { id: Number(ctx.from.id), type: 'private' })
+    }
+
+    async function handleCommand(ctx) {
+        if (!isPrivateUserContext(ctx)) {
+            await send(ctx.chat.id, ctx.l, 'setting_mini_app_private_only')
+            return true
+        }
+        await openPersonalSettings(ctx)
+        return true
     }
 
     async function handleChatShared(ctx) {
@@ -256,7 +266,10 @@ export function createSettingsMiniAppLifecycle({
             saved = action === 'reset'
                 ? await store.delete_setting(session.targetId)
                 : await store.update_setting(
-                    cloneSettings(parsed.value.settings),
+                    normalizeSettingsMiniAppDependencies(
+                        cloneSettings(parsed.value.settings),
+                        session.targetType
+                    ),
                     session.targetId
                 )
         } catch (error) {
@@ -280,6 +293,7 @@ export function createSettingsMiniAppLifecycle({
     }
 
     return {
+        handleCommand,
         openPersonalSettings,
         handleChatShared,
         handleWebAppData
@@ -287,9 +301,11 @@ export function createSettingsMiniAppLifecycle({
 }
 
 export function registerSettingsMiniAppHandlers(bot, lifecycle) {
-    if (!bot || !lifecycle?.handleWebAppData || !lifecycle?.handleChatShared) {
+    if (!bot || !lifecycle?.handleCommand || !lifecycle?.handleWebAppData ||
+        !lifecycle?.handleChatShared) {
         throw new Error('registerSettingsMiniAppHandlers requires bot and lifecycle')
     }
+    bot.command('miniapp', ctx => lifecycle.handleCommand(ctx))
     bot.on('message:web_app_data', ctx => lifecycle.handleWebAppData(ctx))
     bot.on('message:chat_shared', ctx => lifecycle.handleChatShared(ctx))
 }

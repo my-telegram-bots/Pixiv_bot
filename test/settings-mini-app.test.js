@@ -9,7 +9,10 @@ import {
     createSettingsMiniAppLifecycle,
     registerSettingsMiniAppHandlers
 } from '../handlers/telegram/settings-mini-app-lifecycle.js'
-import { parseSettingsMiniAppPayload } from '../handlers/telegram/settings-mini-app-protocol.js'
+import {
+    normalizeSettingsMiniAppDependencies,
+    parseSettingsMiniAppPayload
+} from '../handlers/telegram/settings-mini-app-protocol.js'
 import { createSettingsMiniAppSessionStore } from '../handlers/telegram/settings-mini-app-session-store.js'
 
 const VALID_SETTINGS = Object.freeze({
@@ -177,6 +180,18 @@ test('Mini App parser rejects prototype-pollution keys at every depth', t => {
     for (const value of dangerous) t.false(parseSettingsMiniAppPayload(value).ok)
 })
 
+test('Mini App parser enforces existing Telegraph metadata validation', t => {
+    const token = 'session_token_0001'
+    const data = defaultValue => payload(token, 'save', { format: {}, default: defaultValue })
+    t.true(parseSettingsMiniAppPayload(data({ telegraph_title: 'x'.repeat(255) })).ok)
+    t.false(parseSettingsMiniAppPayload(data({ telegraph_title: 'x'.repeat(256) })).ok)
+    t.true(parseSettingsMiniAppPayload(data({ telegraph_author_name: 'x'.repeat(127) })).ok)
+    t.false(parseSettingsMiniAppPayload(data({ telegraph_author_name: 'x'.repeat(128) })).ok)
+    t.true(parseSettingsMiniAppPayload(data({ telegraph_author_url: 'https://example.com' })).ok)
+    t.true(parseSettingsMiniAppPayload(data({ telegraph_author_url: '' })).ok)
+    t.false(parseSettingsMiniAppPayload(data({ telegraph_author_url: 'not a URL' })).ok)
+})
+
 test('session store binds actors, expires entries, consumes once, and evicts at its bound', t => {
     let now = 0
     let token = 0
@@ -214,7 +229,7 @@ test('personal settings always bind to the Telegram actor and expose fragment-on
     const keyboardButton = f.messages[0].extra.reply_markup.keyboard[0][0]
     t.false(Boolean(f.messages[0].extra.reply_markup.one_time_keyboard))
     const url = new URL(keyboardButton.web_app.url)
-    t.is(url.origin + url.pathname, 'https://pixiv-bot.pages.dev/s')
+    t.is(url.origin + url.pathname, 'https://pixiv-bot.pages.dev/mini-app')
     t.is(url.search, '')
     const fragment = decodeFragment(url)
     t.true(fragment.settings.default.tags)
@@ -231,6 +246,81 @@ test('personal settings always bind to the Telegram actor and expose fragment-on
     t.false(Object.hasOwn(f.updates[0].settings, 'chat_id'))
     t.is(f.messages.at(-1).text, 'setting_mini_app_saved')
     t.true(f.messages.at(-1).extra.reply_markup.remove_keyboard)
+})
+
+test('public /miniapp opens only in private chat and explains the same-chat recovery elsewhere', async t => {
+    const privateChat = fixture()
+    t.true(await privateChat.lifecycle.handleCommand(privateChat.context()))
+    t.is(privateChat.prepared.length, 2)
+    t.is(new URL(
+        privateChat.messages[0].extra.reply_markup.keyboard[0][0].web_app.url
+    ).pathname, '/mini-app')
+
+    const group = fixture()
+    const groupContext = group.context()
+    groupContext.chat = { id: -20, type: 'supergroup' }
+    groupContext.chat_id = -20
+    groupContext.message.chat = groupContext.chat
+    t.true(await group.lifecycle.handleCommand(groupContext))
+    t.is(group.prepared.length, 0)
+    t.is(group.messages.length, 1)
+    t.is(group.messages[0].chatId, -20)
+    t.is(group.messages[0].text, 'setting_mini_app_private_only')
+})
+
+test('localized Mini App URLs use the permanent route in every language', async t => {
+    const expected = new Map([
+        ['en', '/mini-app'],
+        ['ja', '/ja/mini-app'],
+        ['zh-cn', '/zh-hans/mini-app'],
+        ['zh-tw', '/zh-hant/mini-app']
+    ])
+    for (const [language, pathname] of expected) {
+        const f = fixture()
+        const ctx = f.context()
+        ctx.l = language
+        await f.lifecycle.handleCommand(ctx)
+        t.is(new URL(f.messages[0].extra.reply_markup.keyboard[0][0].web_app.url).pathname,
+            pathname)
+    }
+})
+
+test('Mini App dependency normalization matches command settings before persistence', async t => {
+    const f = fixture()
+    await f.lifecycle.openPersonalSettings(f.context())
+    const session = decodeFragment(
+        f.messages[0].extra.reply_markup.keyboard[0][0].web_app.url
+    ).session
+    const submitted = {
+        format: {},
+        default: {
+            single_caption: true,
+            album: false,
+            remove_keyboard: true,
+            open: true,
+            share: true,
+            append_file_immediate: true,
+            append_file: false,
+            asfile: true
+        }
+    }
+    await f.lifecycle.handleWebAppData(f.context({
+        message: { web_app_data: { data: payload(session, 'save', submitted) } }
+    }))
+    const normalized = f.updates[0].settings.default
+    t.true(normalized.album)
+    t.false(normalized.open)
+    t.false(normalized.share)
+    t.true(normalized.append_file)
+    t.false(normalized.asfile)
+
+    const fileOnly = normalizeSettingsMiniAppDependencies({
+        format: {},
+        default: { asfile: true, album: true, album_one: true, single_caption: true }
+    })
+    t.false(fileOnly.default.album)
+    t.false(fileOnly.default.album_one)
+    t.false(fileOnly.default.single_caption)
 })
 
 test('unknown, other-user, expired, and consumed edit sessions never write', async t => {
@@ -442,10 +532,12 @@ test('loss of target administration before save preserves the edit session but n
 
 test('Mini App update registration is terminal before Pixiv routing', async t => {
     const bot = new Bot('1:test')
+    let commandCalls = 0
     let webAppCalls = 0
     let chatSharedCalls = 0
     let laterCalls = 0
     registerSettingsMiniAppHandlers(bot, {
+        async handleCommand() { commandCalls++ },
         async handleWebAppData() { webAppCalls++ },
         async handleChatShared() { chatSharedCalls++ }
     })
@@ -466,6 +558,14 @@ test('Mini App update registration is terminal before Pixiv routing', async t =>
         from: { id: 7, is_bot: false, first_name: 'Caller' }
     }
     await bot.handleUpdate({
+        update_id: 0,
+        message: {
+            ...baseMessage,
+            text: '/miniapp',
+            entities: [{ offset: 0, length: 8, type: 'bot_command' }]
+        }
+    })
+    await bot.handleUpdate({
         update_id: 1,
         message: { ...baseMessage, web_app_data: { data: '{}' } }
     })
@@ -474,6 +574,7 @@ test('Mini App update registration is terminal before Pixiv routing', async t =>
         message: { ...baseMessage, chat_shared: { request_id: 1, chat_id: -20 } }
     })
 
+    t.is(commandCalls, 1)
     t.is(webAppCalls, 1)
     t.is(chatSharedCalls, 1)
     t.is(laterCalls, 0)
@@ -484,6 +585,7 @@ test('app wires Mini App service messages before general settings and content ro
     const registration = app.indexOf('registerSettingsMiniAppHandlers(bot, settingsMiniAppLifecycle)')
     t.true(registration > 0)
     t.true(registration < app.indexOf('// step1 initial config'))
+    t.true(registration < app.indexOf("bot.command('start'"))
     t.true(registration < app.indexOf("bot.on([':text', ':caption']"))
 })
 

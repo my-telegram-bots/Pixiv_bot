@@ -41,6 +41,7 @@ export default {
     setting_unknown_directive: "配置未儲存，因為無法識別這些參數：{}。請修正或刪除後重試。[SETTINGS_UNKNOWN_DIRECTIVE]",
     setting_mini_app_open: "設定已準備好。請點擊下方「開啟設定」；若按鈕已經逾期，請重新執行設定指令。[SETTINGS_MINI_APP_READY]",
     setting_mini_app_open_button: "開啟設定",
+    setting_mini_app_private_only: "設定 Mini App 只能在與此 Bot 的私聊中開啟。請開啟 Bot 私聊，並在那裡傳送 /miniapp。[SETTINGS_MINI_APP_PRIVATE_ONLY]",
     setting_mini_app_select_group: "選擇群組",
     setting_mini_app_select_channel: "選擇頻道",
     setting_mini_app_saved: "設定已儲存。需要繼續修改時，請重新開啟設定。[SETTINGS_MINI_APP_SAVED]",

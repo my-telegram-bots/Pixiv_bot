@@ -41,6 +41,7 @@ export default {
     setting_unknown_directive: "Settings were not saved because these flags are unknown: {}. Correct or remove them, then try again. [SETTINGS_UNKNOWN_DIRECTIVE]",
     setting_mini_app_open: "Your settings are ready. Tap Open settings below; if the button has expired, run the settings command again. [SETTINGS_MINI_APP_READY]",
     setting_mini_app_open_button: "Open settings",
+    setting_mini_app_private_only: "The Settings Mini App can only be opened in a private chat with this bot. Open the bot chat and send /miniapp there. [SETTINGS_MINI_APP_PRIVATE_ONLY]",
     setting_mini_app_select_group: "Choose a group",
     setting_mini_app_select_channel: "Choose a channel",
     setting_mini_app_saved: "Settings were saved. You can reopen settings whenever you need to change them. [SETTINGS_MINI_APP_SAVED]",

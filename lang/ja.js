@@ -41,6 +41,7 @@ export default {
     setting_unknown_directive: "次のフラグを認識できないため、設定は保存されませんでした：{}。修正または削除してから再試行してください。[SETTINGS_UNKNOWN_DIRECTIVE]",
     setting_mini_app_open: "設定を開く準備ができました。下の「設定を開く」をタップしてください。ボタンが期限切れの場合は、設定コマンドをもう一度実行してください。[SETTINGS_MINI_APP_READY]",
     setting_mini_app_open_button: "設定を開く",
+    setting_mini_app_private_only: "設定 Mini App はこの Bot とのプライベートチャットでのみ開けます。Bot のチャットを開き、そこで /miniapp を送信してください。[SETTINGS_MINI_APP_PRIVATE_ONLY]",
     setting_mini_app_select_group: "グループを選択",
     setting_mini_app_select_channel: "チャンネルを選択",
     setting_mini_app_saved: "設定を保存しました。変更するときは設定画面をもう一度開いてください。[SETTINGS_MINI_APP_SAVED]",
