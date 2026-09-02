@@ -153,7 +153,7 @@ test('shared inline photo builder preserves spoiler behavior', async t => {
     t.true(ctx.answers[0].results[0].has_spoiler)
 })
 
-test('inline direct lookup uses a Guest-style Rich slideshow for 2-9 cached pages', async t => {
+test('inline direct lookup adds a Guest-style Rich slideshow beside 2-9 cached page photos', async t => {
     for (const pages of [2, 9]) {
         const ctx = context({
             ids: { illust: [pages] },
@@ -172,8 +172,14 @@ test('inline direct lookup uses a Guest-style Rich slideshow for 2-9 cached page
             }
         }))(ctx)
 
-        t.is(ctx.answers[0].results.length, 1)
-        const rich = ctx.answers[0].results[0]
+        const results = ctx.answers[0].results
+        t.is(results.length, pages + 1)
+        t.deepEqual(
+            results.slice(0, pages).map(result => result.id),
+            Array.from({ length: pages }, (_, page) => `p_${pages}-${page}`)
+        )
+        t.true(results.slice(0, pages).every(result => result.type === 'photo'))
+        const rich = results.at(-1)
         t.is(rich.type, 'article')
         t.is(rich.input_message_content.rich_message.media.length, pages)
     }

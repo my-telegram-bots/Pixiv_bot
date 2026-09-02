@@ -70,6 +70,7 @@ import {
 import { sendTelegraph } from '#handlers/telegram/tg-sender-telegraph'
 import { cacheUgoiraFileId } from '#handlers/telegram/ugoira-file-id-cache'
 import { runRegularIllustrationFileIdHook } from '#handlers/telegram/regular-illustration-file-id-cache'
+import { forceDeepLinkShare } from '#handlers/telegram/deep-link-share'
 
 const terminalIllustrationStates = new Set([
     IllustrationLifecycleState.COMPLETED,
@@ -104,6 +105,8 @@ async function initializeInvocation(resolveUserSettings, ctx, writeFileIds) {
     if (!ctx.us) {
         ctx.us = await resolveUserSettings(ctx)
     }
+    const forceDeepLinkShareKeyboard = forceDeepLinkShare(ctx)
+    runtime.forceDeepLinkShareKeyboard = forceDeepLinkShareKeyboard
     runtime.defaultExtra.show_caption_above_media = ctx.us.caption_above
     return runtime
 }
@@ -596,9 +599,6 @@ async function classifyIllustrationOutput(bot, config, runtime) {
                 return
             }
 
-            if (illust.type === 2 && ctx.match) {
-                ctx.us.share = true
-            }
             const extra = createMediaExtra(ctx, runtime.defaultExtra, illust)
             if (illust.type <= 1) {
                 await sendStaticIllustration(bot, runtime, lifecycle, extra)
@@ -650,6 +650,20 @@ function applySingleCaption(ctx, illusts, mediaGroup, groupIndex) {
     mediaGroup[0].caption = caption
 }
 
+async function attachDeepLinkAlbumKeyboard(bot, runtime, mediaGroup, sentMessages) {
+    if (!runtime.forceDeepLinkShareKeyboard) return
+    const messageId = sentMessages?.[0]?.message_id
+    const firstIllustId = mediaGroup?.[0]?.id
+    if (!Number.isSafeInteger(messageId) || !Number.isSafeInteger(firstIllustId)) return
+    try {
+        await bot.api.editMessageReplyMarkup(runtime.chatId, messageId,
+            k_os(firstIllustId, runtime.ctx.us))
+    } catch {
+        // The album is already delivered; the return-to-chat convenience cannot
+        // change its delivery state or produce another visible message.
+    }
+}
+
 async function sendAlbumBatch(bot, runtime, mediaGroups, asDocuments) {
     const { ctx, chatId, defaultExtra, illusts, mediaGroupExtra } = runtime
 
@@ -684,6 +698,7 @@ async function sendAlbumBatch(bot, runtime, mediaGroups, asDocuments) {
                     updateReplyChain(mediaGroupExtra, result.result?.[0]?.message_id)
                     markAlbumOutputs(runtime, mediaGroup, `album:${index}`)
                     await runRegularIllustrationFileIdHook(runtime, mediaGroup, result.result)
+                    await attachDeepLinkAlbumKeyboard(bot, runtime, mediaGroup, result.result)
                 } else {
                     delete mediaGroupExtra.reply_to_message_id
                     logTelegramFailure(honsole, result.error, {
