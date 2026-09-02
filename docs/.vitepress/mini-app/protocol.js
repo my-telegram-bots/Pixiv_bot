@@ -133,7 +133,11 @@ export function parseInitialFragment(fragment, {
 }
 
 export function consumeInitialFragment({ location, history }, dependencies = {}) {
-  const fragment = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash
+  const rawFragment = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash
+  // Telegram treats a bare custom fragment as its _path and appends Web App
+  // initialization parameters after `?`. Only the path is our private payload.
+  const separator = rawFragment.indexOf('?')
+  const fragment = separator === -1 ? rawFragment : rawFragment.slice(0, separator)
   history.replaceState(history.state, '', `${location.pathname}${location.search}`)
   return parseInitialFragment(fragment, dependencies)
 }

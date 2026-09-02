@@ -113,15 +113,20 @@ Base64URL-encoded JSON object after `#`:
 The fragment parser must:
 
 1. Read the fragment exactly once during mount.
-2. Decode Base64URL by translating `-`/`_`, restoring padding, decoding bytes,
+2. Treat the substring before the first `?` as the bot payload. Telegram appends
+   its own `tgWebAppData`, `tgWebAppVersion`, platform, and theme parameters after
+   that delimiter when the original fragment is a path-style `#payload`; those
+   service parameters are not part of the payload and must not make a valid
+   launch fail.
+3. Decode Base64URL by translating `-`/`_`, restoring padding, decoding bytes,
    and using UTF-8 `TextDecoder` before `JSON.parse`.
-3. Require an ordinary object with exactly `v`, `session`, `settings`, and
+4. Require an ordinary object with exactly `v`, `session`, `settings`, and
    `request_chat`; require `v === 1`.
-4. Require a non-empty opaque session string, `settings.format` and
+5. Require a non-empty opaque session string, `settings.format` and
    `settings.default` objects, and non-empty group/channel prepared IDs.
-5. Reject arrays, unknown fields, wrong types, malformed encoding/JSON, and
+6. Reject arrays, unknown fields, wrong types, malformed encoding/JSON, and
    `__proto__`, `constructor`, or `prototype` at any depth.
-6. Remove the fragment from the address bar with `history.replaceState` after
+7. Remove the fragment from the address bar with `history.replaceState` after
    parsing, without navigating or reloading.
 
 The Web page uses the initial settings as display state only. It must not infer
@@ -255,7 +260,8 @@ acceptance.
 
 Before changing the public `/s` behavior:
 
-1. Unit-test valid/invalid Base64URL fragments, UTF-8 decoding, exact field
+1. Unit-test valid/invalid Base64URL fragments, the real Telegram
+   `#payload?tgWebAppData=...` launch shape, UTF-8 decoding, exact field
    allowlists, dangerous keys, save/reset serialization, and the 4096-byte edge.
 2. Test SDK absence, unsupported `requestChat`, save/reset duplicate prevention,
    cancellation, successful handoff, and group/channel selection callbacks.

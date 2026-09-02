@@ -39,6 +39,25 @@ test('fragment consumption reads once and immediately clears only the fragment',
   assert.deepEqual(calls, [[{ key: 1 }, '', '/zh-hans/mini-app?x=1']])
 })
 
+test('fragment consumption isolates the bot payload from Telegram Web App parameters', () => {
+  const calls = []
+  const payload = base64Url(initial)
+  const source = {
+    location: {
+      hash: `#${payload}?tgWebAppData=query_id%3Dreal&tgWebAppVersion=10.3&tgWebAppPlatform=tdesktop`,
+      pathname: '/mini-app',
+      search: ''
+    },
+    history: {
+      state: null,
+      replaceState(...args) { calls.push(args) }
+    }
+  }
+
+  assert.deepEqual(consumeInitialFragment(source), { ok: true, value: initial })
+  assert.deepEqual(calls, [[null, '', '/mini-app']])
+})
+
 test('initial parser rejects malformed data, unknown fields, arrays, types, and versions', () => {
   const invalid = [
     '',
