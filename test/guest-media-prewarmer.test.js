@@ -94,6 +94,35 @@ test('21-page prewarm uses 10+10+1 and writes each response to its original page
         Array.from({ length: 21 }, (_, page) => `large-${page}`))
 })
 
+test('production PostgreSQL decimal-string IDs enter and deduplicate in the prewarm queue', async t => {
+    let release
+    const blocked = new Promise(resolve => { release = resolve })
+    const writes = []
+    const bot = { api: {
+        sendPhoto: async () => {
+            await blocked
+            return photoMessage(0)
+        },
+        sendMediaGroup: async () => { throw new Error('not expected') }
+    } }
+    const prewarmer = createGuestMediaPrewarmer({
+        bot,
+        cacheChatIds: [-1001],
+        writeFileIds: async (illustId, pages) => writes.push({ illustId, pages }),
+        logger: { warn() {} }
+    })
+
+    t.true(prewarmer.enqueue(illustration('12345678', 1)))
+    t.false(prewarmer.enqueue(illustration(12345678, 1)))
+    release()
+    await prewarmer.waitForIdle()
+
+    t.deepEqual(writes, [{
+        illustId: 12345678,
+        pages: [{ pageIndex: 0, fileId: 'large-0' }]
+    }])
+})
+
 test('active work is deduplicated and cache channels rotate with one serial worker each', async t => {
     const calls = []
     let release

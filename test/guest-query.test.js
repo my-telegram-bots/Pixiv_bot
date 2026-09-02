@@ -13,6 +13,7 @@ import {
     registerGuestQueryHandler,
     stripGuestBotMention
 } from '../handlers/telegram/guest-query.js'
+import { createGuestMediaPrewarmer } from '../handlers/telegram/guest-media-prewarmer.js'
 
 function illustration(id, { type = 0, pages = 1, fileId, pageFileIds } = {}) {
     if (type === 2) {
@@ -230,6 +231,58 @@ test('cold cache answers the first page exactly once before prewarming begins', 
     t.is(ctx.answers.length, 1)
     t.is(ctx.answers[0].type, 'photo')
     t.deepEqual(events, ['answer', 'enqueue:12345678'])
+})
+
+test('a production PostgreSQL string ID warms once and the next Guest answer contains every page', async t => {
+    const cacheChatId = -1003868194900
+    const pageFileIds = [null, null, null]
+    const storedIllustration = () => illustration('12345678', {
+        pages: 3,
+        pageFileIds
+    })
+    const prewarmer = createGuestMediaPrewarmer({
+        bot: { api: {
+            sendMediaGroup: async (chatId, media) => {
+                t.is(chatId, cacheChatId)
+                return media.map((_, page) => ({
+                    photo: [
+                        { file_id: `small-${page}`, width: 100, height: 100 },
+                        { file_id: `cached-${page}`, width: 1000, height: 1000 }
+                    ]
+                }))
+            },
+            sendPhoto: async () => { throw new Error('not expected') }
+        } },
+        cacheChatIds: [cacheChatId],
+        writeFileIds: async (illustId, pages) => {
+            t.is(illustId, 12345678)
+            for (const page of pages) pageFileIds[page.pageIndex] = page.fileId
+        },
+        logger: { warn() {} }
+    })
+    const handler = createGuestQueryHandler(dependencies({
+        illustService: {
+            resolve: async () => ({
+                kind: 'ready',
+                illustration: storedIllustration()
+            })
+        },
+        prewarmer
+    }))
+
+    const cold = context()
+    await handler(cold)
+    t.is(cold.answers[0].type, 'photo')
+    await prewarmer.waitForIdle()
+    t.deepEqual(pageFileIds, ['cached-0', 'cached-1', 'cached-2'])
+
+    const warm = context()
+    await handler(warm)
+    t.is(warm.answers[0].type, 'article')
+    t.deepEqual(
+        warm.answers[0].input_message_content.rich_message.media.map(item => item.media.media),
+        pageFileIds
+    )
 })
 
 test('a rejected guest answer never starts prewarming', async t => {

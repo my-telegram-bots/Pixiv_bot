@@ -2,6 +2,12 @@ export const GUEST_PREWARM_MAX_PAGES = 50
 export const GUEST_PREWARM_MAX_WORKS = 500
 export const GUEST_PREWARM_BATCH_SIZE = 10
 
+function normalizeIllustrationId(value) {
+    if (typeof value === 'string' && !/^[1-9]\d*$/.test(value)) return null
+    const id = Number(value)
+    return Number.isSafeInteger(id) && id > 0 ? id : null
+}
+
 export function buildGuestPrewarmBatches(illust, maxPages = GUEST_PREWARM_MAX_PAGES) {
     const urls = illust?.imgs_?.regular_urls || []
     const fileIds = illust?.imgs_?.tg_file_ids || []
@@ -174,18 +180,19 @@ export function createGuestMediaPrewarmer(options) {
 
     function enqueue(illust) {
         if (!accepting || channels.length === 0 || illust?.type > 1) return false
-        if (!Number.isSafeInteger(illust?.id) || activeWorks.has(illust.id)) return false
+        const illustId = normalizeIllustrationId(illust?.id)
+        if (illustId === null || activeWorks.has(illustId)) return false
         if (activeWorks.size >= maxWorks) {
-            logger.warn?.(`[guest_prewarm] illust=${illust.id} code=CACHE_QUEUE_FULL`)
+            logger.warn?.(`[guest_prewarm] illust=${illustId} code=CACHE_QUEUE_FULL`)
             return false
         }
         const batches = buildGuestPrewarmBatches(illust, maxPages)
         if (batches.length === 0) return false
-        activeWorks.set(illust.id, { remaining: batches.length })
+        activeWorks.set(illustId, { remaining: batches.length })
         for (const batch of batches) {
             const channelIndex = selectChannel()
             queueBatch({
-                illustId: illust.id,
+                illustId,
                 batch,
                 attemptedChannels: new Set()
             }, channelIndex)
