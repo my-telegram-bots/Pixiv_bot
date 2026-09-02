@@ -99,7 +99,7 @@ function fixture({ updateResults = [true], deleteResults = [true], now = 1000 } 
     })
     const context = ({ userId = 7, message = {} } = {}) => ({
         l: 'en',
-        from: { id: userId },
+        from: { id: userId, first_name: 'Example', last_name: 'User', username: 'example_user' },
         chat: { id: userId, type: 'private' },
         chat_id: userId,
         user_id: userId,
@@ -224,6 +224,7 @@ test('personal settings always bind to the Telegram actor and expose fragment-on
     t.true(await f.lifecycle.openPersonalSettings(f.context()))
     t.is(f.prepared.length, 2)
     t.deepEqual(f.prepared.map(item => item.button.request_chat.chat_is_channel), [false, true])
+    t.deepEqual(f.prepared.map(item => item.button.request_chat.request_photo), [true, true])
     t.deepEqual(f.prepared.map(item => item.userId), [7, 7])
 
     const keyboardButton = f.messages[0].extra.reply_markup.keyboard[0][0]
@@ -237,6 +238,13 @@ test('personal settings always bind to the Telegram actor and expose fragment-on
     t.is(fragment.settings.format.message, 'stored')
     t.is(fragment.request_chat.group, 'prepared-100')
     t.is(fragment.request_chat.channel, 'prepared-101')
+    t.deepEqual(fragment.target, {
+        type: 'private',
+        name: 'Example User',
+        username: 'example_user',
+        photo_url: 'https://t.me/i/userpic/320/example_user.jpg'
+    })
+    t.false(Object.hasOwn(fragment.target, 'id'))
 
     await f.lifecycle.handleWebAppData(f.context({
         message: { web_app_data: { data: payload(fragment.session) } }
@@ -316,10 +324,17 @@ test('Mini App dependency normalization matches command settings before persiste
 
     const fileOnly = normalizeSettingsMiniAppDependencies({
         format: {},
-        default: { asfile: true, album: true, album_one: true, single_caption: true }
+        default: {
+            asfile: true,
+            album: true,
+            album_one: true,
+            album_equal: true,
+            single_caption: true
+        }
     })
     t.false(fileOnly.default.album)
     t.false(fileOnly.default.album_one)
+    t.false(fileOnly.default.album_equal)
     t.false(fileOnly.default.single_caption)
 })
 
@@ -430,7 +445,7 @@ test('concurrent duplicate submissions produce one write and one confirmation', 
 
 test('group selection binds request and actor, validates type, and checks admin again on save', async t => {
     const f = fixture()
-    f.chats.set(-20, { id: -20, type: 'supergroup', title: 'Target' })
+    f.chats.set(-20, { id: -20, type: 'supergroup', title: 'Target', username: 'target_group' })
     f.members.set('-20:7', { status: 'administrator' })
     f.stored.set(-20, { id: -20, default: { album: false }, format: { inline: 'target' } })
     await f.lifecycle.openPersonalSettings(f.context())
@@ -445,6 +460,13 @@ test('group selection binds request and actor, validates type, and checks admin 
     )
     t.false(targetFragment.settings.default.album)
     t.is(targetFragment.settings.format.inline, 'target')
+    t.deepEqual(targetFragment.target, {
+        type: 'supergroup',
+        name: 'Target',
+        username: 'target_group',
+        photo_url: 'https://t.me/i/userpic/320/target_group.jpg'
+    })
+    t.false(Object.hasOwn(targetFragment.target, 'id'))
 
     await f.lifecycle.handleWebAppData(f.context({
         message: { web_app_data: { data: payload(targetFragment.session) } }

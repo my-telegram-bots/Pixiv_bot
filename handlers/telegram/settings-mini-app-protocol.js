@@ -118,6 +118,7 @@ export function normalizeSettingsMiniAppDependencies(settings, targetType = 'pri
     if (values.asfile) {
         values.album = false
         values.album_one = false
+        values.album_equal = false
         values.single_caption = false
     }
     if (targetType === 'channel') values.share = false

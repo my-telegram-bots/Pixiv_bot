@@ -46,6 +46,28 @@ function cloneSettings(settings) {
     return JSON.parse(JSON.stringify(settings))
 }
 
+function displayTarget(target) {
+    const username = typeof target.username === 'string' &&
+        /^[A-Za-z0-9_]{5,64}$/.test(target.username)
+        ? target.username
+        : ''
+    const privateName = [target.first_name, target.last_name]
+        .filter(value => typeof value === 'string' && value.trim())
+        .join(' ')
+        .trim()
+    const chatName = typeof target.title === 'string' ? target.title.trim() : ''
+    const name = (target.type === 'private' ? privateName : chatName) ||
+        (username ? `@${username}` : '—')
+    return {
+        type: target.type,
+        name: Array.from(name).slice(0, 128).join(''),
+        username,
+        photo_url: username
+            ? `https://t.me/i/userpic/320/${encodeURIComponent(username)}.jpg`
+            : ''
+    }
+}
+
 export function createSettingsMiniAppLifecycle({
     bot,
     store,
@@ -95,7 +117,8 @@ export function createSettingsMiniAppLifecycle({
                         request_id: group.requestId,
                         chat_is_channel: false,
                         request_title: true,
-                        request_username: true
+                        request_username: true,
+                        request_photo: true
                     }
                 }),
                 bot.api.savePreparedKeyboardButton(userId, {
@@ -104,7 +127,8 @@ export function createSettingsMiniAppLifecycle({
                         request_id: channel.requestId,
                         chat_is_channel: true,
                         request_title: true,
-                        request_username: true
+                        request_username: true,
+                        request_photo: true
                     }
                 })
             ])
@@ -160,6 +184,7 @@ export function createSettingsMiniAppLifecycle({
             v: 1,
             session: session.token,
             settings: initialSettings,
+            target: displayTarget(target),
             request_chat: {
                 group: selectors.group,
                 channel: selectors.channel
@@ -185,7 +210,7 @@ export function createSettingsMiniAppLifecycle({
             if (ctx.from?.id) await send(ctx.from.id, ctx.l, 'setting_mini_app_invalid')
             return false
         }
-        return openTargetSettings(ctx, { id: Number(ctx.from.id), type: 'private' })
+        return openTargetSettings(ctx, { ...ctx.from, id: Number(ctx.from.id), type: 'private' })
     }
 
     async function handleCommand(ctx) {
@@ -227,7 +252,7 @@ export function createSettingsMiniAppLifecycle({
             await send(userId, ctx.l, 'setting_mini_app_admin_required')
             return true
         }
-        await openTargetSettings(ctx, { id: Number(target.id), type: target.type })
+        await openTargetSettings(ctx, target)
         return true
     }
 
