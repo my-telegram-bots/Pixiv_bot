@@ -1,24 +1,24 @@
-import fs from 'fs'
 import { escape_strings } from './format.js'
-let l = {}
-let raw = {}
+import en from '../../lang/en.js'
+import ja from '../../lang/ja.js'
+import zhHans from '../../lang/zh-hans.js'
+import zhHant from '../../lang/zh-hant.js'
 
-// load i18n files
-fs.readdirSync('./lang/').map(async filename => {
-    if (filename.endsWith('.js')) {
-        await import('../../lang/' + filename).then((ll, id) => {
-            let ll_ = {}
-            raw[filename.replace('.js', '')] = { ...ll.default }
-            for (const v in ll.default) {
-                ll_[v] = escape_strings(ll.default[v])
-            }
-            l[filename.replace('.js', '')] = ll_
-        })
-    }
+const raw = Object.freeze({
+    en,
+    ja,
+    'zh-hans': zhHans,
+    'zh-hant': zhHant
 })
-// setTimeout(() => {
-//     console.log(l)
-// }, 2000);
+const l = Object.freeze(Object.fromEntries(
+    Object.entries(raw).map(([language, messages]) => [
+        language,
+        Object.fromEntries(Object.entries(messages).map(([key, value]) => [
+            key,
+            escape_strings(value)
+        ]))
+    ])
+))
 /**
  * i18n
  * @param {*} lang 语言
@@ -26,14 +26,13 @@ fs.readdirSync('./lang/').map(async filename => {
  * @param  {...any} value 值
  */
 export function _l(lang, item, ...value) {
-    if (!l[lang] || !l[lang][item]) {
-        lang = 'en'
+    const message = l[lang]?.[item] ?? l.en[item]
+    if (message === undefined) return item
+    if (value.length === 0 || !message.includes('\\{\\}')) {
+        return message
     }
-    if (value.length === 0 || !l[lang][item].includes('\\{\\}')) {
-        return l[lang][item]
-    }
-    let result = l[lang][item]
-    let count = l[lang][item].match(/\\\{\\\}/g) || []
+    let result = message
+    let count = message.match(/\\\{\\\}/g) || []
     count.forEach((x, id) => {
         result = result.replace(x, escape_strings(value[id]))
     })
