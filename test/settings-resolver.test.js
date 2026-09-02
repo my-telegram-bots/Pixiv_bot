@@ -197,7 +197,7 @@ function createLifecycleFixture({ chatSetting = null, userSetting = null } = {})
     const logger = { dev() {}, warn() {} }
     const localize = (language, key) => key
     const lifecycle = createSettingsLifecycle({ bot, store, logger, localize })
-    return { lifecycle, queries, updates, deletes, messages }
+    return { lifecycle, bot, queries, updates, deletes, messages }
 }
 
 test('settings lifecycle resolves stored precedence and writes the middleware contract', async t => {
@@ -250,6 +250,52 @@ test('settings lifecycle owns reset and save persistence without command fallthr
     t.is(fixture.updates[0].chatId, 7)
     t.true(fixture.updates[0].setting.default.tags)
     t.is(fixture.messages[1][1], 'setting_saved')
+})
+
+test('settings lifecycle preserves export and valid Base64 import behavior', async t => {
+    const fixture = createLifecycleFixture()
+    const baseContext = {
+        chat_id: 7,
+        chat: { id: 7, type: 'private' },
+        from: { id: 7 },
+        message: { message_id: 3 },
+        l: 'en',
+        us: createDefaultUserSettings()
+    }
+
+    await fixture.lifecycle.handleSettingsCommand({ ...baseContext, text: '/s' }, {})
+    t.is(fixture.messages[0][1], 'setting_open_link')
+    const exportedUrl = fixture.messages[0][2].reply_markup.inline_keyboard[0][0].url
+    t.true(exportedUrl.startsWith('https://pixiv-bot.pages.dev/s#'))
+
+    const imported = Buffer.from(JSON.stringify({
+        format: { message: 'custom' },
+        default: { tags: true }
+    }), 'utf8').toString('base64')
+    await fixture.lifecycle.handleSettingsCommand({ ...baseContext, text: imported }, {})
+    t.is(fixture.updates.length, 1)
+    t.is(fixture.updates[0].chatId, 7)
+    t.is(fixture.updates[0].setting.format.message, 'custom')
+    t.true(fixture.updates[0].setting.default.tags)
+    t.is(fixture.messages[1][1], 'setting_saved')
+})
+
+test('settings lifecycle preserves group administrator authorization', async t => {
+    const fixture = createLifecycleFixture()
+    fixture.bot.api.getChatMember = async () => ({ status: 'member' })
+    await fixture.lifecycle.handleSettingsCommand({
+        chat_id: -10,
+        chat: { id: -10, type: 'supergroup' },
+        from: { id: 7 },
+        message: { message_id: 3 },
+        l: 'en',
+        text: '/s reset',
+        us: createDefaultUserSettings()
+    }, {})
+
+    t.is(fixture.deletes.length, 0)
+    t.is(fixture.updates.length, 0)
+    t.is(fixture.messages[0][1], 'error_not_a_gc_administrator')
 })
 
 test('malformed imported settings report one error and never reach persistence', async t => {

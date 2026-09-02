@@ -15,6 +15,10 @@ try {
 import { handle_ranking, _l, k_os, honsole, format, memoryMonitor } from '#handlers/index'
 import { extractPixivIds } from '#handlers/telegram/input-parser'
 import { createSettingsLifecycle } from '#handlers/telegram/settings-lifecycle'
+import {
+    createSettingsMiniAppLifecycle,
+    registerSettingsMiniAppHandlers
+} from '#handlers/telegram/settings-mini-app-lifecycle'
 import { createChatLinkStore } from '#handlers/telegram/chat-link-store'
 import { createLinkLifecycle } from '#handlers/telegram/link-lifecycle'
 import { detect_ugpira_url } from '#handlers/pixiv/tools'
@@ -44,6 +48,7 @@ createBot(config)
 const bot = getBot()
 const settingsLifecycle = createSettingsLifecycle({ bot, store: db, logger: honsole })
 const { resolveUserSettings, handleSettingsCommand } = settingsLifecycle
+const settingsMiniAppLifecycle = createSettingsMiniAppLifecycle({ bot, store: db, logger: honsole })
 const resolveInlineSettings = createInlineSettingsResolver({ resolveUserSettings, logger: honsole })
 const tg_sender = createTgSender({ bot, config, resolveUserSettings, logger: honsole })
 const linkStore = createChatLinkStore({ getPool })
@@ -153,6 +158,9 @@ bot.use(async (ctx, next) => {
 
 // Guest messages must terminate here: grammY also includes them in :text/:caption.
 registerGuestQueryHandler(bot, guestQueryHandler)
+
+// Mini App service messages terminate before settings resolution and Pixiv routing.
+registerSettingsMiniAppHandlers(bot, settingsMiniAppLifecycle)
 
 bot.command('start', async (ctx, next) => {
     // match = deeplink
