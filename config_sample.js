@@ -24,6 +24,8 @@ export default {
     tg: {
         master_id: 1,
         token: "",
+        // Private channels used only to retain Telegram photo file_id values.
+        media_cache_chat_ids: [],
         access_token: "",
         salt: "",
         refetch_api: ""

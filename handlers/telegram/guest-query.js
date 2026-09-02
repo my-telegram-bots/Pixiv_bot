@@ -11,6 +11,7 @@ import {
     settleBefore
 } from '#handlers/telegram/inline-query'
 import { buildIllustrationInlineResults } from '#handlers/telegram/illustration-inline-result'
+import { buildGuestRichResult } from '#handlers/telegram/guest-rich-message'
 import removeMd from 'remove-markdown'
 
 export const GuestQueryError = Object.freeze({
@@ -194,6 +195,7 @@ async function answerGuestOnce(ctx, state, result, dependencies) {
             code: GuestQueryError.ANSWER_FAILED,
             stage: 'answer'
         })
+        return false
     }
     return true
 }
@@ -254,6 +256,14 @@ function selectGuestResult(built, ctx, dependencies) {
     if (!first) return null
     if (first.type !== 'photo' || built.pageCount <= 1) return first
 
+    const rich = buildGuestRichResult(
+        built.illustration,
+        ctx.us,
+        ctx.l,
+        dependencies
+    )
+    if (rich) return rich
+
     const notice = dependencies.localize(ctx.l, 'guest_multipage_notice', built.pageCount)
     const selected = {
         ...first,
@@ -266,6 +276,18 @@ function selectGuestResult(built, ctx, dependencies) {
     ).slice(0, 1024).join('')
     delete selected.parse_mode
     return selected
+}
+
+function enqueueGuestPrewarm(dependencies, ctx, illustration) {
+    try {
+        dependencies.prewarmer?.enqueue(illustration)
+    } catch {
+        logGuestFailure(dependencies.logger, ctx, {
+            illustId: illustration?.id,
+            code: 'GUEST_PREWARM_ENQUEUE_FAILED',
+            stage: 'prewarm'
+        })
+    }
 }
 
 export function createGuestQueryHandler(dependencies) {
@@ -352,7 +374,10 @@ export function createGuestQueryHandler(dependencies) {
                 `[guest_query] request=${requestId(ctx)} illust=${safeLabel(state.illustId)} ` +
                 'code=GUEST_OK stage=answer'
             )
-            await answerGuestOnce(ctx, state, result, deps)
+            const answered = await answerGuestOnce(ctx, state, result, deps)
+            if (answered && built.pageCount > 1) {
+                enqueueGuestPrewarm(deps, ctx, built.illustration)
+            }
         } catch {
             await answerFailure(ctx, state, GuestQueryError.REQUEST_FAILED, 'handler', deps)
         }

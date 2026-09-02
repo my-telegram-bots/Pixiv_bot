@@ -32,6 +32,8 @@ export default {
     guest_media_unavailable: "作品は見つかりましたが、安全に返信できる画像またはアニメーションがありません。Pixiv で作品を開くか、時間をおいて再試行してください。(GUEST_MEDIA_UNAVAILABLE)",
     guest_request_failed: "内部処理に失敗したため Guest Mode のリクエストを完了できませんでした。再試行し、続く場合はコード GUEST_REQUEST_FAILED を添えて運用者へ連絡してください。",
     guest_multipage_notice: "この作品は全 {} ページです。ここでは 1 ページ目を表示しています。下の Pixiv ボタンから作品全体を確認できます。",
+    guest_rich_multipage_notice: "この作品は全 {} ページです。",
+    guest_rich_truncated_notice: "この作品は全 {} ページです。ここでは先頭 50 ページを表示しています。下の Pixiv ボタンから作品全体を確認できます。",
     error: "エラーが発生しました。",
     setting_open_link: "設定をするのは次のリンクをクリックしてください。",
     setting_reset: "設定がリセットされました。",

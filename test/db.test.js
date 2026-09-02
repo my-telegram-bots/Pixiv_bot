@@ -1,6 +1,12 @@
 import test from 'ava'
 import { createTestDb, getTestPool, seedTestData } from './helpers/db-setup.js'
-import { getIllust, updateIllust, deleteIllust, findManyIllusts } from '../db.js'
+import {
+    getIllust,
+    updateIllust,
+    updateIllustImageFileIds,
+    deleteIllust,
+    findManyIllusts
+} from '../db.js'
 
 // Mock pool for getIllust (it uses the global pool)
 let mockPool = null
@@ -45,6 +51,7 @@ test('getIllust returns illust with images', async t => {
     t.is(illust.imgs_.thumb_urls[0], 'https://i.pximg.net/thumb.jpg')
     t.is(illust.imgs_.size[0].width, 1000)
     t.is(illust.imgs_.size[1].width, 1200)
+    t.deepEqual(illust.imgs_.tg_file_ids, [null, null])
 })
 
 // Test 2: Get ugoira illust - using new getIllust() API
@@ -142,19 +149,58 @@ test('updateIllust updates ugoira metadata', async t => {
     t.is(illust.tg_file_id, 'new_telegram_file_id')
 })
 
-// Test 7: Update tg_file_id for regular illust (without imgs_)
-test('updateIllust updates tg_file_id for regular illust', async t => {
+test('regular illustration file IDs are written and read in page order', async t => {
     const { pool } = t.context
+    const result = await updateIllustImageFileIds(111111, [
+        { pageIndex: 1, fileId: 'page-one-file' },
+        { pageIndex: 0, fileId: 'page-zero-file' }
+    ], pool)
+    const illust = await getIllust(111111, pool)
+    t.true(result.acknowledged)
+    t.is(result.modifiedCount, 2)
+    t.deepEqual(illust.imgs_.tg_file_ids, ['page-zero-file', 'page-one-file'])
+    t.false('tg_file_id' in illust)
+})
 
-    // Update only tg_file_id (without updating imgs_)
+test('regular illustrations reject the superseded work-level file ID path', async t => {
+    const error = await t.throwsAsync(updateIllust(111111, {
+        type: 0,
+        tg_file_id: 'legacy-page-zero-file'
+    }, t.context.pool))
+    t.is(error.message, 'Regular illustration file IDs must be written by page')
+})
+
+test('regular image refresh preserves unchanged URLs, invalidates changed URLs, and deletes removed pages', async t => {
+    const { pool } = t.context
+    await updateIllustImageFileIds(111111, [
+        { pageIndex: 0, fileId: 'keep-me' },
+        { pageIndex: 1, fileId: 'invalidate-me' }
+    ], pool)
+
     await updateIllust(111111, {
         type: 0,
-        tg_file_id: 'updated_telegram_file_id'
+        imgs_: {
+            thumb_urls: ['https://i.pximg.net/new-thumb.jpg'],
+            regular_urls: ['https://i.pximg.net/regular.jpg'],
+            original_urls: ['https://i.pximg.net/new-original.jpg'],
+            size: [{ width: 2000, height: 2000 }]
+        }
     }, pool)
+    let illust = await getIllust(111111, pool)
+    t.deepEqual(illust.imgs_.tg_file_ids, ['keep-me'])
+    t.is(illust.imgs_.size.length, 1)
 
-    // Verify tg_file_id updated on first image
-    const illust = await getIllust(111111, pool)
-    t.is(illust.tg_file_id, 'updated_telegram_file_id')
+    await updateIllust(111111, {
+        type: 0,
+        imgs_: {
+            thumb_urls: ['https://i.pximg.net/new-thumb.jpg'],
+            regular_urls: ['https://i.pximg.net/changed-regular.jpg'],
+            original_urls: ['https://i.pximg.net/new-original.jpg'],
+            size: [{ width: 2000, height: 2000 }]
+        }
+    }, pool)
+    illust = await getIllust(111111, pool)
+    t.deepEqual(illust.imgs_.tg_file_ids, [null])
 })
 
 // Test 8: Update tg_file_id for ugoira (without imgs_)

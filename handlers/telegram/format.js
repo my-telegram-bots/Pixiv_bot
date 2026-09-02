@@ -262,6 +262,62 @@ export function format_v2(td, flag, mode = 'message', p, mid) {
     }
 }
 
+function escapeRichMarkdown(value) {
+    return String(value ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/([`*_[\]<>])/g, '\\$1')
+}
+
+function richCaptionData(td, flag, p) {
+    const totalPages = td?.imgs_?.size?.length || 0
+    const description = flag.description && td?.description?.trim()
+        ? new JSDOM(`<body>${td.description.replaceAll('<br />', '\n')}</body>`)
+            .window.document.body.textContent
+        : ''
+    return {
+        title: td?.title?.trim() || '',
+        id: td?.id,
+        url: `https://www.pixiv.net/artworks/${td?.id}`,
+        authorName: td?.author_name?.trim() || '',
+        authorUrl: `https://www.pixiv.net/users/${td?.author_id}`,
+        page: totalPages > 1 && p !== -1 ? `${Number(p || 0) + 1}/${totalPages}` : '',
+        tags: flag.tags && Array.isArray(td?.tags) ? td.tags : [],
+        description,
+        nsfw: Boolean(td?.nsfw || Number(td?.x_restrict ?? td?.xRestrict) > 0),
+        ai: Boolean(td?.ai || td?.ai_type === 2)
+    }
+}
+
+/**
+ * Internal target-aware formatter. This is deliberately not a persisted user
+ * format version: stored v1/v2 templates remain the ordinary-message contract.
+ */
+export function format_v3(td, flag, mode = 'inline', p, mid, target = 'rich_markdown') {
+    if (target === 'markdown_v2') return format_v2(td, flag, mode, p, mid)
+    if (target !== 'rich_markdown') throw new Error(`Unsupported format_v3 target: ${target}`)
+    if (!td || flag.remove_caption) return ''
+
+    const data = richCaptionData(td, flag, p)
+    const badges = [data.nsfw ? '#NSFW' : '', data.ai ? '#AI' : ''].filter(Boolean)
+    const title = flag.show_id ? `${data.title} (${data.id})` : data.title
+    const lines = [
+        [badges.join(' '), `[${escapeRichMarkdown(title)}](${data.url}) / ` +
+            `[${escapeRichMarkdown(data.authorName)}](${data.authorUrl})`, data.page]
+            .filter(Boolean).join(' ')
+    ]
+    if (data.tags.length > 0) {
+        lines.push(data.tags.map(tag => `#${escapeRichMarkdown(tag)}`).join(' '))
+    }
+    if (data.description) {
+        lines.push(data.description.split('\n')
+            .map(line => `> ${escapeRichMarkdown(line)}`)
+            .join('\n'))
+    }
+    return lines.filter(Boolean).join('\n')
+}
+
+export { escapeRichMarkdown }
+
 /**
  * MarkdownV2 转义
  * @param {String} t

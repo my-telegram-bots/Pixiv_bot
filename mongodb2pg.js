@@ -570,7 +570,7 @@ async function processIllustChunk(docs) {
                         original_url: cleanString(doc.imgs_.original_urls?.[j]) || null,
                         width: doc.imgs_.size?.[j]?.width || null,
                         height: doc.imgs_.size?.[j]?.height || null,
-                        tg_file_id: j === 0 ? (cleanString(doc.tg_file_id) || null) : null
+                        tg_file_id: cleanString(doc.imgs_.tg_file_ids?.[j]) || null
                     })
                 }
             }

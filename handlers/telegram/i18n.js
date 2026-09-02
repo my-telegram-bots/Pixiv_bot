@@ -1,12 +1,14 @@
 import fs from 'fs'
 import { escape_strings } from './format.js'
 let l = {}
+let raw = {}
 
 // load i18n files
 fs.readdirSync('./lang/').map(async filename => {
     if (filename.endsWith('.js')) {
         await import('../../lang/' + filename).then((ll, id) => {
             let ll_ = {}
+            raw[filename.replace('.js', '')] = { ...ll.default }
             for (const v in ll.default) {
                 ll_[v] = escape_strings(ll.default[v])
             }
@@ -35,5 +37,12 @@ export function _l(lang, item, ...value) {
     count.forEach((x, id) => {
         result = result.replace(x, escape_strings(value[id]))
     })
+    return result
+}
+
+export function _lr(lang, item, ...value) {
+    if (!raw[lang] || !raw[lang][item]) lang = 'en'
+    let result = raw[lang]?.[item] || item
+    for (const replacement of value) result = result.replace('{}', String(replacement))
     return result
 }

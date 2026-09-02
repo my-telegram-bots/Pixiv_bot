@@ -115,11 +115,34 @@ export class IllustrationResolver {
             if (!illustration) return failed('PIXIV_RESPONSE_INVALID')
             illustration.imgs_ = await this.buildURLs(illustration)
             if (!hasCompleteMedia(illustration)) return failed('PIXIV_MEDIA_URLS_INVALID')
+            if (illustration.type !== 2) {
+                illustration.imgs_.tg_file_ids = Array.from(
+                    { length: illustration.imgs_.size.length },
+                    () => null
+                )
+            }
             await this.updateStored(illustration.id, this.extractFields(illustration, {
                 deleted: false,
                 deleted_at: null
             }), null, { upsert: true })
             this.notFoundCache.delete(id)
+            try {
+                const canonical = await this.getStored(illustration.id)
+                if (hasCompleteMedia(canonical)) {
+                    delete canonical._id
+                    return {
+                        kind: IllustrationResolveKind.READY,
+                        illustration: canonical,
+                        source: 'database'
+                    }
+                }
+            } catch (error) {
+                this.logger.warn(
+                    '[IllustrationResolver] Post-refresh database read failed:',
+                    id,
+                    error.message
+                )
+            }
             return { kind: IllustrationResolveKind.READY, illustration, source: 'pixiv' }
         } catch (error) {
             this.logger.warn('[IllustrationResolver] Media refresh failed:', id, error.message)

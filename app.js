@@ -1,6 +1,6 @@
 import { run as grammyjsRun } from '@grammyjs/runner'
 import { loadAndValidateConfig, checkSystemDependencies } from '#handlers/utils/config-validator'
-import db, { db_close, getPool } from '#db'
+import db, { db_close, getPool, updateIllustImageFileIds } from '#db'
 import { checkAndApplyMigrations } from './db-migration-check.js'
 
 // Load and validate configuration at startup
@@ -12,7 +12,7 @@ try {
     console.error('✗ Configuration validation failed:', error.message)
     process.exit(1)
 }
-import { handle_ranking, _l, k_os, honsole, format, memoryMonitor } from '#handlers/index'
+import { handle_ranking, _l, _lr, k_os, honsole, format, memoryMonitor } from '#handlers/index'
 import { extractPixivIds } from '#handlers/telegram/input-parser'
 import { createSettingsLifecycle } from '#handlers/telegram/settings-lifecycle'
 import {
@@ -37,6 +37,10 @@ import {
     guestModeStartupMessage,
     registerGuestQueryHandler
 } from '#handlers/telegram/guest-query'
+import {
+    createGuestMediaPrewarmer,
+    guestMediaCacheStartupMessage
+} from '#handlers/telegram/guest-media-prewarmer'
 import { createBot, getBot } from './bot.js'
 import { FileCleaner } from '#handlers/utils/file-cleaner'
 import illustService from '#handlers/pixiv/illust-service'
@@ -46,6 +50,18 @@ import { TELEGRAM_UPDATE_CONCURRENCY } from '#handlers/telegram/transport-policy
 // Create bot instance with validated configuration
 createBot(config)
 const bot = getBot()
+const guestMediaCacheChatIds = process.env.DBLESS
+    ? []
+    : config.tg.media_cache_chat_ids || []
+const guestMediaPrewarmer = createGuestMediaPrewarmer({
+    bot,
+    cacheChatIds: guestMediaCacheChatIds,
+    writeFileIds: async (illustId, pages) => {
+        const result = await updateIllustImageFileIds(illustId, pages)
+        if (!result.acknowledged) throw new Error('Guest media cache database is unavailable')
+    },
+    logger: honsole
+})
 const settingsLifecycle = createSettingsLifecycle({ bot, store: db, logger: honsole })
 const { resolveUserSettings, handleSettingsCommand } = settingsLifecycle
 const settingsMiniAppLifecycle = createSettingsMiniAppLifecycle({ bot, store: db, logger: honsole })
@@ -77,6 +93,8 @@ const guestQueryHandler = createGuestQueryHandler({
     format,
     keyboard: k_os,
     localize: _l,
+    localizeRaw: _lr,
+    prewarmer: guestMediaPrewarmer,
     logger: honsole,
     reportError: fields => bot.api.sendMessage(
         config.tg.master_id,
@@ -319,7 +337,7 @@ bot.catch(async (e) => {
     })
 })
 
-db.db_initial().then(async () => {
+db.db_initial(config).then(async () => {
     // Check and apply database migrations
     if (!process.env.DBLESS) {
         const pool = getPool()
@@ -356,6 +374,8 @@ db.db_initial().then(async () => {
     bot.init().then(async () => {
         const guestMode = guestModeStartupMessage(bot.botInfo)
         console[guestMode.enabled ? 'log' : 'warn'](guestMode.message)
+        const guestMediaCache = guestMediaCacheStartupMessage(guestMediaCacheChatIds)
+        console[guestMediaCache.enabled ? 'log' : 'warn'](guestMediaCache.message)
         // Initialize memory monitor with bot instance
         memoryMonitor.init(bot, config.tg.master_id)
         console.log('✓ Memory monitor initialized')
@@ -385,6 +405,7 @@ db.db_initial().then(async () => {
 async function shutdown(signal) {
     console.log(`${signal} received, shutting down gracefully...`)
     linkLifecycle.dispose()
+    await guestMediaPrewarmer.stop()
     bot.stop(signal)
     await db_close()
     process.exit(0)

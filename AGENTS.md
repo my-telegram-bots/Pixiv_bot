@@ -100,9 +100,9 @@ repository is in an incomplete PostgreSQL migration state:
   requires legacy MongoDB configuration.
 - `config_sample.js` has no `web` object, although `app.js` reads
   `config.web.enabled` after startup.
-- `config.js` is intentionally untracked, but `db.js` imports it at module load
-  time. A checkout without local configuration cannot currently start the AVA
-  database tests.
+- `config.js` is intentionally untracked. Application startup still requires
+  it, while `db.js` receives the validated runtime configuration at database
+  initialization so direct database tests do not need private credentials.
 
 Do not hide these mismatches with new fallbacks. Fix the owning contract and
 remove superseded behavior when working in this area.

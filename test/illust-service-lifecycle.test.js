@@ -102,6 +102,27 @@ test('successful refresh clears a previously stored deletion marker', async t =>
     t.is(result.kind, IllustrationResolveKind.READY)
     t.false(updates[0][1].deleted)
     t.is(updates[0][1].deleted_at, null)
+    t.deepEqual(result.illustration.imgs_.tg_file_ids, [null])
+})
+
+test('refresh returns canonical page-aligned file IDs preserved by PostgreSQL', async t => {
+    let reads = 0
+    const canonical = illustration()
+    canonical.imgs_.tg_file_ids = ['cached-page-zero']
+    const service = new IllustrationResolver({
+        getStored: async () => ++reads === 1 ? null : canonical,
+        fetchDetail: async () => illustration(),
+        normalize: value => value,
+        buildURLs: async value => value.imgs_,
+        extractFields: value => value,
+        updateStored: async () => {}
+    })
+
+    const result = await service.resolve(42)
+
+    t.is(result.kind, IllustrationResolveKind.READY)
+    t.is(result.source, 'database')
+    t.deepEqual(result.illustration.imgs_.tg_file_ids, ['cached-page-zero'])
 })
 
 test('database read failures return a failed result instead of rejecting', async t => {

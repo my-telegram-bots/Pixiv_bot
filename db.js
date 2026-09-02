@@ -1,6 +1,10 @@
-import config from '#config'
 import pg from 'pg'
 import { withTransaction } from './postgres-transaction.js'
+import {
+    rebuildRegularImages,
+    syncIllustImages,
+    writeIllustImageFileIds
+} from '#handlers/pixiv/illust-image-store'
 const { Pool } = pg
 
 let pool = null
@@ -25,11 +29,12 @@ export let collection = {
 /**
  * Initialize PostgreSQL connection
  */
-export async function db_initial() {
+export async function db_initial(runtimeConfig) {
     if (process.env.DBLESS) {
         console.warn('WARNING', 'No Database Mode(DBLESS) is not recommend for production environment.')
     } else {
         try {
+            const config = runtimeConfig || (await import('#config')).default
             pool = new Pool({
                 connectionString: config.postgres.uri,
                 max: 50,                      // Increase for 2.2M dataset
@@ -210,42 +215,19 @@ export async function updateIllust(id, data, testPool = null, options = {}) {
                     imgs.size?.[0]?.height || null
                 ])
             } else if (imgs.thumb_urls) {
-                // Regular illust - update illust_image
-                // Delete existing images first
-                await client.query('DELETE FROM illust_image WHERE illust_id = $1', [id])
-
-                // Insert new images
-                for (let i = 0; i < imgs.thumb_urls.length; i++) {
-                    await client.query(`
-                        INSERT INTO illust_image (illust_id, page_index, thumb_url, regular_url, original_url, width, height)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    `, [
-                        id,
-                        i,
-                        imgs.thumb_urls[i] || null,
-                        imgs.regular_urls?.[i] || null,
-                        imgs.original_urls?.[i] || null,
-                        imgs.size?.[i]?.width || null,
-                        imgs.size?.[i]?.height || null
-                    ])
-                }
+                await syncIllustImages(client, id, imgs)
             }
         }
 
-        // Handle tg_file_id update
+        // Work-level tg_file_id is reserved for Ugoira.
         if (data.tg_file_id !== undefined) {
-            if (data.type === 2) {
+            if (data.type !== 2) {
+                throw new TypeError('Regular illustration file IDs must be written by page')
+            } else {
                 // Ugoira - update ugoira_meta
                 await client.query(`
                     UPDATE ugoira_meta SET tg_file_id = $1, updated_at = NOW()
                     WHERE illust_id = $2
-                `, [data.tg_file_id, id])
-            } else {
-                // Regular illust - update first image's tg_file_id
-                await client.query(`
-                    UPDATE illust_image
-                    SET tg_file_id = $1, updated_at = NOW()
-                    WHERE illust_id = $2 AND page_index = 0
                 `, [data.tg_file_id, id])
             }
         }
@@ -256,6 +238,15 @@ export async function updateIllust(id, data, testPool = null, options = {}) {
         console.error('updateIllust error:', error)
         throw error
     }
+}
+
+export async function updateIllustImageFileIds(id, pages, testPool = null) {
+    const queryPool = testPool || pool
+    if (!queryPool) return { acknowledged: false, modifiedCount: 0 }
+    const modifiedCount = await withTransaction(queryPool, client =>
+        writeIllustImageFileIds(client, id, pages)
+    )
+    return { acknowledged: true, modifiedCount }
 }
 
 /**
@@ -335,15 +326,7 @@ function rebuildIllustFromRow(illust, images, ugoira) {
         result.tg_file_id = ugoira.tg_file_id
     } else if (images && images.length > 0) {
         // Regular illust
-        result.imgs_ = {
-            thumb_urls: images.map(img => img.thumb_url),
-            regular_urls: images.map(img => img.regular_url),
-            original_urls: images.map(img => img.original_url),
-            size: images.map(img => ({ width: img.width, height: img.height }))
-        }
-        if (images[0]?.tg_file_id) {
-            result.tg_file_id = images[0].tg_file_id
-        }
+        result.imgs_ = rebuildRegularImages(images)
     }
 
     return result
@@ -461,34 +444,19 @@ function createIllustCollection() {
                             imgs.size?.[0]?.height || null
                         ])
                     } else if (imgs.thumb_urls) {
-                        // Regular illust - update illust_image
-                        // Delete existing images first
-                        await client.query('DELETE FROM illust_image WHERE illust_id = $1', [id])
-
-                        // Insert new images
-                        for (let i = 0; i < imgs.thumb_urls.length; i++) {
-                            await client.query(`
-                                INSERT INTO illust_image (illust_id, page_index, thumb_url, regular_url, original_url, width, height)
-                                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                            `, [
-                                id,
-                                i,
-                                imgs.thumb_urls[i] || null,
-                                imgs.regular_urls?.[i] || null,
-                                imgs.original_urls?.[i] || null,
-                                imgs.size?.[i]?.width || null,
-                                imgs.size?.[i]?.height || null
-                            ])
-                        }
+                        await syncIllustImages(client, id, imgs)
                     }
                 }
 
                 // Handle tg_file_id update for ugoira
-                if (data.tg_file_id !== undefined && data.type === 2) {
+                if (data.tg_file_id !== undefined) {
+                    if (data.type !== 2) {
+                        throw new TypeError('Regular illustration file IDs must be written by page')
+                    }
                     await client.query(`
-                        UPDATE ugoira_meta SET tg_file_id = $1, updated_at = NOW()
-                        WHERE illust_id = $2
-                    `, [data.tg_file_id, id])
+                            UPDATE ugoira_meta SET tg_file_id = $1, updated_at = NOW()
+                            WHERE illust_id = $2
+                        `, [data.tg_file_id, id])
                 }
 
                     return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
@@ -546,16 +514,7 @@ function rebuildIllustObject(illust, images, ugoira) {
         result.tg_file_id = ugoira.tg_file_id
     } else if (images.length > 0) {
         // Regular illust
-        result.imgs_ = {
-            thumb_urls: images.map(img => img.thumb_url),
-            regular_urls: images.map(img => img.regular_url),
-            original_urls: images.map(img => img.original_url),
-            size: images.map(img => ({ width: img.width, height: img.height }))
-        }
-        // Use first image's tg_file_id as the illust's tg_file_id
-        if (images[0]?.tg_file_id) {
-            result.tg_file_id = images[0].tg_file_id
-        }
+        result.imgs_ = rebuildRegularImages(images)
     }
 
     return result
@@ -1155,15 +1114,7 @@ class PostgresCursor {
             } else if (row.images && row.images.length > 0) {
                 // Regular illust - use aggregated images
                 const images = row.images
-                illust.imgs_ = {
-                    thumb_urls: images.map(img => img.thumb_url),
-                    regular_urls: images.map(img => img.regular_url),
-                    original_urls: images.map(img => img.original_url),
-                    size: images.map(img => ({ width: img.width, height: img.height }))
-                }
-                if (images[0]?.tg_file_id) {
-                    illust.tg_file_id = images[0].tg_file_id
-                }
+                illust.imgs_ = rebuildRegularImages(images)
             }
 
             return illust

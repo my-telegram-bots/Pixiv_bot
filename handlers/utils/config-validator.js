@@ -101,6 +101,15 @@ export class ConfigValidator {
         if (!tg.master_id || typeof tg.master_id !== 'number' || tg.master_id <= 0) {
             this.errors.push('Master user ID must be a positive number')
         }
+
+        if (tg.media_cache_chat_ids !== undefined) {
+            if (!Array.isArray(tg.media_cache_chat_ids) ||
+                tg.media_cache_chat_ids.some(id => !Number.isSafeInteger(id) || id >= 0)) {
+                this.errors.push('Telegram media cache chat IDs must be an array of negative safe integers')
+            } else if (new Set(tg.media_cache_chat_ids).size !== tg.media_cache_chat_ids.length) {
+                this.errors.push('Telegram media cache chat IDs must not contain duplicates')
+            }
+        }
         
         if (tg.access_token && tg.access_token.trim() !== '' && !/^[a-f0-9]{64}$/.test(tg.access_token)) {
             this.warnings.push('Telegraph access token format may be invalid')

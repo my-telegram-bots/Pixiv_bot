@@ -14,7 +14,7 @@ import {
     stripGuestBotMention
 } from '../handlers/telegram/guest-query.js'
 
-function illustration(id, { type = 0, pages = 1, fileId } = {}) {
+function illustration(id, { type = 0, pages = 1, fileId, pageFileIds } = {}) {
     if (type === 2) {
         return {
             id,
@@ -29,6 +29,9 @@ function illustration(id, { type = 0, pages = 1, fileId } = {}) {
         id,
         type,
         title: `illust ${id}`,
+        author_id: 99,
+        author_name: 'artist',
+        description: '',
         tags: [],
         imgs_: {
             size: Array.from({ length: pages }, () => ({ width: 100, height: 200 })),
@@ -43,6 +46,10 @@ function illustration(id, { type = 0, pages = 1, fileId } = {}) {
             original_urls: Array.from(
                 { length: pages },
                 (_, page) => `https://i.pximg.net/${id}_p${page}_original.jpg`
+            ),
+            tg_file_ids: Array.from(
+                { length: pages },
+                (_, page) => pageFileIds?.[page] || null
             )
         }
     }
@@ -71,6 +78,12 @@ function localize(_language, key, value) {
     return key
 }
 
+function localizeRaw(_language, key, value) {
+    if (key === 'guest_rich_multipage_notice') return `rich pages=${value}`
+    if (key === 'guest_rich_truncated_notice') return `total=${value}; showing first 50`
+    return key
+}
+
 function dependencies(overrides = {}) {
     return {
         now: Date.now,
@@ -86,6 +99,7 @@ function dependencies(overrides = {}) {
             reply_markup: { inline_keyboard: [[{ text: 'open', url: `https://pixiv.net/${id}` }]] }
         }),
         localize,
+        localizeRaw,
         ...overrides
     }
 }
@@ -192,6 +206,133 @@ test('guest multi-page caption remains valid when the normal caption fills Teleg
     t.true(Array.from(ctx.answers[0].caption).length <= 1024)
     t.true(ctx.answers[0].caption.startsWith('pages=2'))
     t.false('parse_mode' in ctx.answers[0])
+})
+
+test('cold cache answers the first page exactly once before prewarming begins', async t => {
+    const events = []
+    const ctx = context({
+        answerGuestQuery: async result => {
+            events.push('answer')
+            ctx.answers.push(result)
+        }
+    })
+    await createGuestQueryHandler(dependencies({
+        illustService: {
+            resolve: async id => ({
+                kind: 'ready',
+                illustration: illustration(id, { pages: 3 })
+            })
+        },
+        prewarmer: { enqueue: illust => events.push(`enqueue:${illust.id}`) }
+    }))(ctx)
+
+    t.is(ctx.answers.length, 1)
+    t.is(ctx.answers[0].type, 'photo')
+    t.deepEqual(events, ['answer', 'enqueue:12345678'])
+})
+
+test('a rejected guest answer never starts prewarming', async t => {
+    let enqueues = 0
+    const ctx = context({ answerGuestQuery: async () => { throw new Error('expired') } })
+    await createGuestQueryHandler(dependencies({
+        illustService: {
+            resolve: async id => ({
+                kind: 'ready',
+                illustration: illustration(id, { pages: 3 })
+            })
+        },
+        prewarmer: { enqueue: () => { enqueues++ } }
+    }))(ctx)
+    t.is(enqueues, 0)
+})
+
+test('a prewarm enqueue failure cannot replace or duplicate the successful Guest answer', async t => {
+    const ctx = context()
+    await createGuestQueryHandler(dependencies({
+        illustService: {
+            resolve: async id => ({
+                kind: 'ready',
+                illustration: illustration(id, { pages: 2 })
+            })
+        },
+        prewarmer: { enqueue: () => { throw new Error('queue unavailable') } }
+    }))(ctx)
+    t.is(ctx.answers.length, 1)
+    t.is(ctx.answers[0].type, 'photo')
+})
+
+test('complete page cache returns one rich slideshow with caption, buttons, and page spoilers', async t => {
+    const ctx = context()
+    await createGuestQueryHandler(dependencies({
+        getUserSettings: async () => ({
+            default: { spoiler: true, tags: true, description: true }
+        }),
+        illustService: {
+            resolve: async id => {
+                const work = illustration(id, {
+                    pages: 3,
+                    pageFileIds: ['file-0', 'file-1', 'file-2']
+                })
+                work.title = 'title * [safe]'
+                work.author_name = 'artist _name_'
+                work.tags = ['tag-one']
+                work.description = 'line <unsafe>'
+                return { kind: 'ready', illustration: work }
+            }
+        }
+    }))(ctx)
+
+    t.is(ctx.answers.length, 1)
+    const result = ctx.answers[0]
+    t.is(result.type, 'article')
+    t.truthy(result.reply_markup)
+    t.true(result.input_message_content.rich_message.markdown.includes('<tg-slideshow>'))
+    t.true(result.input_message_content.rich_message.markdown.includes('rich pages=3'))
+    t.true(result.input_message_content.rich_message.markdown.includes('title \\* \\[safe\\]'))
+    t.false(result.input_message_content.rich_message.markdown.includes('www\\.pixiv'))
+    t.deepEqual(
+        result.input_message_content.rich_message.media.map(item => item.id),
+        ['page_0', 'page_1', 'page_2']
+    )
+    t.true(result.input_message_content.rich_message.media.every(
+        item => item.media.has_spoiler === true
+    ))
+})
+
+test('partial cache never returns a partial rich slideshow', async t => {
+    const ctx = context()
+    await createGuestQueryHandler(dependencies({
+        illustService: {
+            resolve: async id => ({
+                kind: 'ready',
+                illustration: illustration(id, {
+                    pages: 3,
+                    pageFileIds: ['file-0', null, 'file-2']
+                })
+            })
+        }
+    }))(ctx)
+    t.is(ctx.answers[0].type, 'photo')
+    t.false('input_message_content' in ctx.answers[0])
+})
+
+test('rich slideshow caps attachments at 50 and states the real page count', async t => {
+    const ctx = context()
+    await createGuestQueryHandler(dependencies({
+        illustService: {
+            resolve: async id => ({
+                kind: 'ready',
+                illustration: illustration(id, {
+                    pages: 63,
+                    pageFileIds: Array.from({ length: 63 }, (_, page) => `file-${page}`)
+                })
+            })
+        }
+    }))(ctx)
+    const rich = ctx.answers[0].input_message_content.rich_message
+    t.is(rich.media.length, 50)
+    t.true(rich.markdown.includes('total=63; showing first 50'))
+    t.false(rich.markdown.includes('page_50'))
 })
 
 test('guest ugoira prefers a Telegram file id then accepts an existing public MP4 URL', async t => {
@@ -397,6 +538,12 @@ test('guest registration remains before every ordinary text route and startup wa
     t.true(registration < app.indexOf("bot.on([':text', ':caption']"))
     t.true(app.includes('getUserSettings: userId => process.env.DBLESS'))
     t.false(app.includes('resolveUserSettings(ctx.guestMessage'))
+    const guestConstruction = app.slice(
+        app.indexOf('const guestQueryHandler = createGuestQueryHandler'),
+        app.indexOf("console.log('✓ Telegram bot instance created')")
+    )
+    t.true(guestConstruction.includes('localizeRaw: _lr'))
+    t.true(guestConstruction.includes('prewarmer: guestMediaPrewarmer'))
 
     t.true(guestModeStartupMessage({ supports_guest_queries: true }).enabled)
     t.false(guestModeStartupMessage({ supports_guest_queries: false }).enabled)
@@ -485,6 +632,62 @@ test('real grammY guest context sends one singular answerGuestQuery payload', as
     t.is(calls[0].payload.guest_query_id, 'guest-real-context')
     t.is(calls[0].payload.result.type, 'photo')
     t.false(Array.isArray(calls[0].payload.result))
+})
+
+test('real grammY guest context serializes a cached multi-page Rich Message', async t => {
+    const bot = new Bot('1:test')
+    const calls = []
+    bot.botInfo = {
+        id: 1,
+        is_bot: true,
+        first_name: 'Pixiv',
+        username: 'Pixiv_bot',
+        can_join_groups: true,
+        can_read_all_group_messages: false,
+        supports_inline_queries: true,
+        supports_guest_queries: true
+    }
+    bot.api.config.use(async (_previous, method, payload) => {
+        calls.push({ method, payload })
+        return {
+            ok: true,
+            result: {
+                message_id: 2,
+                date: 1,
+                chat: { id: -100, type: 'group', title: 'test' }
+            }
+        }
+    })
+    registerGuestQueryHandler(bot, createGuestQueryHandler(dependencies({
+        illustService: {
+            resolve: async id => ({
+                kind: 'ready',
+                illustration: illustration(id, {
+                    pages: 2,
+                    pageFileIds: ['telegram-file-0', 'telegram-file-1']
+                })
+            })
+        }
+    })))
+
+    await bot.handleUpdate({
+        update_id: 3,
+        guest_message: {
+            message_id: 1,
+            date: 1,
+            guest_query_id: 'guest-rich-context',
+            text: '@Pixiv_bot 12345678',
+            chat: { id: -100, type: 'group', title: 'test' },
+            from: { id: 7, is_bot: false, first_name: 'Caller', language_code: 'en' }
+        }
+    })
+
+    t.is(calls.length, 1)
+    t.is(calls[0].method, 'answerGuestQuery')
+    const rich = calls[0].payload.result.input_message_content.rich_message
+    t.is(rich.media.length, 2)
+    t.is(rich.media[0].media.media, 'telegram-file-0')
+    t.true(rich.markdown.includes('tg://photo?id=page_1'))
 })
 
 test('guest handler has no ordinary delivery or chat-authority tail', t => {

@@ -64,6 +64,7 @@ export async function buildIllustrationInlineResults(id, settings, dependencies)
         const results = buildPhotoInlineResults(illust, settings, dependencies)
         return {
             results,
+            illustration: illust,
             pageCount: illust?.imgs_?.size?.length || results.length,
             errorCode: results.length > 0 ? undefined : 'INLINE_PHOTO_RESULT_INVALID'
         }
@@ -91,7 +92,11 @@ export async function buildIllustrationInlineResults(id, settings, dependencies)
     }
     if (shouldSpoiler(illust, settings)) common.has_spoiler = true
     if (typeof illust.tg_file_id === 'string' && illust.tg_file_id) {
-        return { results: [{ ...common, mpeg4_file_id: illust.tg_file_id }], pageCount: 1 }
+        return {
+            results: [{ ...common, mpeg4_file_id: illust.tg_file_id }],
+            illustration: illust,
+            pageCount: 1
+        }
     }
 
     const url = await dependencies.detectUgoiraUrl(illust, 'mp4', {
@@ -104,6 +109,7 @@ export async function buildIllustrationInlineResults(id, settings, dependencies)
                 mpeg4_url: url,
                 thumbnail_url: illust.imgs_.cover_img_url
             }],
+            illustration: illust,
             pageCount: 1
         }
     }

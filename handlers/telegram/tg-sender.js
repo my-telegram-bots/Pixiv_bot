@@ -450,9 +450,9 @@ async function sendUgoiraAnimation(bot, config, runtime, illust, media, extra) {
         }
     }
 
-    if (!illust.tg_file_id && result?.document) {
+    if (!illust.tg_file_id && result?.animation?.file_id) {
         await db.collection.illust.updateOne({ id: illust.id }, {
-            $set: { tg_file_id: result.document.file_id }
+            $set: { type: 2, tg_file_id: result.animation.file_id }
         })
     }
     if (result) {

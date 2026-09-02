@@ -30,10 +30,11 @@ export async function mg_create(illust, us) {
                 mediagroup_data.show_caption_above_media = true
             }
             // if illust data have file_id
-            if (illust.tg_file_id) {
-                if (typeof illust.tg_file_id == 'string') {
-                    mediagroup_data.media_t = illust.tg_file_id
-                }
+            const pageFileId = illust.type <= 1
+                ? illust.imgs_?.tg_file_ids?.[pid]
+                : illust.tg_file_id
+            if (typeof pageFileId === 'string' && pageFileId) {
+                mediagroup_data.media_t = pageFileId
             }
             if (illust.type <= 1) {
                 mediagroup_data.media_o = illust.imgs_.original_urls[pid]
