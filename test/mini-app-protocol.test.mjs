@@ -15,6 +15,12 @@ const initial = {
     format: { message: '作品界', version: 'v1' },
     default: { tags: true, telegraph_title: '標題' }
   },
+  target: {
+    type: 'private',
+    name: 'Example User',
+    username: 'example_user',
+    photo_url: 'https://t.me/i/userpic/320/example_user.jpg'
+  },
   request_chat: { group: 'prepared-group', channel: 'prepared-channel' }
 }
 
@@ -68,16 +74,20 @@ test('initial parser rejects malformed data, unknown fields, arrays, types, and 
     base64Url({ ...initial, settings: { format: [], default: {} } }),
     base64Url({ ...initial, settings: { format: {}, default: { tags: 'yes' } } }),
     base64Url({ ...initial, settings: { format: { unknown: 'x' }, default: {} } }),
-    base64Url({ ...initial, request_chat: { group: 'x' } })
+    base64Url({ ...initial, request_chat: { group: 'x' } }),
+    base64Url({ ...initial, target: { ...initial.target, type: 'bot' } }),
+    base64Url({ ...initial, target: { ...initial.target, name: '' } }),
+    base64Url({ ...initial, target: { ...initial.target, photo_url: 'http://example.com/a.jpg' } }),
+    base64Url({ ...initial, target: { ...initial.target, chat_id: 7 } })
   ]
   for (const fragment of invalid) assert.equal(parseInitialFragment(fragment).ok, false)
 })
 
 test('initial parser rejects dangerous keys at every depth', () => {
   const dangerous = [
-    '{"v":1,"session":"opaque-token","settings":{"format":{},"default":{}},"request_chat":{"group":"g","channel":"c"},"__proto__":{}}',
-    '{"v":1,"session":"opaque-token","settings":{"format":{"constructor":"x"},"default":{}},"request_chat":{"group":"g","channel":"c"}}',
-    '{"v":1,"session":"opaque-token","settings":{"format":{},"default":{"prototype":false}},"request_chat":{"group":"g","channel":"c"}}'
+    '{"v":1,"session":"opaque-token","settings":{"format":{},"default":{}},"target":{"type":"private","name":"User","username":"","photo_url":""},"request_chat":{"group":"g","channel":"c"},"__proto__":{}}',
+    '{"v":1,"session":"opaque-token","settings":{"format":{"constructor":"x"},"default":{}},"target":{"type":"private","name":"User","username":"","photo_url":""},"request_chat":{"group":"g","channel":"c"}}',
+    '{"v":1,"session":"opaque-token","settings":{"format":{},"default":{"prototype":false}},"target":{"type":"private","name":"User","username":"","photo_url":""},"request_chat":{"group":"g","channel":"c"}}'
   ]
   for (const json of dangerous) {
     assert.equal(parseInitialFragment(Buffer.from(json).toString('base64url')).ok, false)

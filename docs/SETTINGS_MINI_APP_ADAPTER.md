@@ -103,6 +103,12 @@ Base64URL-encoded JSON object after `#`:
     "format": {},
     "default": {}
   },
+  "target": {
+    "type": "private",
+    "name": "Current chat name",
+    "username": "public_username_or_empty",
+    "photo_url": "public_https_avatar_or_empty"
+  },
   "request_chat": {
     "group": "opaque prepared keyboard button id",
     "channel": "opaque prepared keyboard button id"
@@ -120,19 +126,29 @@ The fragment parser must:
    launch fail.
 3. Decode Base64URL by translating `-`/`_`, restoring padding, decoding bytes,
    and using UTF-8 `TextDecoder` before `JSON.parse`.
-4. Require an ordinary object with exactly `v`, `session`, `settings`, and
-   `request_chat`; require `v === 1`.
+4. Require an ordinary object with exactly `v`, `session`, `settings`, `target`,
+   and `request_chat`; require `v === 1`.
 5. Require a non-empty opaque session string, `settings.format` and
-   `settings.default` objects, and non-empty group/channel prepared IDs.
+   `settings.default` objects, an exact display-only target object, and non-empty
+   group/channel prepared IDs. The target has exactly `type`, `name`, `username`,
+   and `photo_url`; its type is `private`, `group`, `supergroup`, or `channel`,
+   its non-empty name is bounded, and its optional public username/avatar values
+   are empty strings when unavailable. A non-empty avatar URL must be HTTPS.
 6. Reject arrays, unknown fields, wrong types, malformed encoding/JSON, and
    `__proto__`, `constructor`, or `prototype` at any depth.
 7. Remove the fragment from the address bar with `history.replaceState` after
    parsing, without navigating or reloading.
 
-The Web page uses the initial settings as display state only. It must not infer
-the Telegram user, target chat, or administrator status. It must not accept or
-send a `chat_id`, `user_id`, username, target type, or permission claim. The bot
-session is the only authority for actor and target.
+The Web page uses the initial settings and target object as display state only.
+The target card always shows a fixed-size avatar, chat name, localized chat type,
+and public `@username` slot before any editor. For the current private user the
+page may prefer `Telegram.WebApp.initDataUnsafe.user.photo_url`; for a public
+group or channel the Bot may provide the public `t.me` avatar URL. When no real
+photo is available, the same image slot renders a generated initials avatar; it
+must never disappear or resize. The Web must not infer authorization from this
+display metadata. It must not accept or send a `chat_id`, `user_id`, username,
+target type, avatar URL, or permission claim in save/reset data. The session is
+the only authority for actor and target.
 
 ## Outbound save and reset contract
 
@@ -224,7 +240,8 @@ implemented:
 Target context and the group/channel load controls appear immediately after the
 launch status, before any editable field, because the selected target determines
 which current settings the user is inspecting and editing. The target region
-states plainly that the Bot-selected target's stored values are already loaded;
+shows the current chat avatar, name, and localized type, and states plainly that
+the Bot-selected target's stored values are already loaded;
 choosing another target returns to Telegram and reopens the editor with that
 target's current values before edits begin.
 
@@ -316,6 +333,9 @@ Before changing the public `/s` behavior:
    explicit pending recovery, and stale callbacks after cancellation; each path
    must re-enable group/channel selection without changing focus order. Assert
    that target/current-settings context precedes every editor control, and that
+   its fixed avatar/name/type identity is populated from the strict launch
+   contract with an initials fallback while never entering outbound data. Assert
+   that
    opening, browsing, and cancelling the template modal cannot apply a template;
    only its explicit confirmation action may do so.
 3. Build with `yarn build`. Inspect the generated English, Japanese, Simplified

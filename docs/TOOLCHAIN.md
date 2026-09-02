@@ -43,8 +43,10 @@ The migration from VuePress is complete only when all of these invariants hold:
   region to an immediately retryable state, including clients that omit the
   documented failure callback; stale callbacks cannot close the page later.
 - Target selection and the explanation that current stored settings are loaded
-  precede all editable controls; users choose whose settings to inspect before
-  changing them.
+  precede all editable controls. A fixed target identity card shows chat avatar,
+  name, localized type, and public username (or a same-size initials avatar when
+  no photo is available), so users can identify whose current settings they are
+  inspecting before changing them.
 - The official Telegram Mini App SDK is emitted only on the four Mini App pages
   and precedes the VitePress application module script in each generated page.
 - A production build must be followed by inspection of every generated locale

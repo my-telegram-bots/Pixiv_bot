@@ -37,9 +37,11 @@ export const STRING_KEYS = Object.freeze([
 ])
 
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
-const INITIAL_KEYS = new Set(['v', 'session', 'settings', 'request_chat'])
+const INITIAL_KEYS = new Set(['v', 'session', 'settings', 'target', 'request_chat'])
 const SETTINGS_KEYS = new Set(['format', 'default'])
 const REQUEST_CHAT_KEYS = new Set(['group', 'channel'])
+const TARGET_KEYS = new Set(['type', 'name', 'username', 'photo_url'])
+const TARGET_TYPES = new Set(['private', 'group', 'supergroup', 'channel'])
 const FORMAT_KEY_SET = new Set(FORMAT_KEYS)
 const BOOLEAN_KEY_SET = new Set(BOOLEAN_KEYS)
 const STRING_KEY_SET = new Set(STRING_KEYS)
@@ -89,6 +91,22 @@ export function validateSettings(settings) {
     validateDefaults(settings.default)
 }
 
+function validateTarget(target) {
+  if (!ordinaryObject(target) || !hasExactKeys(target, TARGET_KEYS) ||
+    !TARGET_TYPES.has(target.type) || typeof target.name !== 'string' ||
+    target.name.length === 0 || target.name.length > 128 ||
+    typeof target.username !== 'string' || target.username.length > 64 ||
+    typeof target.photo_url !== 'string' || target.photo_url.length > 2048) {
+    return false
+  }
+  if (target.photo_url.length === 0) return true
+  try {
+    return new URL(target.photo_url).protocol === 'https:'
+  } catch (error) {
+    return false
+  }
+}
+
 function decodeBase64Url(fragment, atobImpl) {
   if (typeof fragment !== 'string' || fragment.length === 0 ||
     !/^[A-Za-z0-9_-]+$/.test(fragment)) {
@@ -120,6 +138,7 @@ export function parseInitialFragment(fragment, {
       return { ok: false, reason: 'session' }
     }
     if (!validateSettings(value.settings)) return { ok: false, reason: 'settings' }
+    if (!validateTarget(value.target)) return { ok: false, reason: 'target' }
     if (!ordinaryObject(value.request_chat) ||
       !hasExactKeys(value.request_chat, REQUEST_CHAT_KEYS) ||
       !Object.values(value.request_chat).every(item =>
