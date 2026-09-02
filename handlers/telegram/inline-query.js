@@ -3,6 +3,10 @@ import {
     createDefaultUserSettings,
     resolveRequestSettings
 } from '#handlers/telegram/settings-resolver'
+import {
+    buildIllustrationInlineResults,
+    buildPhotoInlineResults
+} from '#handlers/telegram/illustration-inline-result'
 
 export const INLINE_TOTAL_BUDGET_MS = 4500
 export const INLINE_ANSWER_RESERVE_MS = 750
@@ -21,15 +25,6 @@ function clone(value) {
     return globalThis.structuredClone
         ? globalThis.structuredClone(value)
         : JSON.parse(JSON.stringify(value))
-}
-
-function isHttpUrl(value) {
-    if (typeof value !== 'string') return false
-    try {
-        return ['http:', 'https:'].includes(new URL(value).protocol)
-    } catch {
-        return false
-    }
 }
 
 function boundedSwitchParameter(ids, separator) {
@@ -191,84 +186,14 @@ export function createInlineSettingsResolver(options) {
     }
 }
 
-function photoResults(illust, ctx, dependencies) {
-    const sizes = illust?.imgs_?.size || []
-    const urls = illust?.imgs_?.regular_urls || []
-    const results = []
-    for (let page = 0; page < sizes.length; page++) {
-        const url = urls[page]
-        const thumbnailUrl = illust.imgs_.thumb_urls?.[page] || url
-        if (!isHttpUrl(url) || !isHttpUrl(thumbnailUrl)) continue
-        try {
-            results.push({
-                type: 'photo',
-                id: `p_${illust.id}-${page}`,
-                photo_url: url,
-                thumbnail_url: thumbnailUrl,
-                caption: dependencies.format(illust, ctx.us, 'inline', page),
-                photo_width: sizes[page]?.width,
-                photo_height: sizes[page]?.height,
-                parse_mode: 'MarkdownV2',
-                show_caption_above_media: ctx.us.caption_above,
-                ...dependencies.keyboard(illust.id, ctx.us)
-            })
-        } catch (error) {
-            dependencies.logger.warn('[inline_query] Skipping malformed illustration page:', illust.id, page, error)
-        }
-    }
-    return results
-}
-
-async function illustrationResults(id, ctx, dependencies) {
-    const resolved = await dependencies.illustService.resolve(id, {
-        mode: 'cache-first',
-        lightweight: true
-    })
-    if (resolved.kind !== 'ready') return { results: [] }
-    const illust = resolved.illustration
-    if (illust.type <= 1) {
-        return { results: photoResults(illust, ctx, dependencies) }
-    }
-    if (illust.type !== 2) return { results: [] }
-
-    let common
-    try {
-        common = {
-            type: 'mpeg4_gif',
-            id: `p${illust.id}`,
-            caption: dependencies.format(illust, ctx.us, 'inline', 1),
-            parse_mode: 'MarkdownV2',
-            show_caption_above_media: ctx.us.caption_above,
-            ...dependencies.keyboard(illust.id, ctx.us)
-        }
-    } catch (error) {
-        dependencies.logger.warn('[inline_query] Skipping malformed ugoira result:', illust.id, error)
-        return { results: [] }
-    }
-    if (ctx.us.spoiler) common.has_spoiler = true
-    if (typeof illust.tg_file_id === 'string' && illust.tg_file_id) {
-        return { results: [{ ...common, mpeg4_file_id: illust.tg_file_id }] }
-    }
-    const url = await dependencies.detectUgoiraUrl(illust, 'mp4')
-    if (isHttpUrl(url) && isHttpUrl(illust.imgs_?.cover_img_url)) {
-        return {
-            results: [{
-                ...common,
-                mpeg4_url: url,
-                thumbnail_url: illust.imgs_.cover_img_url
-            }]
-        }
-    }
-    return { results: [], redirectId: illust.id }
-}
-
 function searchResults(illusts, ctx, dependencies, maximum) {
     const results = []
     for (const illust of illusts) {
         if (results.length >= maximum) break
         if (!illust || typeof illust !== 'object') continue
         if (illust.type <= 1) {
-            results.push(...photoResults(illust, ctx, dependencies).slice(0, maximum - results.length))
+            results.push(...buildPhotoInlineResults(illust, ctx.us, dependencies)
+                .slice(0, maximum - results.length))
         } else if (illust.type === 2 && illust.tg_file_id) {
             try {
                 const item = {
@@ -315,6 +240,10 @@ export function createInlineQueryHandler(dependencies) {
         now: Date.now,
         logger: console,
         dbLess: () => Boolean(process.env.DBLESS),
+        logBuildFailure: fields => dependencies.logger?.warn(
+            '[inline_query] Skipping malformed illustration result',
+            fields
+        ),
         ...dependencies
     }
 
@@ -334,7 +263,7 @@ export function createInlineQueryHandler(dependencies) {
             if (ids.illust.length > 0) {
                 const uniqueIds = [...new Set(ids.illust)].slice(0, INLINE_DIRECT_ID_LIMIT)
                 const completed = await collectResponsive(
-                    uniqueIds.map(id => illustrationResults(id, ctx, deps)),
+                    uniqueIds.map(id => buildIllustrationInlineResults(id, ctx.us, deps)),
                     deadline.workDeadlineAt,
                     {
                         now: deps.now,

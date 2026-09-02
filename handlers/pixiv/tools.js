@@ -281,7 +281,7 @@ export function get_ugoira_path(id, type = 0, prefix = 'tmp/') {
  * @param {0,1,2,3,mp4,gif-medium,gif-large} type
  * @returns 
  */
-export async function detect_ugpira_url(illust, type = 0) {
+export async function detect_ugpira_url(illust, type = 0, options = {}) {
     const id = illust.id || illust
     let final_path = get_ugoira_path(id, type)
     let no_tmp_path = final_path.replace('tmp/', '')
@@ -289,6 +289,7 @@ export async function detect_ugpira_url(illust, type = 0) {
     // If using remote ugoira conversion (closed-source/tensei), always return URL
     // Remote service handles conversion on-demand
     if (config.pixiv.ugoira_remote) {
+        if (options.existingOnly) return null
         return `${config.pixiv.ugoiraurl}${no_tmp_path}`
     }
 

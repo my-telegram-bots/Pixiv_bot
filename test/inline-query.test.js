@@ -121,6 +121,45 @@ test('direct inline lookup answers once with partial results before the deadline
     t.true(Date.now() - startedAt < 300)
 })
 
+test('shared inline photo builder preserves spoiler behavior', async t => {
+    const ctx = context({
+        ids: { illust: [1] },
+        us: { ...createInlineDefaultSettings('+spoiler'), spoiler: true },
+        inlineDeadline: {
+            receivedAt: Date.now(),
+            workDeadlineAt: Date.now() + 200,
+            answerDeadlineAt: Date.now() + 400
+        }
+    })
+
+    await createInlineQueryHandler(dependencies())(ctx)
+
+    t.is(ctx.answers.length, 1)
+    t.true(ctx.answers[0].results[0].has_spoiler)
+})
+
+test('shared inline photo builder applies automatic spoiler to sensitive works', async t => {
+    const ctx = context({
+        ids: { illust: [1] },
+        us: { ...createInlineDefaultSettings(), auto_spoiler: true },
+        inlineDeadline: {
+            receivedAt: Date.now(),
+            workDeadlineAt: Date.now() + 200,
+            answerDeadlineAt: Date.now() + 400
+        }
+    })
+    await createInlineQueryHandler(dependencies({
+        illustService: {
+            resolve: async id => ({
+                kind: 'ready',
+                illustration: { ...illustration(id), x_restrict: 1 }
+            })
+        }
+    }))(ctx)
+
+    t.true(ctx.answers[0].results[0].has_spoiler)
+})
+
 test('ugoira redirect preserves ready sibling results and never starts conversion', async t => {
     const ctx = context({
         ids: { illust: [1, 2] },
@@ -144,6 +183,28 @@ test('ugoira redirect preserves ready sibling results and never starts conversio
     t.deepEqual(ctx.answers[0].results.map(result => result.id), ['p_1-0'])
     t.is(ctx.answers[0].options.switch_pm_parameter, '2')
     t.is(ctx.answers[0].options.cache_time, 0)
+})
+
+test('inline shared ugoira builder preserves the existing remote URL policy', async t => {
+    const ctx = context({
+        ids: { illust: [2] },
+        inlineDeadline: {
+            receivedAt: Date.now(),
+            workDeadlineAt: Date.now() + 200,
+            answerDeadlineAt: Date.now() + 400
+        }
+    })
+    await createInlineQueryHandler(dependencies({
+        illustService: {
+            resolve: async id => ({ kind: 'ready', illustration: illustration(id, 2) })
+        },
+        detectUgoiraUrl: async (_illust, _type, options) => {
+            t.false(options.existingOnly)
+            return 'https://media.example/2.mp4'
+        }
+    }))(ctx)
+
+    t.is(ctx.answers[0].results[0].mpeg4_url, 'https://media.example/2.mp4')
 })
 
 test('malformed cached media is isolated and private parameters stay within Telegram limits', async t => {

@@ -77,7 +77,10 @@ export function parseSettingsInput(input = '') {
         for (const token of tokens) {
             const sign = token[0]
             const name = aliasToCanonicalName.get(token.slice(1).toLowerCase())
-            if (!name) break
+            if (!name) {
+                unknownDirectives.push(token)
+                break
+            }
             directives[name] ||= createPresence()
             directives[name][sign === '+' ? 'positive' : 'negative'] = true
         }

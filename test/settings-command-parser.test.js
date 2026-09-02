@@ -79,6 +79,12 @@ test('recognized Pixiv inputs accept registered flags without whitespace', t => 
     t.true(hasNegativeDirective(combined, 'tags'))
 })
 
+test('unknown adjacent Pixiv directives are reported instead of silently ignored', t => {
+    const parsed = parseSettingsInput('https://pixiv.net/artworks/12345678+unknown')
+
+    t.deepEqual(parsed.unknownDirectives, ['+unknown'])
+})
+
 test('embedded signs and URL query values do not become suffix directives', t => {
     const rejected = [
         'text+file',

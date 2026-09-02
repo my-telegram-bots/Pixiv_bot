@@ -26,6 +26,13 @@ import {
     createInlineQueryHandler,
     createInlineSettingsResolver
 } from '#handlers/telegram/inline-query'
+import {
+    createGuestQueryHandler,
+    createGuestSettingsResolver,
+    formatGuestAdminReport,
+    guestModeStartupMessage,
+    registerGuestQueryHandler
+} from '#handlers/telegram/guest-query'
 import { createBot, getBot } from './bot.js'
 import { FileCleaner } from '#handlers/utils/file-cleaner'
 import illustService from '#handlers/pixiv/illust-service'
@@ -51,6 +58,25 @@ const inlineQueryHandler = createInlineQueryHandler({
     localize: _l,
     logger: honsole,
     reportError: error => reportApplicationError(error, { method: 'inlineQuery' })
+})
+const resolveGuestSettings = createGuestSettingsResolver({
+    getUserSettings: userId => process.env.DBLESS
+        ? null
+        : db.collection.chat_setting.findOne({ id: userId }),
+    logger: honsole
+})
+const guestQueryHandler = createGuestQueryHandler({
+    resolveGuestSettings,
+    illustService,
+    detectUgoiraUrl: detect_ugpira_url,
+    format,
+    keyboard: k_os,
+    localize: _l,
+    logger: honsole,
+    reportError: fields => bot.api.sendMessage(
+        config.tg.master_id,
+        formatGuestAdminReport(fields)
+    ).catch(() => { })
 })
 console.log('✓ Telegram bot instance created')
 
@@ -80,6 +106,9 @@ console.log('✓ File cleanup scheduler started (temp files only, MP4 files pres
 bot.use(async (ctx, next) => {
     if (ctx.inlineQuery) {
         ctx.inlineDeadline = createInlineDeadline(Date.now())
+    }
+    if (ctx.guestMessage) {
+        ctx.guestDeadline = createInlineDeadline(Date.now())
     }
     // simple i18n
     ctx.l = (!ctx.from || !ctx.from.language_code) ? 'en' : ctx.from.language_code
@@ -121,6 +150,9 @@ bot.use(async (ctx, next) => {
     }
     next()
 })
+
+// Guest messages must terminate here: grammY also includes them in :text/:caption.
+registerGuestQueryHandler(bot, guestQueryHandler)
 
 bot.command('start', async (ctx, next) => {
     // match = deeplink
@@ -314,6 +346,8 @@ db.db_initial().then(async () => {
         return
     }
     bot.init().then(async () => {
+        const guestMode = guestModeStartupMessage(bot.botInfo)
+        console[guestMode.enabled ? 'log' : 'warn'](guestMode.message)
         // Initialize memory monitor with bot instance
         memoryMonitor.init(bot, config.tg.master_id)
         console.log('✓ Memory monitor initialized')
