@@ -86,6 +86,7 @@ const inlineQueryHandler = createInlineQueryHandler({
     format,
     keyboard: k_os,
     localize: _l,
+    localizeRaw: _lr,
     logger: honsole,
     reportError: error => reportApplicationError(error, { method: 'inlineQuery' })
 })

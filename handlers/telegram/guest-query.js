@@ -11,7 +11,10 @@ import {
     settleBefore
 } from '#handlers/telegram/inline-query'
 import { buildIllustrationInlineResults } from '#handlers/telegram/illustration-inline-result'
-import { buildGuestRichResult } from '#handlers/telegram/guest-rich-message'
+import {
+    buildCachedIllustrationRichResult,
+    GUEST_RICH_MEDIA_LIMIT
+} from '#handlers/telegram/illustration-rich-message'
 
 export const GuestQueryError = Object.freeze({
     INPUT_REQUIRED: 'GUEST_INPUT_REQUIRED',
@@ -255,11 +258,15 @@ function selectGuestResult(built, ctx, dependencies) {
     if (!first) return null
     if (first.type !== 'photo' || built.pageCount <= 1) return first
 
-    const rich = buildGuestRichResult(
+    const rich = buildCachedIllustrationRichResult(
         built.illustration,
         ctx.us,
         ctx.l,
-        dependencies
+        dependencies,
+        {
+            mediaLimit: GUEST_RICH_MEDIA_LIMIT,
+            allowTruncation: true
+        }
     )
     if (rich) return rich
     return first

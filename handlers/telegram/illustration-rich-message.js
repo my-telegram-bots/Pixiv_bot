@@ -1,6 +1,7 @@
 import { escapeRichMarkdown, format_v3 } from '#handlers/telegram/format'
 
 export const GUEST_RICH_MEDIA_LIMIT = 50
+export const INLINE_RICH_MEDIA_LIMIT = 9
 
 function hasCompleteCache(illust, shownPages) {
     const fileIds = illust?.imgs_?.tg_file_ids
@@ -8,9 +9,18 @@ function hasCompleteCache(illust, shownPages) {
         fileIds.slice(0, shownPages).every(fileId => typeof fileId === 'string' && fileId)
 }
 
-export function buildGuestRichResult(illust, settings, languageCode, dependencies) {
+export function buildCachedIllustrationRichResult(
+    illust,
+    settings,
+    languageCode,
+    dependencies,
+    options = {}
+) {
     const totalPages = illust?.imgs_?.size?.length || 0
-    const shownPages = Math.min(totalPages, GUEST_RICH_MEDIA_LIMIT)
+    const mediaLimit = options.mediaLimit ?? GUEST_RICH_MEDIA_LIMIT
+    if (!options.allowTruncation && totalPages > mediaLimit) return null
+
+    const shownPages = Math.min(totalPages, mediaLimit)
     if (!hasCompleteCache(illust, shownPages)) return null
 
     const spoiler = Boolean(settings.spoiler || (

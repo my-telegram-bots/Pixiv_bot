@@ -11,7 +11,7 @@ import { buildRankingInlineResult } from '../handlers/telegram/illustration-inli
 
 const never = new Promise(() => { })
 
-function illustration(id, type = 0) {
+function illustration(id, type = 0, { pages = 1, cached = false } = {}) {
     return {
         id,
         type,
@@ -20,10 +20,23 @@ function illustration(id, type = 0) {
         imgs_: type === 2
             ? { cover_img_url: `https://i.pximg.net/${id}_p0.jpg` }
             : {
-                size: [{ width: 100, height: 200 }],
-                thumb_urls: [`https://i.pximg.net/${id}_p0_thumb.jpg`],
-                regular_urls: [`https://i.pximg.net/${id}_p0.jpg`],
-                original_urls: [`https://i.pximg.net/${id}_p0_original.jpg`]
+                size: Array.from({ length: pages }, () => ({ width: 100, height: 200 })),
+                thumb_urls: Array.from(
+                    { length: pages },
+                    (_, page) => `https://i.pximg.net/${id}_p${page}_thumb.jpg`
+                ),
+                regular_urls: Array.from(
+                    { length: pages },
+                    (_, page) => `https://i.pximg.net/${id}_p${page}.jpg`
+                ),
+                original_urls: Array.from(
+                    { length: pages },
+                    (_, page) => `https://i.pximg.net/${id}_p${page}_original.jpg`
+                ),
+                tg_file_ids: Array.from(
+                    { length: pages },
+                    (_, page) => cached ? `cached-${id}-${page}` : null
+                )
             }
     }
 }
@@ -54,6 +67,7 @@ function dependencies(overrides = {}) {
         format: illust => illust.title,
         keyboard: () => ({}),
         localize: (_language, key) => key,
+        localizeRaw: (_language, key, value) => `${key}:${value}`,
         ...overrides
     }
 }
@@ -137,6 +151,59 @@ test('shared inline photo builder preserves spoiler behavior', async t => {
 
     t.is(ctx.answers.length, 1)
     t.true(ctx.answers[0].results[0].has_spoiler)
+})
+
+test('inline direct lookup uses a Guest-style Rich slideshow for 2-9 cached pages', async t => {
+    for (const pages of [2, 9]) {
+        const ctx = context({
+            ids: { illust: [pages] },
+            inlineDeadline: {
+                receivedAt: Date.now(),
+                workDeadlineAt: Date.now() + 200,
+                answerDeadlineAt: Date.now() + 400
+            }
+        })
+        await createInlineQueryHandler(dependencies({
+            illustService: {
+                resolve: async id => ({
+                    kind: 'ready',
+                    illustration: illustration(id, 0, { pages, cached: true })
+                })
+            }
+        }))(ctx)
+
+        t.is(ctx.answers[0].results.length, 1)
+        const rich = ctx.answers[0].results[0]
+        t.is(rich.type, 'article')
+        t.is(rich.input_message_content.rich_message.media.length, pages)
+    }
+})
+
+test('inline Rich slideshow requires every file ID and strictly fewer than 10 pages', async t => {
+    for (const { pages, cached } of [
+        { pages: 3, cached: false },
+        { pages: 10, cached: true }
+    ]) {
+        const ctx = context({
+            ids: { illust: [pages] },
+            inlineDeadline: {
+                receivedAt: Date.now(),
+                workDeadlineAt: Date.now() + 200,
+                answerDeadlineAt: Date.now() + 400
+            }
+        })
+        await createInlineQueryHandler(dependencies({
+            illustService: {
+                resolve: async id => ({
+                    kind: 'ready',
+                    illustration: illustration(id, 0, { pages, cached })
+                })
+            }
+        }))(ctx)
+
+        t.is(ctx.answers[0].results.length, pages)
+        t.true(ctx.answers[0].results.every(result => result.type === 'photo'))
+    }
 })
 
 test('inline and Guest photo results never expose square-cropped Pixiv thumbnails', async t => {

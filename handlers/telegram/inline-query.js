@@ -7,6 +7,10 @@ import {
     buildIllustrationInlineResults,
     buildPhotoInlineResults
 } from '#handlers/telegram/illustration-inline-result'
+import {
+    buildCachedIllustrationRichResult,
+    INLINE_RICH_MEDIA_LIMIT
+} from '#handlers/telegram/illustration-rich-message'
 
 export const INLINE_TOTAL_BUDGET_MS = 4500
 export const INLINE_ANSWER_RESERVE_MS = 750
@@ -274,8 +278,19 @@ export function createInlineQueryHandler(dependencies) {
                 const hasIncompleteLookup = completed.includes(undefined)
                 for (const item of completed) {
                     if (item?.status === 'fulfilled') {
-                        results.push(...item.value.results)
-                        if (item.value.redirectId) redirects.push(item.value.redirectId)
+                        const built = item.value
+                        const rich = buildCachedIllustrationRichResult(
+                            built.illustration,
+                            ctx.us,
+                            ctx.l,
+                            deps,
+                            {
+                                mediaLimit: INLINE_RICH_MEDIA_LIMIT,
+                                allowTruncation: false
+                            }
+                        )
+                        results.push(...(rich ? [rich] : built.results))
+                        if (built.redirectId) redirects.push(built.redirectId)
                     } else if (item?.status === 'rejected') {
                         deps.logger.warn('[inline_query] Illustration result failed:', item.reason)
                     }
