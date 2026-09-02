@@ -128,6 +128,8 @@ test('guest text resolves caller settings and answers once with one complete pho
     t.is(ctx.answers[0].type, 'photo')
     t.true(ctx.answers[0].has_spoiler)
     t.is(ctx.answers[0].photo_url, 'https://i.pximg.net/12345678_p0.jpg')
+    t.is(ctx.answers[0].thumbnail_url, ctx.answers[0].photo_url)
+    t.false(ctx.answers[0].thumbnail_url.includes('_thumb'))
     t.truthy(ctx.answers[0].reply_markup)
 })
 

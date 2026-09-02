@@ -156,15 +156,15 @@ test('Mini App parser enforces the UTF-8 byte limit rather than character count'
         v: 1,
         action: 'save',
         session: token,
-        settings: { format: {}, default: { telegraph_title: '' } }
+        settings: { format: { message: '' }, default: {} }
     }
     const empty = JSON.stringify(base)
-    base.settings.default.telegraph_title = 'a'.repeat(4096 - Buffer.byteLength(empty, 'utf8'))
+    base.settings.format.message = 'a'.repeat(4096 - Buffer.byteLength(empty, 'utf8'))
     const exact = JSON.stringify(base)
     t.is(Buffer.byteLength(exact, 'utf8'), 4096)
     t.true(parseSettingsMiniAppPayload(exact).ok)
 
-    base.settings.default.telegraph_title += '界'
+    base.settings.format.message += '界'
     const oversized = JSON.stringify(base)
     t.true(oversized.length < Buffer.byteLength(oversized, 'utf8'))
     t.is(parseSettingsMiniAppPayload(oversized).reason, 'too_large')

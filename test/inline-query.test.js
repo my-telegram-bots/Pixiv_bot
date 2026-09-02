@@ -7,6 +7,7 @@ import {
     normalizeInlineOffset,
     settleBefore
 } from '../handlers/telegram/inline-query.js'
+import { buildRankingInlineResult } from '../handlers/telegram/illustration-inline-result.js'
 
 const never = new Promise(() => { })
 
@@ -136,6 +137,43 @@ test('shared inline photo builder preserves spoiler behavior', async t => {
 
     t.is(ctx.answers.length, 1)
     t.true(ctx.answers[0].results[0].has_spoiler)
+})
+
+test('inline and Guest photo results never expose square-cropped Pixiv thumbnails', async t => {
+    const ctx = context({
+        ids: { illust: [1] },
+        inlineDeadline: {
+            receivedAt: Date.now(),
+            workDeadlineAt: Date.now() + 200,
+            answerDeadlineAt: Date.now() + 400
+        }
+    })
+
+    await createInlineQueryHandler(dependencies())(ctx)
+
+    const result = ctx.answers[0].results[0]
+    t.is(result.photo_url, 'https://i.pximg.net/1_p0.jpg')
+    t.is(result.thumbnail_url, result.photo_url)
+    t.false(result.thumbnail_url.includes('_thumb'))
+})
+
+test('ranking photo results use the regular image as Telegram preview', t => {
+    const flag = { setting: { format: { inline: 'v2' } } }
+    const result = buildRankingInlineResult({
+        id: 9,
+        imgs_: {
+            regular_urls: ['https://i.pximg.net/9_p0.jpg'],
+            thumb_urls: ['https://i.pximg.net/9_p0_square-thumb.jpg'],
+            size: [{ width: 100, height: 200 }]
+        }
+    }, flag, {
+        format: () => 'caption',
+        keyboard: () => ({})
+    })
+
+    t.is(result.photo_url, 'https://i.pximg.net/9_p0.jpg')
+    t.is(result.thumbnail_url, result.photo_url)
+    t.false(result.thumbnail_url.includes('square-thumb'))
 })
 
 test('shared inline photo builder applies automatic spoiler to sensitive works', async t => {

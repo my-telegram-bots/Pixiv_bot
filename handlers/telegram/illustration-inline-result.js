@@ -19,14 +19,16 @@ export function buildPhotoInlineResults(illust, settings, dependencies) {
     const results = []
     for (let page = 0; page < sizes.length; page++) {
         const url = urls[page]
-        const thumbnailUrl = illust.imgs_.thumb_urls?.[page] || url
-        if (!isHttpUrl(url) || !isHttpUrl(thumbnailUrl)) continue
+        if (!isHttpUrl(url)) continue
         try {
             const result = {
                 type: 'photo',
                 id: `p_${illust.id}-${page}`,
                 photo_url: url,
-                thumbnail_url: thumbnailUrl,
+                // Telegram requires a thumbnail_url for remote photo results.
+                // Pixiv thumbnails are square-cropped, so preserve page geometry
+                // by using the same regular image for delivery and preview.
+                thumbnail_url: url,
                 caption: dependencies.format(illust, settings, 'inline', page),
                 photo_width: sizes[page]?.width,
                 photo_height: sizes[page]?.height,
@@ -45,6 +47,30 @@ export function buildPhotoInlineResults(illust, settings, dependencies) {
         }
     }
     return results
+}
+
+export function buildRankingInlineResult(illust, settings, dependencies) {
+    const regularUrl = illust?.imgs_?.regular_urls?.[0]
+    if (!isHttpUrl(regularUrl)) return null
+    return {
+        type: 'photo',
+        id: `p_${illust.id}`,
+        photo_url: regularUrl,
+        // Pixiv ranking thumbnails are square-cropped. Telegram requires this
+        // field, so use the regular image itself as the aspect-correct preview.
+        thumbnail_url: regularUrl,
+        caption: dependencies.format(
+            illust,
+            settings,
+            'inline',
+            0,
+            settings.setting.format.inline
+        ),
+        parse_mode: 'MarkdownV2',
+        photo_width: illust.imgs_.size?.[0]?.width,
+        photo_height: illust.imgs_.size?.[0]?.height,
+        ...dependencies.keyboard(illust.id, settings)
+    }
 }
 
 export async function buildIllustrationInlineResults(id, settings, dependencies) {
