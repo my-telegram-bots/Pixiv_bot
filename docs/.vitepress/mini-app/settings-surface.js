@@ -11,10 +11,11 @@ const en = {
   unsupported: 'This Telegram client cannot send settings. Update Telegram, then open settings from the bot again. [SETTINGS_MINI_APP_UNSUPPORTED]',
   formatHeading: 'Message templates', formatHelp: 'Edit the templates used for normal messages, albums, and inline results.', presetHeading: 'Default templates — choose one to apply',
   normalTemplate: 'Normal message', albumTemplate: 'Album message', inlineTemplate: 'Inline result', protocolVersion: 'Template version', protocolAutomatic: 'Current/default', preview: 'Preview',
+  openTemplateMarket: 'Browse default templates', templateMarketTitle: 'Default templates', templateMarketHelp: 'Select a preview, then apply it to the active message type.', templateMarketApply: 'Apply this template',
   optionsHeading: 'Delivery options', fileDeliveryHeading: 'What to send', mediaOnly: 'Media only', fileOnly: 'Original files only', mediaWithFiles: 'Media, then original files', mediaWithImmediateFiles: 'Media and original files immediately',
   albumOptionsHeading: 'Album layout', captionOptionsHeading: 'Captions', keyboardOptionsHeading: 'Message buttons', contentOptionsHeading: 'Caption content', scopeOptionsHeading: 'Order and group behavior', telegraphHeading: 'Telegraph details',
   telegraphTitle: 'Page title', telegraphAuthor: 'Author name', telegraphUrl: 'Author URL',
-  targetHeading: 'Whose settings?', personalTarget: 'You are editing the target selected by the bot. Choose another target here if needed.',
+  targetHeading: 'Whose settings?', personalTarget: 'These are the current saved settings for this chat. Choose another target here if needed.', targetTypePrivate: 'Personal chat', targetTypeGroup: 'Group', targetTypeSupergroup: 'Group', targetTypeChannel: 'Channel', usernameUnavailable: 'No public username',
   group: 'Choose group', channel: 'Choose channel', targetIdle: 'No target selection is in progress.',
   targetPendingGroup: 'Telegram is waiting for you to choose a group.', targetPendingChannel: 'Telegram is waiting for you to choose a channel.',
   targetSent: 'Your selection was sent to the bot. Continue in the Telegram chat.',
@@ -39,9 +40,10 @@ const ja = {
   unsupported: 'この Telegram クライアントから設定を送信できません。Telegram を更新し、Bot から設定を開き直してください。[SETTINGS_MINI_APP_UNSUPPORTED]',
   formatHeading: 'メッセージテンプレート', formatHelp: '通常メッセージ、アルバム、インライン結果のテンプレートを編集します。', presetHeading: '標準テンプレート — 選択して適用',
   normalTemplate: '通常メッセージ', albumTemplate: 'アルバムメッセージ', inlineTemplate: 'インライン結果', protocolVersion: 'テンプレート版', protocolAutomatic: '現在値／標準', preview: 'プレビュー',
+  openTemplateMarket: '標準テンプレートを見る', templateMarketTitle: '標準テンプレート', templateMarketHelp: 'プレビューを選び、現在のメッセージ種類へ適用してください。', templateMarketApply: 'このテンプレートを適用',
   optionsHeading: '送信オプション', fileDeliveryHeading: '送信する内容', mediaOnly: 'メディアのみ', fileOnly: '元ファイルのみ', mediaWithFiles: 'メディアの後に元ファイル', mediaWithImmediateFiles: 'メディアと元ファイルをすぐ送信',
   albumOptionsHeading: 'アルバム配置', captionOptionsHeading: 'キャプション', keyboardOptionsHeading: 'メッセージボタン', contentOptionsHeading: 'キャプション内容', scopeOptionsHeading: '順序とグループ動作', telegraphHeading: 'Telegraph 情報', telegraphTitle: 'ページタイトル', telegraphAuthor: '作者名', telegraphUrl: '作者 URL',
-  targetHeading: 'どの設定を編集しますか？', personalTarget: 'Bot が選んだ対象を編集中です。必要なら別の対象を選べます。',
+  targetHeading: 'どの設定を編集しますか？', personalTarget: 'このチャットに現在保存されている設定を表示しています。必要なら別の対象を選べます。', targetTypePrivate: '個人チャット', targetTypeGroup: 'グループ', targetTypeSupergroup: 'グループ', targetTypeChannel: 'チャンネル', usernameUnavailable: '公開ユーザー名なし',
   group: 'グループを選択', channel: 'チャンネルを選択', targetIdle: '対象の選択は開始されていません。',
   targetPendingGroup: 'Telegram でグループを選択してください。', targetPendingChannel: 'Telegram でチャンネルを選択してください。',
   targetSent: '選択内容を Bot に送りました。Telegram チャットで続けてください。', targetCancelled: '対象は選択されませんでした。もう一度試せます。',
@@ -62,9 +64,10 @@ const zhHans = {
   noTelegram: '请从 Telegram 内的 Bot 打开此页面。返回 Bot 后点击“打开设置”。[SETTINGS_MINI_APP_TELEGRAM_REQUIRED]',
   unsupported: '当前 Telegram 客户端无法发送设置。请更新 Telegram，再从 Bot 重新打开设置。[SETTINGS_MINI_APP_UNSUPPORTED]',
   formatHeading: '消息模板', formatHelp: '编辑普通消息、媒体组和内联结果所用的模板。', presetHeading: '默认模板——选择后应用', normalTemplate: '普通消息', albumTemplate: '媒体组消息', inlineTemplate: '内联结果', protocolVersion: '模板版本', protocolAutomatic: '当前值／默认值', preview: '预览',
+  openTemplateMarket: '浏览默认模板', templateMarketTitle: '默认模板', templateMarketHelp: '先选择一个预览，确认喜欢后再应用到当前消息类型。', templateMarketApply: '应用这个模板',
   optionsHeading: '发送选项', fileDeliveryHeading: '发送方式', mediaOnly: '仅发送媒体', fileOnly: '仅发送原文件', mediaWithFiles: '先发送媒体，再附加原文件', mediaWithImmediateFiles: '同时立即发送媒体和原文件',
   albumOptionsHeading: '媒体组安排', captionOptionsHeading: '说明文字', keyboardOptionsHeading: '消息按钮', contentOptionsHeading: '说明内容', scopeOptionsHeading: '顺序与群组行为', telegraphHeading: 'Telegraph 信息', telegraphTitle: '页面标题', telegraphAuthor: '作者名称', telegraphUrl: '作者 URL',
-  targetHeading: '编辑谁的设置？', personalTarget: '当前正在编辑 Bot 选定的目标；如有需要，可在此选择其他目标。', group: '选择群组', channel: '选择频道', targetIdle: '当前没有进行目标选择。',
+  targetHeading: '编辑谁的设置？', personalTarget: '这里显示的是该聊天当前已保存的设置；如有需要，可在此选择其他目标。', targetTypePrivate: '个人聊天', targetTypeGroup: '群组', targetTypeSupergroup: '群组', targetTypeChannel: '频道', usernameUnavailable: '没有公开用户名', group: '选择群组', channel: '选择频道', targetIdle: '当前没有进行目标选择。',
   targetPendingGroup: '请在 Telegram 中选择一个群组。', targetPendingChannel: '请在 Telegram 中选择一个频道。', targetSent: '选择结果已发送给 Bot，请在 Telegram 聊天中继续。', targetCancelled: '没有选择目标，您可以重试。',
   targetUnsupported: '当前 Telegram 客户端不能选择群组或频道。请更新 Telegram，或继续编辑个人设置。[SETTINGS_MINI_APP_TARGET_UNSUPPORTED]',
   actionsHeading: '保存或重置', save: '保存设置', reset: '恢复默认值', idle: '只有点击“保存”或确认重置后，才会发送更改。', submitting: '正在向 Bot 发送请求…',
@@ -80,9 +83,10 @@ const zhHant = {
   noTelegram: '請從 Telegram 內的 Bot 開啟此頁面。返回 Bot 後點擊「開啟設定」。[SETTINGS_MINI_APP_TELEGRAM_REQUIRED]',
   unsupported: '目前 Telegram 用戶端無法傳送設定。請更新 Telegram，再從 Bot 重新開啟設定。[SETTINGS_MINI_APP_UNSUPPORTED]',
   formatHeading: '訊息範本', formatHelp: '編輯一般訊息、媒體群組和行內結果所用的範本。', presetHeading: '預設範本——選擇後套用', normalTemplate: '一般訊息', albumTemplate: '媒體群組訊息', inlineTemplate: '行內結果', protocolVersion: '範本版本', protocolAutomatic: '目前值／預設值', preview: '預覽',
+  openTemplateMarket: '瀏覽預設範本', templateMarketTitle: '預設範本', templateMarketHelp: '先選擇一個預覽，確認喜歡後再套用到目前的訊息類型。', templateMarketApply: '套用這個範本',
   optionsHeading: '傳送選項', fileDeliveryHeading: '傳送方式', mediaOnly: '只傳送媒體', fileOnly: '只傳送原始檔', mediaWithFiles: '先傳送媒體，再附加原始檔', mediaWithImmediateFiles: '立即傳送媒體和原始檔',
   albumOptionsHeading: '媒體群組安排', captionOptionsHeading: '說明文字', keyboardOptionsHeading: '訊息按鈕', contentOptionsHeading: '說明內容', scopeOptionsHeading: '順序與群組行為', telegraphHeading: 'Telegraph 資訊', telegraphTitle: '頁面標題', telegraphAuthor: '作者名稱', telegraphUrl: '作者 URL',
-  targetHeading: '編輯誰的設定？', personalTarget: '目前正在編輯 Bot 選定的目標；如有需要，可在此選擇其他目標。', group: '選擇群組', channel: '選擇頻道', targetIdle: '目前沒有進行目標選擇。',
+  targetHeading: '編輯誰的設定？', personalTarget: '這裡顯示的是該聊天目前已儲存的設定；如有需要，可在此選擇其他目標。', targetTypePrivate: '個人聊天', targetTypeGroup: '群組', targetTypeSupergroup: '群組', targetTypeChannel: '頻道', usernameUnavailable: '沒有公開使用者名稱', group: '選擇群組', channel: '選擇頻道', targetIdle: '目前沒有進行目標選擇。',
   targetPendingGroup: '請在 Telegram 中選擇一個群組。', targetPendingChannel: '請在 Telegram 中選擇一個頻道。', targetSent: '選擇結果已傳送給 Bot，請在 Telegram 聊天中繼續。', targetCancelled: '沒有選擇目標，您可以重試。',
   targetUnsupported: '目前 Telegram 用戶端不能選擇群組或頻道。請更新 Telegram，或繼續編輯個人設定。[SETTINGS_MINI_APP_TARGET_UNSUPPORTED]',
   actionsHeading: '儲存或重設', save: '儲存設定', reset: '恢復預設值', idle: '只有點擊「儲存」或確認重設後，才會傳送變更。', submitting: '正在向 Bot 傳送請求…',
@@ -155,7 +159,19 @@ function replacePreviewToken(token, values) {
   if (value === false || value === null || value === undefined || value === '') return ''
   const prefix = parts.slice(0, keyIndex).join('|').replaceAll(ESCAPED_PIPE, '|')
   const suffix = parts.slice(keyIndex + 1).join('|').replaceAll(ESCAPED_PIPE, '|')
-  return typeof value === 'boolean' ? prefix + suffix : prefix + String(value) + suffix
+  if (typeof value === 'boolean') return prefix + suffix
+  const escapedValue = escapeMarkdownV2(value)
+  if (prefix.endsWith('\n>') || prefix.endsWith('\n>**') || prefix.endsWith('\n**>')) {
+    const quoted = escapedValue.split('\n')
+      .map((line, index) => `${index === 0 ? '' : '>'}${line}`)
+      .join('\n')
+    return prefix + quoted + (prefix.endsWith('\n**>') ? '||' : '') + suffix
+  }
+  return prefix + escapedValue + suffix
+}
+
+function escapeMarkdownV2(value) {
+  return String(value).replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1')
 }
 
 function renderTelegramQuotes(markdown) {
@@ -169,7 +185,8 @@ function renderTelegramQuotes(markdown) {
       expandable = true
       line = `>${line.slice(3)}`
     }
-    if (expandable && line.startsWith('>') && line.endsWith('||')) {
+    if (expandable && !line.startsWith('>')) line = `>${line}`
+    if (expandable && line.endsWith('||')) {
       line = line.slice(0, -2)
       expandable = false
     }

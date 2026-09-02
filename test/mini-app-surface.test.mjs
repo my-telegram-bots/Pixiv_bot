@@ -66,9 +66,10 @@ test('Telegram expandable quote markers render as message content, never literal
     value,
     'description line 1\ndescription line 2'
   )
-  assert.match(html, /<blockquote>/)
+  assert.match(html, /<blockquote(?:\s[^>]*)?>/)
   assert.match(html, /description line 1/)
   assert.match(html, /description line 2/)
+  assert.match(html, /description line 1<br>\s*description line 2/)
   assert.doesNotMatch(html, /\*\*&gt;|&gt;\*\*|\|\|/)
 
   const legacyExpandable = renderTemplatePreview(
@@ -76,7 +77,7 @@ test('Telegram expandable quote markers render as message content, never literal
     value,
     'legacy description'
   )
-  assert.match(legacyExpandable, /<blockquote>/)
+  assert.match(legacyExpandable, /<blockquote(?:\s[^>]*)?>/)
   assert.doesNotMatch(legacyExpandable, /&gt;\*\*|\*\*/)
 })
 
@@ -190,6 +191,7 @@ test('bridge detects SDK capabilities and calls ready/send/close without identit
   const calls = []
   const bridge = createTelegramBridge({
     themeParams: { bg_color: '#fff' },
+    initDataUnsafe: { user: { photo_url: 'https://t.me/i/userpic/320/person.jpg' } },
     ready() { calls.push('ready') },
     sendData(data) { calls.push(['send', data]) },
     close() { calls.push('close') }
@@ -202,6 +204,23 @@ test('bridge detects SDK capabilities and calls ready/send/close without identit
   bridge.close()
   assert.deepEqual(calls, ['ready', ['send', '{}'], 'close'])
   assert.deepEqual(bridge.themeParams, { bg_color: '#fff' })
+  assert.equal(bridge.currentUserPhotoUrl, 'https://t.me/i/userpic/320/person.jpg')
+})
+
+test('bridge settles native selector cancellation when Telegram returns without callback', async () => {
+  const listeners = new Map()
+  const fakeWindow = {
+    document: { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} },
+    addEventListener(name, listener) { listeners.set(name, listener) },
+    removeEventListener(name) { listeners.delete(name) },
+    setTimeout(callback) { callback(); return 1 },
+    clearTimeout() {}
+  }
+  const bridge = createTelegramBridge({ requestChat() {} }, fakeWindow)
+  const request = bridge.requestChat('prepared-id')
+  listeners.get('blur')()
+  listeners.get('focus')()
+  assert.equal(await request, false)
 })
 
 test('save/reset handoff is user-driven, terminal, and duplicate-safe', async () => {

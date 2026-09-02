@@ -18,7 +18,8 @@ const vitePressConfig = readFileSync(
 test('all stable geometry regions remain mounted across state changes', () => {
   for (const region of [
     'launch-status', 'format-editor', 'options-editor', 'telegraph-editor',
-    'target-selector', 'action-section', 'terminal-guidance', 'dialog-layer'
+    'target-selector', 'action-section', 'terminal-guidance', 'dialog-layer',
+    'template-market-layer'
   ]) assert.match(component, new RegExp(region))
   assert.doesNotMatch(component, /v-if|v-else|v-show/)
 })
@@ -58,6 +59,11 @@ test('target context and current-settings loading precede every editor', () => {
   for (const editor of ['format-editor', 'options-editor', 'telegraph-editor']) {
     assert.ok(target < component.indexOf(editor), `${editor} must follow target selection`)
   }
+  assert.match(component, /class="target-avatar" :src="targetAvatarUrl"/)
+  assert.match(component, /\{\{ target\.name \}\}/)
+  assert.match(component, /\{\{ targetTypeLabel \}\}/)
+  assert.match(component, /\{\{ targetHandle \}\}/)
+  assert.match(component, /@error="onTargetAvatarError"/)
 })
 
 test('delivery behavior is grouped and mutually exclusive in the UI', () => {

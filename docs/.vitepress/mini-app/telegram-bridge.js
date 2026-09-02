@@ -8,6 +8,9 @@ export function createTelegramBridge(
     available,
     canSendData: available && typeof webApp.sendData === 'function',
     canRequestChat: available && typeof webApp.requestChat === 'function',
+    currentUserPhotoUrl: available && typeof webApp.initDataUnsafe?.user?.photo_url === 'string'
+      ? webApp.initDataUnsafe.user.photo_url
+      : '',
     ready() {
       if (available && typeof webApp.ready === 'function') webApp.ready()
     },
@@ -26,7 +29,7 @@ export function createTelegramBridge(
         let returnTimer
         const hostDocument = hostWindow?.document
         const finish = selected => {
-          if (returnTimer) hostWindow.clearTimeout(returnTimer)
+          if (returnTimer) hostWindow?.clearTimeout?.(returnTimer)
           hostWindow?.removeEventListener?.('blur', onLeave)
           hostWindow?.removeEventListener?.('focus', onReturn)
           hostDocument?.removeEventListener?.('visibilitychange', onVisibilityChange)
