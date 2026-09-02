@@ -41,6 +41,8 @@ export default {
     setting_unknown_directive: "配置未保存，因为无法识别这些参数：{}。请修正或删除后重试。[SETTINGS_UNKNOWN_DIRECTIVE]",
     setting_mini_app_open: "设置已准备好。请点击下方“打开设置”；若按钮已经过期，请重新执行设置命令。[SETTINGS_MINI_APP_READY]",
     setting_mini_app_open_button: "打开设置",
+    setting_mini_app_close_button: "✕ 关闭",
+    setting_mini_app_keyboard_closed: "设置按钮已关闭。需要再次使用时，请发送 /miniapp。",
     setting_mini_app_private_only: "设置 Mini App 只能在与此 Bot 的私聊中打开。请打开 Bot 私聊，并在那里发送 /miniapp。[SETTINGS_MINI_APP_PRIVATE_ONLY]",
     setting_mini_app_select_group: "选择群组",
     setting_mini_app_select_channel: "选择频道",

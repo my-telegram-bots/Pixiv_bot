@@ -228,6 +228,8 @@ test('personal settings always bind to the Telegram actor and expose fragment-on
     t.deepEqual(f.prepared.map(item => item.userId), [7, 7])
 
     const keyboardButton = f.messages[0].extra.reply_markup.keyboard[0][0]
+    const closeButton = f.messages[0].extra.reply_markup.keyboard[0][1]
+    t.is(closeButton.text, 'setting_mini_app_close_button')
     t.false(Boolean(f.messages[0].extra.reply_markup.one_time_keyboard))
     const url = new URL(keyboardButton.web_app.url)
     t.is(url.origin + url.pathname, 'https://pixiv-bot.pages.dev/mini-app')
@@ -245,6 +247,15 @@ test('personal settings always bind to the Telegram actor and expose fragment-on
         photo_url: 'https://t.me/i/userpic/320/example_user.jpg'
     })
     t.false(Object.hasOwn(fragment.target, 'id'))
+
+    t.true(await f.lifecycle.handleCloseKeyboard(f.context({
+        message: { text: closeButton.text }
+    })))
+    t.is(f.messages.at(-1).text, 'setting_mini_app_keyboard_closed')
+    t.true(f.messages.at(-1).extra.reply_markup.remove_keyboard)
+    t.truthy(f.sessions.getEditSession(fragment.session, 7))
+    t.is(f.updates.length, 0)
+    t.is(f.deletes.length, 0)
 
     await f.lifecycle.handleWebAppData(f.context({
         message: { web_app_data: { data: payload(fragment.session) } }
@@ -557,11 +568,13 @@ test('Mini App update registration is terminal before Pixiv routing', async t =>
     let commandCalls = 0
     let webAppCalls = 0
     let chatSharedCalls = 0
+    let closeKeyboardCalls = 0
     let laterCalls = 0
     registerSettingsMiniAppHandlers(bot, {
         async handleCommand() { commandCalls++ },
         async handleWebAppData() { webAppCalls++ },
-        async handleChatShared() { chatSharedCalls++ }
+        async handleChatShared() { chatSharedCalls++ },
+        async handleCloseKeyboard() { closeKeyboardCalls++ }
     })
     bot.use(async () => { laterCalls++ })
     bot.botInfo = {
@@ -595,10 +608,15 @@ test('Mini App update registration is terminal before Pixiv routing', async t =>
         update_id: 2,
         message: { ...baseMessage, chat_shared: { request_id: 1, chat_id: -20 } }
     })
+    await bot.handleUpdate({
+        update_id: 3,
+        message: { ...baseMessage, text: 'Close settings button' }
+    })
 
     t.is(commandCalls, 1)
     t.is(webAppCalls, 1)
     t.is(chatSharedCalls, 1)
+    t.is(closeKeyboardCalls, 1)
     t.is(laterCalls, 0)
 })
 

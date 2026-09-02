@@ -12,6 +12,7 @@ import { createSettingsMiniAppSessionStore } from '#handlers/telegram/settings-m
 
 const DEFAULT_WEB_APP_URL = 'https://pixiv-bot.pages.dev'
 const ADMIN_STATUSES = new Set(['administrator', 'creator'])
+const SUPPORTED_LANGUAGES = ['en', 'ja', 'zh-hans', 'zh-hant']
 
 function plain(localize, language, key) {
     return reescape_strings(localize(language, key))
@@ -82,6 +83,9 @@ export function createSettingsMiniAppLifecycle({
     const inFlightSessions = new Set()
     const defaultValues = createDefaultUserSettings().setting.default
     const baseUrl = String(webAppBaseUrl).replace(/\/$/, '')
+    const closeButtonLabels = new Set(SUPPORTED_LANGUAGES.map(language =>
+        plain(localize, language, 'setting_mini_app_close_button')
+    ))
 
     async function send(userId, language, key, extra = {}) {
         return bot.api.sendMessage(userId, plain(localize, language, key), {
@@ -192,6 +196,7 @@ export function createSettingsMiniAppLifecycle({
         })}`
         const keyboard = new ReplyKeyboard()
             .webApp(plain(localize, ctx.l, 'setting_mini_app_open_button'), url)
+            .text(plain(localize, ctx.l, 'setting_mini_app_close_button'))
             .resized()
         const sent = await send(userId, ctx.l, 'setting_mini_app_open', {
             reply_markup: keyboard
@@ -219,6 +224,16 @@ export function createSettingsMiniAppLifecycle({
             return true
         }
         await openPersonalSettings(ctx)
+        return true
+    }
+
+    async function handleCloseKeyboard(ctx, next) {
+        if (!closeButtonLabels.has(ctx.message?.text) || !isPrivateUserContext(ctx)) {
+            return typeof next === 'function' ? next() : false
+        }
+        await send(ctx.from.id, ctx.l, 'setting_mini_app_keyboard_closed', {
+            reply_markup: { remove_keyboard: true }
+        })
         return true
     }
 
@@ -319,6 +334,7 @@ export function createSettingsMiniAppLifecycle({
 
     return {
         handleCommand,
+        handleCloseKeyboard,
         openPersonalSettings,
         handleChatShared,
         handleWebAppData
@@ -327,10 +343,11 @@ export function createSettingsMiniAppLifecycle({
 
 export function registerSettingsMiniAppHandlers(bot, lifecycle) {
     if (!bot || !lifecycle?.handleCommand || !lifecycle?.handleWebAppData ||
-        !lifecycle?.handleChatShared) {
+        !lifecycle?.handleChatShared || !lifecycle?.handleCloseKeyboard) {
         throw new Error('registerSettingsMiniAppHandlers requires bot and lifecycle')
     }
     bot.command('miniapp', ctx => lifecycle.handleCommand(ctx))
     bot.on('message:web_app_data', ctx => lifecycle.handleWebAppData(ctx))
     bot.on('message:chat_shared', ctx => lifecycle.handleChatShared(ctx))
+    bot.on('message:text', (ctx, next) => lifecycle.handleCloseKeyboard(ctx, next))
 }
