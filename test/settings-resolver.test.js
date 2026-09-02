@@ -269,6 +269,10 @@ test('settings lifecycle preserves export and valid Base64 import behavior', asy
     t.is(fixture.messages[0][1], 'setting_open_link')
     const exportedUrl = fixture.messages[0][2].reply_markup.inline_keyboard[0][0].url
     t.true(exportedUrl.startsWith('https://pixiv-bot.pages.dev/s#'))
+    const exportedSettings = JSON.parse(Buffer.from(exportedUrl.split('#')[1], 'base64').toString('utf8'))
+    t.deepEqual(Object.keys(exportedSettings), ['format', 'default', 'time'])
+    t.true(Number.isSafeInteger(exportedSettings.time))
+    t.truthy(exportedSettings.default)
 
     const imported = Buffer.from(JSON.stringify({
         format: { message: 'custom' },

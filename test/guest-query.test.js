@@ -74,7 +74,6 @@ function context(overrides = {}) {
 }
 
 function localize(_language, key, value) {
-    if (key === 'guest_multipage_notice') return `pages=${value}`
     return key
 }
 
@@ -176,7 +175,7 @@ test('guest settings use the explicit caller instead of another bot sender', asy
     t.is(ctx.answers[0].id, 'p_34567890-0')
 })
 
-test('guest multi-page result returns the first page and visibly states total pages', async t => {
+test('guest cold multi-page result keeps only the normal page-position caption', async t => {
     const ctx = context()
     await createGuestQueryHandler(dependencies({
         illustService: {
@@ -189,11 +188,12 @@ test('guest multi-page result returns the first page and visibly states total pa
 
     t.is(ctx.answers.length, 1)
     t.is(ctx.answers[0].id, 'p_12345678-0')
-    t.true(ctx.answers[0].caption.includes('pages=3'))
+    t.is(ctx.answers[0].caption, 'illust 12345678 page=0 spoiler=false')
+    t.false(ctx.answers[0].caption.includes('This work has'))
     t.truthy(ctx.answers[0].reply_markup)
 })
 
-test('guest multi-page caption remains valid when the normal caption fills Telegram limit', async t => {
+test('guest cold multi-page result does not rewrite the normal caption', async t => {
     const ctx = context()
     await createGuestQueryHandler(dependencies({
         illustService: {
@@ -202,12 +202,11 @@ test('guest multi-page caption remains valid when the normal caption fills Teleg
                 illustration: illustration(id, { pages: 2 })
             })
         },
-        format: () => '*'.repeat(1100)
+        format: () => 'normal caption 1/2'
     }))(ctx)
 
-    t.true(Array.from(ctx.answers[0].caption).length <= 1024)
-    t.true(ctx.answers[0].caption.startsWith('pages=2'))
-    t.false('parse_mode' in ctx.answers[0])
+    t.is(ctx.answers[0].caption, 'normal caption 1/2')
+    t.is(ctx.answers[0].parse_mode, 'MarkdownV2')
 })
 
 test('cold cache answers the first page exactly once before prewarming begins', async t => {
@@ -717,6 +716,6 @@ test('all supported languages expose the same complete guest message keys', t =>
     t.deepEqual(guestKeys(ja), expected)
     t.deepEqual(guestKeys(zhHans), expected)
     t.deepEqual(guestKeys(zhHant), expected)
-    t.true(expected.includes('guest_multipage_notice'))
+    t.false(expected.includes('guest_multipage_notice'))
     t.true(expected.includes('guest_media_unavailable'))
 })

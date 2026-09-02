@@ -12,7 +12,6 @@ import {
 } from '#handlers/telegram/inline-query'
 import { buildIllustrationInlineResults } from '#handlers/telegram/illustration-inline-result'
 import { buildGuestRichResult } from '#handlers/telegram/guest-rich-message'
-import removeMd from 'remove-markdown'
 
 export const GuestQueryError = Object.freeze({
     INPUT_REQUIRED: 'GUEST_INPUT_REQUIRED',
@@ -263,19 +262,7 @@ function selectGuestResult(built, ctx, dependencies) {
         dependencies
     )
     if (rich) return rich
-
-    const notice = dependencies.localize(ctx.l, 'guest_multipage_notice', built.pageCount)
-    const selected = {
-        ...first,
-        caption: [first.caption, notice].filter(Boolean).join('\n\n')
-    }
-    if (Array.from(selected.caption).length <= 1024) return selected
-
-    selected.caption = Array.from(
-        [notice, removeMd(first.caption || '')].filter(Boolean).join('\n\n')
-    ).slice(0, 1024).join('')
-    delete selected.parse_mode
-    return selected
+    return first
 }
 
 function enqueueGuestPrewarm(dependencies, ctx, illustration) {

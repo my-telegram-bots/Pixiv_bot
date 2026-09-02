@@ -31,7 +31,6 @@ export default {
     guest_lookup_failed: "The Pixiv artwork could not be loaded because the lookup failed. Try again later; if it continues, contact the operator with code GUEST_LOOKUP_FAILED.",
     guest_media_unavailable: "The artwork was found, but a safe photo or animation reply is not available. Open the artwork on Pixiv or try again later. (GUEST_MEDIA_UNAVAILABLE)",
     guest_request_failed: "The Guest Mode request could not be completed because an internal processing step failed. Try again; if it continues, contact the operator with code GUEST_REQUEST_FAILED.",
-    guest_multipage_notice: "This work has {} pages. The first page is shown here; open Pixiv below to view the complete work.",
     guest_rich_multipage_notice: "This work has {} pages.",
     guest_rich_truncated_notice: "This work has {} pages. The first 50 pages are shown here; open Pixiv below to view the complete work.",
     error: "Oops, Something went wrong :(",
