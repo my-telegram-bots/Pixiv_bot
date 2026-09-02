@@ -58,6 +58,7 @@ test('dependent settings normalize in the established order', t => {
         share: true,
         album: false,
         album_one: false,
+        album_equal: false,
         single_caption: false
     }
 
@@ -75,6 +76,7 @@ test('dependent settings normalize in the established order', t => {
     t.true(fileOnly.asfile)
     t.false(fileOnly.album)
     t.false(fileOnly.album_one)
+    t.false(fileOnly.album_equal)
     t.false(fileOnly.single_caption)
 
     const storedAppend = createDefaultUserSettings()

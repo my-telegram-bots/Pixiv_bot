@@ -126,6 +126,7 @@ export function resolveRequestSettings(base, parsedInput, type, chat) {
     if (resolved.asfile) {
         resolved.album = false
         resolved.album_one = false
+        resolved.album_equal = false
         resolved.single_caption = false
         resolved.telegraph = false
     }
