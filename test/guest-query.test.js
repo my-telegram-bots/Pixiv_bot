@@ -232,6 +232,7 @@ const invalidInputs = [
     ['/s +tags', 'guest_unsupported_input'],
     ['/link', 'guest_unsupported_input'],
     ['12345678+file', 'guest_unsupported_input'],
+    ['12345678-kb', 'guest_unsupported_input'],
     ['12345678+unknown', 'guest_unsupported_input'],
     ['not a Pixiv artwork', 'guest_unsupported_input']
 ]
@@ -302,20 +303,25 @@ test('guest not-found, media unavailable, timeout, and exception each answer onc
 
 test('guest reports contain only bounded safe fields and never original input or payloads', async t => {
     const reports = []
+    let answered = false
     const ctx = context({
         guestMessage: {
             guest_query_id: 'secret-query-token',
             text: '@Pixiv_bot 12345678 secret-payload https://i.pximg.net/private.jpg',
             from: { id: 7, language_code: 'en' },
             chat: { id: -100, type: 'supergroup' }
-        }
+        },
+        answerGuestQuery: async () => { answered = true }
     })
     await createGuestQueryHandler(dependencies({
         resolveGuestSettings: async () => { throw new Error('secret internal payload') },
-        reportError: fields => reports.push(fields)
+        reportError: fields => {
+            t.true(answered)
+            reports.push(fields)
+        }
     }))(ctx)
 
-    t.is(ctx.answers.length, 1)
+    t.true(answered)
     t.is(reports.length, 1)
     t.deepEqual(Object.keys(reports[0]).sort(), [
         'errorCode', 'illustId', 'requestId', 'stage'
@@ -354,7 +360,15 @@ test('guest settings resolver applies request directives without a chat lookup o
     const resolver = createGuestSettingsResolver({
         getUserSettings: async userId => {
             queries.push(userId)
-            return { default: { tags: false, spoiler: false } }
+            return {
+                default: {
+                    tags: false,
+                    spoiler: false,
+                    open: false,
+                    share: false,
+                    remove_keyboard: true
+                }
+            }
         },
         logger: { warn() {} }
     })
@@ -369,6 +383,9 @@ test('guest settings resolver applies request directives without a chat lookup o
     t.deepEqual(queries, [7])
     t.true(settings.spoiler)
     t.true(settings.tags)
+    t.true(settings.open)
+    t.true(settings.share)
+    t.false(settings.remove_keyboard)
 })
 
 test('guest registration remains before every ordinary text route and startup warning is non-blocking', t => {
@@ -423,6 +440,51 @@ test('terminal guest registration prevents grammY generic text handlers from run
 
     t.is(guestCalls, 1)
     t.is(ordinaryCalls, 0)
+})
+
+test('real grammY guest context sends one singular answerGuestQuery payload', async t => {
+    const bot = new Bot('1:test')
+    const calls = []
+    bot.botInfo = {
+        id: 1,
+        is_bot: true,
+        first_name: 'Pixiv',
+        username: 'Pixiv_bot',
+        can_join_groups: true,
+        can_read_all_group_messages: false,
+        supports_inline_queries: true,
+        supports_guest_queries: true
+    }
+    bot.api.config.use(async (_previous, method, payload) => {
+        calls.push({ method, payload })
+        return {
+            ok: true,
+            result: {
+                message_id: 2,
+                date: 1,
+                chat: { id: -100, type: 'group', title: 'test' }
+            }
+        }
+    })
+    registerGuestQueryHandler(bot, createGuestQueryHandler(dependencies()))
+
+    await bot.handleUpdate({
+        update_id: 2,
+        guest_message: {
+            message_id: 1,
+            date: 1,
+            guest_query_id: 'guest-real-context',
+            text: '@Pixiv_bot 12345678',
+            chat: { id: -100, type: 'group', title: 'test' },
+            from: { id: 7, is_bot: false, first_name: 'Caller', language_code: 'en' }
+        }
+    })
+
+    t.is(calls.length, 1)
+    t.is(calls[0].method, 'answerGuestQuery')
+    t.is(calls[0].payload.guest_query_id, 'guest-real-context')
+    t.is(calls[0].payload.result.type, 'photo')
+    t.false(Array.isArray(calls[0].payload.result))
 })
 
 test('guest handler has no ordinary delivery or chat-authority tail', t => {

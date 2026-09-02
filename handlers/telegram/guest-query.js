@@ -39,15 +39,11 @@ const FAILURE_KEYS = Object.freeze({
 const GUEST_SAFE_DIRECTIVES = new Set([
     'tags',
     'description',
-    'open',
     'caption_above',
-    'share',
-    'remove_keyboard',
     'remove_caption',
     'show_id',
     'spoiler',
-    'auto_spoiler',
-    'rm'
+    'auto_spoiler'
 ])
 
 function clone(value) {
@@ -157,6 +153,9 @@ export function createGuestSettingsResolver(options) {
         settings.append_file = false
         settings.append_file_immediate = false
         settings.single_caption = false
+        settings.open = true
+        settings.share = true
+        settings.remove_keyboard = false
         ctx.us = clone(settings)
         return ctx.us
     }
@@ -205,18 +204,25 @@ async function answerFailure(ctx, state, code, stage, dependencies) {
         code,
         stage
     })
-    if ([
+    const shouldReport = [
         GuestQueryError.LOOKUP_FAILED,
         GuestQueryError.MEDIA_UNAVAILABLE,
         GuestQueryError.REQUEST_FAILED
-    ].includes(code)) {
+    ].includes(code)
+    const answered = await answerGuestOnce(
+        ctx,
+        state,
+        createFailureResult(ctx, code, dependencies),
+        dependencies
+    )
+    if (shouldReport) {
         reportGuestFailure(dependencies, ctx, {
             illustId: state.illustId,
             code,
             stage
         })
     }
-    return answerGuestOnce(ctx, state, createFailureResult(ctx, code, dependencies), dependencies)
+    return answered
 }
 
 function classifyGuestInput(ctx) {
