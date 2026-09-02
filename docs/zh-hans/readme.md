@@ -1,6 +1,5 @@
 ---
 title: 指南
-pageClass: guide
 ---
 
 # Pixiv bot

@@ -4,3 +4,8 @@
 Translate by:
 - chatgpt
 - And you?
+
+Development contracts:
+
+- [Settings Mini App Web Adapter](docs/SETTINGS_MINI_APP_ADAPTER.md)
+- [Documentation toolchain](docs/TOOLCHAIN.md)

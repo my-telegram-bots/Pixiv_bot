@@ -1,6 +1,7 @@
 ---
 title: Privacy Policy
 sidebar: false
+aside: false
 ---
 
 ## We collect the following

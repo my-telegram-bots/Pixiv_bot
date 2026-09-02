@@ -1,7 +1,17 @@
-.guide img {
+.vp-doc._index img,
+.vp-doc._zh-hans_index img,
+.vp-doc._zh-hant_index img {
     max-width: 400px !important;
 }
-.cards {
+
+:root {
+    --vp-c-brand-1: #ff69b4;
+    --vp-c-brand-2: #e958a1;
+    --vp-c-brand-3: #d14991;
+    --vp-c-brand-soft: rgba(255, 105, 180, 0.14);
+}
+
+#setting .cards {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -9,7 +19,7 @@
     justify-content: space-between;
 }
 
-.card {
+#setting .card {
     flex-grow: 1;
     flex-basis: 30%;
     max-width: 30%;
@@ -19,33 +29,33 @@
     cursor: pointer;
 }
 
-.card:hover,
+#setting .card:hover,
 #save a:hover {
     box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
 }
 
-#format .card {
+#setting #format .card {
     min-height: 125px;
 }
 
 
-#customtemplate>.card {
+#setting #customtemplate>.card {
     cursor: unset;
 }
 
-.textareacard {
+#setting .textareacard {
     margin: auto;
     max-width: 550px;
 }
 
-.textareacard>textarea {
+#setting .textareacard>textarea {
     width: 100%;
     min-height: 66px;
     max-width: 550px;
 }
 
-.container p,
-.container a {
+#setting .container p,
+#setting .container a {
     font-size: 13px;
     margin-top: 0;
     padding-left: 3px;
@@ -72,41 +82,43 @@
 }
 
 @media (max-width: 719px) {
-    .cards {
+    #setting .cards {
         flex-direction: column
     }
 
-    .card {
+    #setting .card {
         max-width: 100%;
         margin-top: 20px;
     }
 
-    .container {
+    #setting .container {
         margin: auto;
         margin-top: 10px !important;
         min-height: 0px !important;
     }
 
-    .textareacard>textarea {
+    #setting .textareacard>textarea {
         max-width: calc(100% - 5px);
     }
 
     #customtemplate img {
         width: 40%;
     }
-    .guide img {
+    .vp-doc._index img,
+    .vp-doc._zh-hans_index img,
+    .vp-doc._zh-hant_index img {
         max-width: 100% !important;
     }
 }
 
 @media (max-width: 419px) {
-    .card {
+    #setting .card {
         padding-left: 0.5rem;
         padding-right: 0.5rem
     }
 }
 
-.switch {
+#setting .switch {
     position: relative;
     width: 55px;
     -webkit-user-select: none;
@@ -115,13 +127,13 @@
 
 }
 
-.checkbox {
+#setting .checkbox {
     position: absolute;
     opacity: 0;
     pointer-events: none;
 }
 
-.label {
+#setting .label {
     display: block;
     overflow: hidden;
     cursor: pointer;
@@ -133,7 +145,7 @@
     background-color: #9E9E9E;
 }
 
-.label:before {
+#setting .label:before {
     content: "";
     display: block;
     width: 30px;
@@ -147,20 +159,20 @@
     box-shadow: 0 6px 12px 0px #757575;
 }
 
-.checkbox:checked+.label {
+#setting .checkbox:checked+.label {
     background-color: #FF69B4;
 }
 
-.checkbox:checked+.label,
-.checkbox:checked+.label:before {
+#setting .checkbox:checked+.label,
+#setting .checkbox:checked+.label:before {
     border-color: #FF69B4;
 }
 
-.checkbox:checked+.label .inner {
+#setting .checkbox:checked+.label .inner {
     margin-left: 0;
 }
 
-.checkbox:checked+.label:before {
+#setting .checkbox:checked+.label:before {
     right: 0px;
     background-color: #ff69b4;
     box-shadow: 3px 6px 18px 0px rgba(0, 0, 0, 0.2);

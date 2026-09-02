@@ -1,6 +1,7 @@
 ---
 title: 隱私策略
 sidebar: false
+aside: false
 ---
 
 ## 我們收集以下內容

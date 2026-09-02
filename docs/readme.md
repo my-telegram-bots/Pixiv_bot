@@ -1,6 +1,5 @@
 ---
 title: Guide
-pageClass: guide
 ---
 
 # Pixiv bot

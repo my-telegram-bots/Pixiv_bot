@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "license": "MIT",
   "devDependencies": {
-    "vuepress": "^1.9.7"
+    "markdown-it": "^15.0.1",
+    "vitepress": "^1.6.4",
+    "vue": "^3.5.42"
   },
   "scripts": {
-    "dev": "vuepress dev docs",
-    "build": "vuepress build docs"
+    "dev": "vitepress dev docs",
+    "build": "vitepress build docs && node scripts/check-build.mjs",
+    "preview": "vitepress preview docs"
   }
 }
