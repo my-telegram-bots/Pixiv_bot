@@ -1,0 +1,96 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {
+  MAX_PAYLOAD_BYTES,
+  consumeInitialFragment,
+  parseInitialFragment,
+  serializeReset,
+  serializeSave
+} from '../docs/.vitepress/mini-app/protocol.js'
+
+const initial = {
+  v: 1,
+  session: 'opaque-token',
+  settings: {
+    format: { message: '作品界', version: 'v1' },
+    default: { tags: true, telegraph_title: '標題' }
+  },
+  request_chat: { group: 'prepared-group', channel: 'prepared-channel' }
+}
+
+function base64Url(value) {
+  return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url')
+}
+
+test('Base64URL fragment decoding preserves UTF-8 and accepts the exact v1 contract', () => {
+  assert.deepEqual(parseInitialFragment(base64Url(initial)), { ok: true, value: initial })
+})
+
+test('fragment consumption reads once and immediately clears only the fragment', () => {
+  const calls = []
+  const source = {
+    location: { hash: `#${base64Url(initial)}`, pathname: '/zh-hans/mini-app', search: '?x=1' },
+    history: {
+      state: { key: 1 },
+      replaceState(...args) { calls.push(args) }
+    }
+  }
+  assert.equal(consumeInitialFragment(source).ok, true)
+  assert.deepEqual(calls, [[{ key: 1 }, '', '/zh-hans/mini-app?x=1']])
+})
+
+test('initial parser rejects malformed data, unknown fields, arrays, types, and versions', () => {
+  const invalid = [
+    '',
+    '%%%not-base64',
+    base64Url([]),
+    base64Url({ ...initial, v: 2 }),
+    base64Url({ ...initial, user_id: 7 }),
+    base64Url({ ...initial, settings: { format: [], default: {} } }),
+    base64Url({ ...initial, settings: { format: {}, default: { tags: 'yes' } } }),
+    base64Url({ ...initial, settings: { format: { unknown: 'x' }, default: {} } }),
+    base64Url({ ...initial, request_chat: { group: 'x' } })
+  ]
+  for (const fragment of invalid) assert.equal(parseInitialFragment(fragment).ok, false)
+})
+
+test('initial parser rejects dangerous keys at every depth', () => {
+  const dangerous = [
+    '{"v":1,"session":"opaque-token","settings":{"format":{},"default":{}},"request_chat":{"group":"g","channel":"c"},"__proto__":{}}',
+    '{"v":1,"session":"opaque-token","settings":{"format":{"constructor":"x"},"default":{}},"request_chat":{"group":"g","channel":"c"}}',
+    '{"v":1,"session":"opaque-token","settings":{"format":{},"default":{"prototype":false}},"request_chat":{"group":"g","channel":"c"}}'
+  ]
+  for (const json of dangerous) {
+    assert.equal(parseInitialFragment(Buffer.from(json).toString('base64url')).ok, false)
+  }
+})
+
+test('save and reset serialization are compact and contain no identity or UI fields', () => {
+  const saved = serializeSave(initial.session, initial.settings)
+  assert.equal(saved.ok, true)
+  assert.equal(saved.data, JSON.stringify({
+    v: 1,
+    action: 'save',
+    session: initial.session,
+    settings: initial.settings
+  }))
+  assert.deepEqual(JSON.parse(serializeReset(initial.session).data), {
+    v: 1,
+    action: 'reset',
+    session: initial.session
+  })
+})
+
+test('save serialization enforces 4095, 4096, and 4097 UTF-8 byte boundaries', () => {
+  const settings = { format: {}, default: { telegraph_title: '' } }
+  const overhead = serializeSave(initial.session, settings).bytes
+  for (const boundary of [4095, 4096, 4097]) {
+    settings.default.telegraph_title = 'a'.repeat(boundary - overhead)
+    const result = serializeSave(initial.session, settings)
+    assert.equal(result.bytes, boundary)
+    assert.equal(result.ok, boundary <= MAX_PAYLOAD_BYTES)
+  }
+  settings.default.telegraph_title = '界'.repeat(1400)
+  const utf8 = serializeSave(initial.session, settings)
+  assert.ok(utf8.bytes > JSON.stringify(JSON.parse(utf8.reason ? '{}' : utf8.data)).length)
+})

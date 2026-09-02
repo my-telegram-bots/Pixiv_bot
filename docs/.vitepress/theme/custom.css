@@ -1,4 +1,5 @@
 .vp-doc._index img,
+.vp-doc._ja_index img,
 .vp-doc._zh-hans_index img,
 .vp-doc._zh-hant_index img {
     max-width: 400px !important;
@@ -105,6 +106,7 @@
         width: 40%;
     }
     .vp-doc._index img,
+    .vp-doc._ja_index img,
     .vp-doc._zh-hans_index img,
     .vp-doc._zh-hant_index img {
         max-width: 100% !important;

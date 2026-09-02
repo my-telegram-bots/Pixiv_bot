@@ -7,13 +7,28 @@ const routes = [
   ['index.html', 'en-US', 'Pixiv bot'],
   ['privacy.html', 'en-US', 'Privacy Policy'],
   ['s.html', 'en-US', 'Bot Configuration'],
+  ['ja/index.html', 'ja-JP', 'クイックスタート'],
+  ['ja/privacy.html', 'ja-JP', 'プライバシーポリシー'],
+  ['ja/s.html', 'ja-JP', 'メッセージ形式の設定'],
   ['zh-hans/index.html', 'zh-Hans', 'Pixiv bot'],
   ['zh-hans/privacy.html', 'zh-Hans', '隐私策略'],
   ['zh-hans/s.html', 'zh-Hans', '机器人配置'],
   ['zh-hant/index.html', 'zh-Hant', 'Pixiv bot'],
   ['zh-hant/privacy.html', 'zh-Hant', '隱私策略'],
-  ['zh-hant/s.html', 'zh-Hant', '機器人設定']
+  ['zh-hant/s.html', 'zh-Hant', '機器人設定'],
+  ['mini-app.html', 'en-US', 'Bot settings'],
+  ['ja/mini-app.html', 'ja-JP', 'Bot 設定'],
+  ['zh-hans/mini-app.html', 'zh-Hans', 'Bot 设置'],
+  ['zh-hant/mini-app.html', 'zh-Hant', 'Bot 設定']
 ]
+
+const miniAppRoutes = new Set([
+  'mini-app.html',
+  'ja/mini-app.html',
+  'zh-hans/mini-app.html',
+  'zh-hant/mini-app.html'
+])
+const sdkUrl = 'https://telegram.org/js/telegram-web-app.js?63'
 
 const failures = []
 
@@ -34,6 +49,19 @@ for (const [path, language, marker] of routes) {
   }
   if (/href="\/?(?:zh-hans|zh-hant)\/(?:zh-hans|zh-hant)\//.test(html)) {
     failures.push(`${path}: contains a duplicated locale prefix`)
+  }
+  const sdkIndex = html.indexOf(sdkUrl)
+  if (miniAppRoutes.has(path)) {
+    const applicationIndex = html.indexOf('<script type="module"')
+    if (sdkIndex < 0) failures.push(`${path}: missing Telegram Mini App SDK`)
+    if (applicationIndex < 0 || sdkIndex > applicationIndex) {
+      failures.push(`${path}: Telegram SDK must precede the VitePress application script`)
+    }
+    if (html.indexOf(sdkUrl, sdkIndex + sdkUrl.length) >= 0) {
+      failures.push(`${path}: Telegram SDK is emitted more than once`)
+    }
+  } else if (sdkIndex >= 0) {
+    failures.push(`${path}: ordinary or legacy route must not load the Telegram SDK`)
   }
 }
 

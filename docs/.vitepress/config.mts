@@ -11,8 +11,16 @@ export default defineConfig({
   srcExclude: ['SETTINGS_MINI_APP_ADAPTER.md', 'TOOLCHAIN.md'],
   rewrites: {
     'readme.md': 'index.md',
+    'ja/readme.md': 'ja/index.md',
     'zh-hans/readme.md': 'zh-hans/index.md',
     'zh-hant/readme.md': 'zh-hant/index.md'
+  },
+  transformHtml(html, _id, context) {
+    if (!context.pageData.relativePath.endsWith('mini-app.md')) return html
+    return html.replace(
+      '<head>',
+      '<head>\n    <script src="https://telegram.org/js/telegram-web-app.js?63"></script>'
+    )
   },
   locales: {
     root: {
@@ -30,6 +38,27 @@ export default defineConfig({
         },
         lastUpdated: { text: 'Last Updated' },
         outline: { label: 'On this page', level: 'deep' }
+      }
+    },
+    ja: {
+      label: '日本語',
+      lang: 'ja-JP',
+      link: '/ja/',
+      title: 'pixiv_bot',
+      description: 'Telegram で Pixiv 作品を送信する Bot',
+      themeConfig: {
+        nav: [
+          { text: 'ガイド', link: '/ja/' },
+          { text: '設定', link: '/ja/s' },
+          { text: 'プライバシーポリシー', link: '/ja/privacy' }
+        ],
+        editLink: {
+          pattern: `${repository}/edit/docs/docs/:path`,
+          text: 'このページを編集'
+        },
+        lastUpdated: { text: '最終更新' },
+        outline: { label: 'このページ', level: 'deep' },
+        docFooter: { prev: '前へ', next: '次へ' }
       }
     },
     'zh-hans': {
