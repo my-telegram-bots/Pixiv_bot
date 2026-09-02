@@ -289,8 +289,7 @@ export function createInlineQueryHandler(dependencies) {
                                 allowTruncation: false
                             }
                         )
-                        results.push(...built.results)
-                        if (rich) results.push(rich)
+                        results.push(...(rich ? [rich, ...built.results] : built.results))
                         if (built.redirectId) redirects.push(built.redirectId)
                     } else if (item?.status === 'rejected') {
                         deps.logger.warn('[inline_query] Illustration result failed:', item.reason)

@@ -174,14 +174,14 @@ test('inline direct lookup adds a Guest-style Rich slideshow beside 2-9 cached p
 
         const results = ctx.answers[0].results
         t.is(results.length, pages + 1)
-        t.deepEqual(
-            results.slice(0, pages).map(result => result.id),
-            Array.from({ length: pages }, (_, page) => `p_${pages}-${page}`)
-        )
-        t.true(results.slice(0, pages).every(result => result.type === 'photo'))
-        const rich = results.at(-1)
+        const rich = results[0]
         t.is(rich.type, 'article')
         t.is(rich.input_message_content.rich_message.media.length, pages)
+        t.deepEqual(
+            results.slice(1).map(result => result.id),
+            Array.from({ length: pages }, (_, page) => `p_${pages}-${page}`)
+        )
+        t.true(results.slice(1).every(result => result.type === 'photo'))
     }
 })
 

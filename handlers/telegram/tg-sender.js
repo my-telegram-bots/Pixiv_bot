@@ -70,7 +70,11 @@ import {
 import { sendTelegraph } from '#handlers/telegram/tg-sender-telegraph'
 import { cacheUgoiraFileId } from '#handlers/telegram/ugoira-file-id-cache'
 import { runRegularIllustrationFileIdHook } from '#handlers/telegram/regular-illustration-file-id-cache'
-import { forceDeepLinkShare } from '#handlers/telegram/deep-link-share'
+import {
+    attachDeepLinkAlbumKeyboard,
+    attachDeepLinkKeyboard,
+    forceDeepLinkShare
+} from '#handlers/telegram/deep-link-share'
 
 const terminalIllustrationStates = new Set([
     IllustrationLifecycleState.COMPLETED,
@@ -373,6 +377,14 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
             const documentResult = configuredDocument.result
             if (documentResult.kind === MediaSendKind.SENT) {
                 recordOutputSent(lifecycle, `document:${page}`)
+                if (!needsPhoto) {
+                    await attachDeepLinkKeyboard(
+                        bot,
+                        runtime,
+                        illust.id,
+                        documentResult.result.message_id
+                    )
+                }
                 if (ctx.us.append_file_immediate) {
                     replyToMessageId = documentResult.result.message_id
                     fileReplyToMessageId = documentResult.result.message_id
@@ -542,6 +554,14 @@ async function sendUgoira(bot, config, runtime, lifecycle, extra) {
         if (documentResult.kind === MediaSendKind.SENT) {
             sent = true
             recordOutputSent(lifecycle, 'document:0')
+            if (ctx.us.asfile) {
+                await attachDeepLinkKeyboard(
+                    bot,
+                    runtime,
+                    illust.id,
+                    documentResult.result.message_id
+                )
+            }
             if (ctx.us.append_file_immediate) {
                 extra.reply_to_message_id = documentResult.result.message_id
             }
@@ -648,20 +668,6 @@ function applySingleCaption(ctx, illusts, mediaGroup, groupIndex) {
         })
     }
     mediaGroup[0].caption = caption
-}
-
-async function attachDeepLinkAlbumKeyboard(bot, runtime, mediaGroup, sentMessages) {
-    if (!runtime.forceDeepLinkShareKeyboard) return
-    const messageId = sentMessages?.[0]?.message_id
-    const firstIllustId = mediaGroup?.[0]?.id
-    if (!Number.isSafeInteger(messageId) || !Number.isSafeInteger(firstIllustId)) return
-    try {
-        await bot.api.editMessageReplyMarkup(runtime.chatId, messageId,
-            k_os(firstIllustId, runtime.ctx.us))
-    } catch {
-        // The album is already delivered; the return-to-chat convenience cannot
-        // change its delivery state or produce another visible message.
-    }
 }
 
 async function sendAlbumBatch(bot, runtime, mediaGroups, asDocuments) {

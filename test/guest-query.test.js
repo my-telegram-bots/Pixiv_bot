@@ -79,7 +79,6 @@ function localize(_language, key, value) {
 }
 
 function localizeRaw(_language, key, value) {
-    if (key === 'guest_rich_multipage_notice') return `rich pages=${value}`
     if (key === 'guest_rich_truncated_notice') return `total=${value}; showing first 50`
     return key
 }
@@ -341,7 +340,8 @@ test('complete page cache returns one rich slideshow with caption, buttons, and 
     t.is(result.type, 'article')
     t.truthy(result.reply_markup)
     t.true(result.input_message_content.rich_message.markdown.includes('<tg-slideshow>'))
-    t.true(result.input_message_content.rich_message.markdown.includes('rich pages=3'))
+    t.false(result.input_message_content.rich_message.markdown.includes('This work has'))
+    t.false(result.input_message_content.rich_message.markdown.includes('rich pages='))
     t.true(result.input_message_content.rich_message.markdown.includes('title \\* \\[safe\\]'))
     t.false(result.input_message_content.rich_message.markdown.includes('www\\.pixiv'))
     t.deepEqual(

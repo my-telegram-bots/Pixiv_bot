@@ -2,6 +2,7 @@ import { asyncForEach } from '#handlers/common'
 import { _l } from '#handlers/telegram/i18n'
 import { mg2telegraph } from '#handlers/telegram/telegraph'
 import { reportIndependentFailure } from '#handlers/telegram/tg-sender-continuation'
+import { deepLinkShareExtra } from '#handlers/telegram/deep-link-share'
 
 function messageThreadOptions(ctx) {
     const messageThreadId = ctx.default_extra?.message_thread_id
@@ -33,7 +34,12 @@ export async function sendTelegraph(bot, runtime) {
                 await bot.api.sendMessage(
                     chatId,
                     `${item.ids.join('\n')}\n${item.telegraph_url}`,
-                    defaultExtra
+                    deepLinkShareExtra(
+                        defaultExtra,
+                        runtime.forceDeepLinkShareKeyboard,
+                        item.ids[0],
+                        ctx.us
+                    )
                 )
             } catch (error) {
                 await reportIndependentFailure(runtime, error, {

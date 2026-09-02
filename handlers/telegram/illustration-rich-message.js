@@ -38,10 +38,9 @@ export function buildCachedIllustrationRichResult(
         }
     }))
     const slides = media.map(item => `![](tg://photo?id=${item.id})`).join('\n')
-    const noticeKey = totalPages > shownPages
-        ? 'guest_rich_truncated_notice'
-        : 'guest_rich_multipage_notice'
-    const notice = dependencies.localizeRaw(languageCode, noticeKey, totalPages)
+    const notice = totalPages > shownPages
+        ? dependencies.localizeRaw(languageCode, 'guest_rich_truncated_notice', totalPages)
+        : ''
     const caption = format_v3(illust, settings, 'inline', -1, undefined, 'rich_markdown')
     const markdown = [
         '<tg-slideshow>',

@@ -31,7 +31,6 @@ export default {
     guest_lookup_failed: "查询失败，因此未能加载 Pixiv 作品。请稍后重试；若持续发生，请向运维人员提供错误码 GUEST_LOOKUP_FAILED。",
     guest_media_unavailable: "已找到作品，但目前没有可安全回复的图片或动画。请在 Pixiv 打开该作品，或稍后重试。(GUEST_MEDIA_UNAVAILABLE)",
     guest_request_failed: "内部处理步骤失败，因此未能完成 Guest Mode 请求。请重试；若持续发生，请向运维人员提供错误码 GUEST_REQUEST_FAILED。",
-    guest_rich_multipage_notice: "该作品共 {} 页。",
     guest_rich_truncated_notice: "该作品共 {} 页，当前展示前 50 页；请通过下方 Pixiv 按钮查看完整作品。",
     error: "发生了点错误",
     setting_open_link: "请点击以下链接到网页配置。",
