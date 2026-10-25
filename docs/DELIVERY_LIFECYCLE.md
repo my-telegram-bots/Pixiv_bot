@@ -5,7 +5,7 @@
 - Keep all existing Telegram text, localization keys, captions, and buttons
   unchanged. Adding user-visible text requires prior discussion with the owner.
 - Each sender state machine executes once. Concurrent callers share its active
-  run; a settled machine cannot replay sends. Independent updates remain concurrent.
+  run; a settled machine cannot replay sends. Different destination chats remain concurrent.
 - Collection keeps one illustration lifecycle per normalized Pixiv ID, including
   overlap between explicit IDs and author results.
 - Finish independent items and later phases after a handled delivery failure.
@@ -27,6 +27,21 @@
 
 ## Recovery and resource ownership
 
+- Bot ingress deduplicates exact numeric Telegram update IDs within one process.
+  Concurrent duplicates await the original attempt without invoking handlers or
+  reporting its error again. Settled IDs, including failures with potentially
+  delivered output, are retained for 15 minutes, up to 10,000 IDs. Active IDs are
+  never evicted. A new update ID is a new request even with identical content.
+  This is bounded process-local protection, not durable exactly-once delivery
+  across restarts, multiple processes, or retention expiry/eviction.
+- Ordinary content delivery queues FIFO by the actual destination chat, across
+  topics and source/linked deliveries. A reservation spans the entire sender
+  (albums and appended documents included), and source error handling. It is
+  released on success or failure; idle chat entries are removed. Each delivery
+  holds only its own destination, never a source lock while awaiting linked
+  targets. Queue order is delivery submission order, not numeric update order.
+  Settings, callbacks, inline and Guest answers do not wait behind media work.
+  Update handlers await queued deliveries so runner shutdown also drains them.
 - MP4 and GIF conversions use FIFO scheduling with bounded concurrency and share an active task
   for the same output. Every return and rejection releases ownership. Waiting
   does not recursively restart conversion or repeat metadata requests.

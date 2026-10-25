@@ -23,7 +23,7 @@ import { createChatLinkStore } from '#handlers/telegram/chat-link-store'
 import { createLinkLifecycle } from '#handlers/telegram/link-lifecycle'
 import { detect_ugpira_url } from '#handlers/pixiv/tools'
 import { createTgSender } from '#handlers/telegram/tg-sender'
-import { createSourceMessageDispatcher } from '#handlers/telegram/source-message-dispatch'
+import { createQueuedContentDispatcher } from '#handlers/telegram/source-message-dispatch'
 import { catchily } from '#handlers/telegram/sender'
 import { renderUserFacingError } from '#handlers/telegram/user-facing-error'
 import {
@@ -80,13 +80,13 @@ const tg_sender = createTgSender({
     writeFileIds: process.env.DBLESS ? undefined : persistRegularIllustrationFileIds
 })
 const linkStore = createChatLinkStore({ getPool })
-const dispatchSourceMessage = createSourceMessageDispatcher({
+const { dispatchSource: dispatchSourceMessage, sendLinked } = createQueuedContentDispatcher({
     bot,
     send: tg_sender,
     reportError: reportApplicationError,
     renderError: renderUserFacingError
 })
-const linkLifecycle = createLinkLifecycle({ bot, linkStore, tgSender: tg_sender, logger: honsole })
+const linkLifecycle = createLinkLifecycle({ bot, linkStore, tgSender: sendLinked, logger: honsole })
 const inlineQueryHandler = createInlineQueryHandler({
     illustService,
     detectUgoiraUrl: detect_ugpira_url,

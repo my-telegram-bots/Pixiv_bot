@@ -1,3 +1,15 @@
+import { createChatDeliveryQueue } from '#handlers/telegram/chat-delivery-queue'
+
+export function createQueuedContentDispatcher(options) {
+    const queue = createChatDeliveryQueue()
+    const dispatch = createSourceMessageDispatcher(options)
+    return {
+        dispatchSource: (ctx, chatId) => queue.run(chatId, () => dispatch(ctx, chatId)),
+        sendLinked: ctx => queue.run(ctx.chat_id ?? ctx.chat?.id ?? ctx.message?.chat?.id,
+            () => options.send(ctx))
+    }
+}
+
 export function createSourceMessageDispatcher({ bot, send, reportError, renderError }) {
     return async function dispatchSourceMessage(ctx, chatId) {
         if (chatId > 0 && ctx.ids && (ctx.ids.illust.length > 0 || ctx.ids.novel.length > 0)) {

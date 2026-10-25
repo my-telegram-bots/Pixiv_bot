@@ -12,6 +12,7 @@ import {
     TELEGRAM_THROTTLER_OPTIONS
 } from '#handlers/telegram/transport-policy'
 import { createTelegramDeliveryGate } from '#handlers/telegram/telegram-transport-gate'
+import { createUpdateDeduplicator } from '#handlers/telegram/update-deduplication'
 
 let botInstance = null
 const nonDeliveryMethods = new Set(['sendChatAction', 'setMessageReaction'])
@@ -52,6 +53,7 @@ export function createBot(config) {
     }
 
     const bot = new Bot(config.tg.token, botConfig)
+    bot.use(createUpdateDeduplicator())
 
     // Trace only actual request stages; payloads and media URLs are never logged.
     bot.api.config.use(createTelegramAttemptTraceTransformer())
