@@ -4,10 +4,18 @@ import fs from 'fs'
 import { promises as fsPromises } from 'fs'
 import config from '#config'
 import { download_file, sleep, honsole, asyncForEach, exec, isStaleMediaError } from '#handlers/common'
-// ugoira queue
-// Use Set for O(1) lookup and automatic deduplication
-let ugoira_mp4_queue = new Set()
-let ugoira_gif_queue = new Set()
+import { createUgoiraConversionScheduler } from '#handlers/pixiv/ugoira-conversion-scheduler'
+
+const mp4Conversions = createUgoiraConversionScheduler({
+    maxConcurrent: 5,
+    shouldRetry: error => !isStaleMediaError(error),
+    retryDelay: () => sleep(2000)
+})
+const gifConversions = createUgoiraConversionScheduler({
+    maxConcurrent: 5,
+    shouldRetry: error => !isStaleMediaError(error),
+    retryDelay: () => sleep(500)
+})
 
 // head_url concurrency control to prevent OOM
 class HeadUrlQueue {
@@ -153,8 +161,13 @@ export async function thumb_to_all(illust, try_time = 0, lightweight = false) {
  * @param {*} force ignore exist file
  * @returns url
  */
-export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
+export async function ugoira_to_mp4(illust, force = false) {
     const id = illust.id ? parseInt(illust.id) : parseInt(illust)
+    const active = mp4Conversions.get(`${id}:mp4`)
+    if (active) return active.catch(error => {
+        if (isStaleMediaError(error)) throw error
+        return false
+    })
     let final_path = get_ugoira_path(id, 'mp4')
     let no_tmp_path = final_path.replace('tmp/', '')
 
@@ -164,70 +177,60 @@ export async function ugoira_to_mp4(illust, force = false, retry_time = 0) {
         return final_url
     }
 
-    if (retry_time > 3) {
+    return mp4Conversions.schedule(`${id}:mp4`, async () => {
+        try {
+            // get fps metadata (timecode)
+            // powered by mp4fpsmod
+            let ud = (await r_p_ajax(`/illust/${id}/ugoira_meta`)).data
+            if (ud.error) {
+                return false // 404 or not ugoira
+            }
+            ud = ud.body
+            // set the duration of each frame
+            let timecode = '# timecode format v2\n0\n'
+            let temp_frame = 0
+            ud.frames.forEach((f) => {
+                temp_frame += f.delay
+                timecode += `${temp_frame}\n`
+            }, this)
+
+            await clean_ugoira_cache(id)
+            // Ensure necessary directories exist
+            await fsPromises.mkdir('./tmp/timecode', { recursive: true })
+            await fsPromises.mkdir('./tmp/mp4_0', { recursive: true })
+            await fsPromises.mkdir('./tmp/mp4', { recursive: true })
+            await fsPromises.writeFile(`./tmp/timecode/${id}`, timecode)
+            // download ugoira.zip
+            await download_file(ud.originalSrc, id, force)
+            // windows:
+            // choco install ffmpeg unzip
+            await exec(`unzip -n './tmp/file/${id}.zip' -d './tmp/ugoira/${id}'`)
+            // copy last frame
+            // see this issue https://github.com/my-telegram-bots/Pixiv_bot/issues/1
+            await fsPromises.copyFile(`./tmp/ugoira/${id}/${(ud.frames.length - 1).toString().padStart(6, 0)}.jpg`, `./tmp/ugoira/${id}/${(ud.frames.length).toString().padStart(6, 0)}.jpg`)
+            // step1 jpg -> mp4 (no fps metadata)
+            // thanks https://stackoverflow.com/questions/28086775/can-i-create-a-vfr-video-from-timestamped-images
+            // need add metadata?
+            await exec(`ffmpeg -y -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
+            // step2 add fps metadata via mp4fpsmod
+            await exec(`mp4fpsmod -o ${final_path} -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
+
+            await clean_ugoira_cache(id)
+            // add some code send file to some endpoints
+            // lazy....
+            // so u need commit this file when pull and diff changes
+
+            // return await detect_ugpira_url(id, 'mp4')
+            return config.pixiv.ugoiraurl + no_tmp_path
+        } catch (error) {
+            honsole.warn(error)
+            throw error
+        }
+    }).catch(error => {
+        if (isStaleMediaError(error)) throw error
         honsole.error('convert mp4', id, 'error')
         return false
-    }
-
-    // simple queue
-    if (ugoira_mp4_queue.size > 4 || ugoira_mp4_queue.has(id)) {
-        await sleep(1000)
-        return await ugoira_to_mp4(id, force, retry_time)
-    }
-
-    ugoira_mp4_queue.add(id)
-    try {
-        // get fps metadata (timecode)
-        // powered by mp4fpsmod
-        let ud = (await r_p_ajax(`/illust/${id}/ugoira_meta`)).data
-        if (ud.error) {
-            return false // 404 or not ugoira
-        }
-        ud = ud.body
-        // set the duration of each frame
-        let timecode = '# timecode format v2\n0\n'
-        let temp_frame = 0
-        ud.frames.forEach((f) => {
-            temp_frame += f.delay
-            timecode += `${temp_frame}\n`
-        }, this)
-
-        await clean_ugoira_cache(id)
-        // Ensure necessary directories exist
-        await fsPromises.mkdir('./tmp/timecode', { recursive: true })
-        await fsPromises.mkdir('./tmp/mp4_0', { recursive: true })
-        await fsPromises.mkdir('./tmp/mp4', { recursive: true })
-        await fsPromises.writeFile(`./tmp/timecode/${id}`, timecode)
-        // download ugoira.zip
-        await download_file(ud.originalSrc, id, force)
-        // windows:
-        // choco install ffmpeg unzip
-        await exec(`unzip -n './tmp/file/${id}.zip' -d './tmp/ugoira/${id}'`)
-        // copy last frame
-        // see this issue https://github.com/my-telegram-bots/Pixiv_bot/issues/1
-        await fsPromises.copyFile(`./tmp/ugoira/${id}/${(ud.frames.length - 1).toString().padStart(6, 0)}.jpg`, `./tmp/ugoira/${id}/${(ud.frames.length).toString().padStart(6, 0)}.jpg`)
-        // step1 jpg -> mp4 (no fps metadata)
-        // thanks https://stackoverflow.com/questions/28086775/can-i-create-a-vfr-video-from-timestamped-images
-        // need add metadata?
-        await exec(`ffmpeg -y -i ./tmp/ugoira/${id}/%6d.jpg -c:v libx264 -vf "format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2" ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
-        // step2 add fps metadata via mp4fpsmod
-        await exec(`mp4fpsmod -o ${final_path} -t ./tmp/timecode/${id} ./tmp/mp4_0/${id}.mp4`, { timeout: 240 * 1000 })
-
-        clean_ugoira_cache(id)
-        ugoira_mp4_queue.delete(id)
-        // add some code send file to some endpoints
-        // lazy....
-        // so u need commit this file when pull and diff changes
-
-    } catch (error) {
-        honsole.warn(error)
-        ugoira_mp4_queue.delete(id)
-        if (isStaleMediaError(error)) throw error
-        await sleep(2000)
-        return ugoira_to_mp4(id, force, retry_time + 1)
-    }
-    // return await detect_ugpira_url(id, 'mp4')
-    return config.pixiv.ugoiraurl + no_tmp_path
+    })
 }
 /**
  * get file path
@@ -338,7 +341,7 @@ export async function clean_ugoira_cache(id = '1') {
  * @param {number} real_width
  * @param {number} real_height
  */
-export async function ugoira_to_gif(illust, quality = 'large', real_width = 0, real_height = 0, force = false, retry_time = 0) {
+export async function ugoira_to_gif(illust, quality = 'large', real_width = 0, real_height = 0, force = false) {
     const id = illust.id || illust
     let height = 0
     let width = 0
@@ -346,74 +349,73 @@ export async function ugoira_to_gif(illust, quality = 'large', real_width = 0, r
     if (!['large', 'medium', 'small'].includes(quality)) {
         quality = 'large'
     }
+    const active = gifConversions.get(`${id}:gif:${quality}`)
+    if (active) return active.catch(error => {
+        if (isStaleMediaError(error)) throw error
+        return null
+    })
     let final_path = get_ugoira_path(id, `gif-${quality}`)
     let no_tmp_path = final_path.replace('tmp/', '')
 
     if (fs.existsSync(final_path) && !force) {
         return config.pixiv.ugoiraurl + no_tmp_path
     }
-    if (retry_time > 3) {
+    return gifConversions.schedule(`${id}:gif:${quality}`, async () => {
+        let mp4_path = null
+        const mp4_url = await ugoira_to_mp4(illust)
+        if (!mp4_url) return null
+        // check resource is local
+        if (typeof mp4_url === 'string' && mp4_url.startsWith(config.pixiv.ugoiraurl)) {
+            mp4_path = get_ugoira_path(id, 'mp4')
+        } else {
+            // if not in local, download it
+            mp4_path = await download_file(mp4_url, id)
+        }
+        try {
+            // get width and height
+            if (!real_width || !real_height) {
+                let e = (await exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 '${mp4_path}'`)).stdout.replace('\n', '').split('x')
+                real_width = e[0]
+                real_height = e[1]
+            }
+            // quality = size
+            switch (quality) {
+                case 'large':
+                    width = real_width
+                    height = real_height
+                    break
+                case 'medium':
+                    width = Math.round(real_width / 2)
+                    height = Math.round(real_height / 2)
+                    break
+                case 'small':
+                    width = Math.round(real_width / 4)
+                    height = Math.round(real_height / 4)
+                    break
+            }
+            // ffmpeg configuration from
+            // https://bhupesh-v.github.io/convert-videos-high-quality-gif-ffmpeg/
+            // and who from ACGN☆Taiwan (telegram)
+            if (!fs.existsSync(`./tmp/palette/${id}-${quality}.png`)) {
+                await exec(`ffmpeg -y -i '${mp4_path}' -vf "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos,palettegen" ./tmp/palette/${id}-${quality}.png`)
+            }
+            await exec(`ffmpeg -y -t 30 -i '${mp4_path}' -i ./tmp/palette/${id}-${quality}.png  -filter_complex "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos[x];[x][1:v]paletteuse" ./tmp/gif/${id}-${quality}-processing.gif`)
+            // maybe hit cloudflare cache.
+            // when the processing is complete, -processing.gif -> .gif
+            fs.renameSync(`./tmp/gif/${id}-${quality}-processing.gif`, `./tmp/gif/${id}-${quality}.gif`)
+            // MP4 conversion owns its intermediate inputs; GIF variants must not
+            // remove another conversion's working files.
+            // return await detect_ugpira_url(id, `gif-${quality}`)
+            return config.pixiv.ugoiraurl + no_tmp_path
+        } catch (error) {
+            honsole.warn(error)
+            throw error
+        }
+    }).catch(error => {
+        if (isStaleMediaError(error)) throw error
         honsole.warn('gif retry time exceed 3', id)
         return null
-    }
-    if (ugoira_gif_queue.size > 4 || ugoira_gif_queue.has(id)) {
-        await sleep(1000)
-        return await ugoira_to_gif(id, quality, real_width, real_height, force, retry_time)
-    }
-    ugoira_gif_queue.add(id)
-    let mp4_path = null
-    let mp4_url = await ugoira_to_mp4(illust)
-    // check resouce is local
-    if (mp4_url.startsWith(config.pixiv.ugoiraurl)) {
-        mp4_path = get_ugoira_path(id, 'mp4')
-    } else {
-        // if not in local, download it
-        mp4_path = await download_file(mp4_url, id)
-    }
-    try {
-        // get width and height
-        if (!real_width || !real_height) {
-            let e = (await exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 '${mp4_path}'`)).stdout.replace('\n', '').split('x')
-            real_width = e[0]
-            real_height = e[1]
-        }
-        // quality = size
-        switch (quality) {
-            case 'large':
-                width = real_width
-                height = real_height
-                break
-            case 'medium':
-                width = Math.round(real_width / 2)
-                height = Math.round(real_height / 2)
-                break
-            case 'small':
-                width = Math.round(real_width / 4)
-                height = Math.round(real_height / 4)
-                break
-        }
-        // ffmpeg configuration from 
-        // https://bhupesh-v.github.io/convert-videos-high-quality-gif-ffmpeg/
-        // and who from ACGN☆Taiwan (telegram)
-        if (!fs.existsSync(`./tmp/palette/${id}-${quality}.png`)) {
-            await exec(`ffmpeg -y -i '${mp4_path}' -vf "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos,palettegen" ./tmp/palette/${id}-${quality}.png`)
-        }
-        await exec(`ffmpeg -y -t 30 -i '${mp4_path}' -i ./tmp/palette/${id}-${quality}.png  -filter_complex "fps=24,scale=iw*min(1\\,min(${width}/iw\\,${height}/ih)):-2:flags=lanczos[x];[x][1:v]paletteuse" ./tmp/gif/${id}-${quality}-processing.gif`)
-        // maybe hit cloudflare cache.
-        // when the processing is complete, -processing.gif -> .gif
-        fs.renameSync(`./tmp/gif/${id}-${quality}-processing.gif`, `./tmp/gif/${id}-${quality}.gif`)
-        clean_ugoira_cache(id)
-        ugoira_gif_queue.delete(id)
-    }
-    catch (error) {
-        honsole.warn(error)
-        ugoira_gif_queue.delete(id)
-        if (isStaleMediaError(error)) throw error
-        await sleep(500)
-        return await ugoira_to_gif(id, quality, real_width, real_height, force, retry_time + 1)
-    }
-    // return await detect_ugpira_url(id, `gif-${quality}`)
-    return config.pixiv.ugoiraurl + no_tmp_path
+    })
 }
 /**
  * Check if URL exists (HEAD request)
