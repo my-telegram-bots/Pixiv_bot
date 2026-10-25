@@ -44,7 +44,6 @@ import {
     beginIllustrationRefresh,
     beginIllustrationSend,
     completeIllustration,
-    createIllustrationLifecycle,
     failIllustration,
     recordIllustrationDeliveryFailure,
     replaceRefreshedAlbumItems
@@ -57,7 +56,9 @@ import {
     runWithDeliveryTraceFields,
     updateDeliveryTraceFields
 } from '#handlers/telegram/delivery-telemetry'
+import { notifyFailureOnce, recordFailureNotification } from '#handlers/telegram/failure-notification'
 import {
+    addResolvedIllustration,
     recordOutputQueued,
     recordOutputSent,
     recordPageSent,
@@ -68,6 +69,7 @@ import {
     sendNovels
 } from '#handlers/telegram/tg-sender-secondary-phases'
 import { sendTelegraph } from '#handlers/telegram/tg-sender-telegraph'
+import { deliverAnimation } from '#handlers/telegram/animation-delivery'
 import { cacheUgoiraFileId } from '#handlers/telegram/ugoira-file-id-cache'
 import { runRegularIllustrationFileIdHook } from '#handlers/telegram/regular-illustration-file-id-cache'
 import {
@@ -200,12 +202,6 @@ async function collectIllustrations(bot, config, runtime) {
     }
 }
 
-function addResolvedIllustration(runtime, illust) {
-    const lifecycle = createIllustrationLifecycle(illust)
-    runtime.illusts.push(lifecycle.illust)
-    runtime.lifecycles.set(lifecycle.id, lifecycle)
-}
-
 async function refreshIllustration(runtime, lifecycle, failedPage) {
     if (!beginIllustrationRefresh(lifecycle, failedPage)) {
         return false
@@ -238,9 +234,6 @@ async function refreshIllustration(runtime, lifecycle, failedPage) {
 }
 
 async function notifyIllustrationFailure(bot, runtime, lifecycle) {
-    if (lifecycle.failureNotified) return
-    lifecycle.failureNotified = true
-    if (lifecycle.errorCode === 'TELEGRAM_FLOOD_GATE_ACTIVE') return
     const messages = {
         ILLUSTRATION_REFRESH_ID_MISMATCH: ['illustration_refresh_id_mismatch'],
         PIXIV_MEDIA_REFRESH_FAILED: ['media_refresh_failed'],
@@ -255,11 +248,15 @@ async function notifyIllustrationFailure(bot, runtime, lifecycle) {
     const [key, ...values] = lifecycle.state === IllustrationLifecycleState.NOT_FOUND
         ? ['illust_404']
         : documentMessage || messages[lifecycle.errorCode] || ['media_delivery_failed']
-    await bot.api.sendMessage(
-        runtime.chatId,
-        _l(runtime.ctx.l, key, ...values),
-        runtime.defaultExtra
-    ).catch(() => { })
+    return notifyFailureOnce({
+        lifecycle,
+        logger: honsole,
+        send: () => bot.api.sendMessage(
+            runtime.chatId,
+            _l(runtime.ctx.l, key, ...values),
+            runtime.defaultExtra
+        )
+    })
 }
 
 function failDelivery(lifecycle, result) {
@@ -267,7 +264,7 @@ function failDelivery(lifecycle, result) {
         recoveryUrl: result.recoveryUrl,
         deliveryAttempts: result.attempts
     })
-    if (result.userNotified) lifecycle.failureNotified = true
+    recordFailureNotification(lifecycle, result)
 }
 
 function createMediaExtra(ctx, defaultExtra, illust) {
@@ -338,7 +335,7 @@ async function sendStaticIllustration(bot, runtime, lifecycle, extra) {
                 if (!terminalIllustrationStates.has(lifecycle.state)) {
                     failIllustration(lifecycle, result.code)
                 }
-                if (result.userNotified) lifecycle.failureNotified = true
+                recordFailureNotification(lifecycle, result)
                 await notifyIllustrationFailure(bot, runtime, lifecycle)
                 continue
             }
@@ -420,54 +417,25 @@ async function resolveUgoiraMedia(illust) {
 async function sendUgoiraAnimation(bot, config, runtime, illust, media, extra) {
     const { ctx, chatId } = runtime
     const item = illust.mediagroup[0]
-    let result
-
-    try {
-        result = await bot.api.sendAnimation(chatId, media, {
-            ...extra,
-            caption: item.caption
-        })
-    } catch (error) {
-        if (typeof media === 'string' && media.includes(config.pixiv.ugoiraurl)) {
-            honsole.warn('External ugoira delivery failed, downloading locally')
-            try {
-                const arrayBuffer = await fetch_tmp_file(media)
-                if (!arrayBuffer) {
-                    throw new Error('Failed to download ugoira to memory')
-                }
-                result = await bot.api.sendAnimation(
-                    chatId,
-                    new InputFile(arrayBuffer, `${illust.id}.mp4`),
-                    { ...extra, caption: item.caption }
-                )
-            } catch (downloadError) {
-                honsole.error('Failed to download and send ugoira:', downloadError)
-                const classification = classifyMediaSendError(downloadError)
-                if (!classification.stale) await catchily(downloadError, chatId, ctx.l, {
-                    illustId: illust.id,
-                    page: 0,
-                    method: 'sendAnimation'
-                })
-                return {
-                    kind: classification.stale ? MediaSendKind.STALE_MEDIA : MediaSendKind.FAILED,
-                    code: classification.code,
-                    error: downloadError
-                }
-            }
-        } else {
-            const classification = classifyMediaSendError(error)
-            if (!classification.stale) await catchily(error, chatId, ctx.l, {
-                illustId: illust.id,
-                page: 0,
-                method: 'sendAnimation'
-            })
-            return {
-                kind: classification.stale ? MediaSendKind.STALE_MEDIA : MediaSendKind.FAILED,
-                code: classification.code,
-                error
-            }
-        }
-    }
+    const delivery = await deliverAnimation({
+        media,
+        send: source => bot.api.sendAnimation(chatId, source, { ...extra, caption: item.caption }),
+        allowLocalFallback: typeof media === 'string' && Boolean(config.pixiv.ugoiraurl) &&
+            media.includes(config.pixiv.ugoiraurl),
+        download: async source => {
+            const arrayBuffer = await fetch_tmp_file(source)
+            if (!arrayBuffer) throw new Error('Failed to download ugoira to memory')
+            return new InputFile(arrayBuffer, `${illust.id}.mp4`)
+        },
+        reportError: error => runtime.reportError(error, chatId, ctx.l, {
+            illustId: illust.id,
+            page: 0,
+            method: 'sendAnimation'
+        }),
+        logger: runtime.logger
+    })
+    if (delivery.kind !== MediaSendKind.SENT) return delivery
+    const result = delivery.result
 
     await cacheUgoiraFileId({
         store: db,
@@ -530,6 +498,7 @@ async function sendUgoira(bot, config, runtime, lifecycle, extra) {
             recordOutputSent(lifecycle, 'animation:0')
         } else {
             failureCode = result.code
+            recordFailureNotification(lifecycle, result)
         }
     }
 
@@ -817,6 +786,7 @@ async function failAlbum(bot, runtime, mediaGroup, result) {
     for (const id of new Set(mediaGroup.map(item => item.id))) {
         const lifecycle = runtime.lifecycles.get(id)
         if (!lifecycle) continue
+        recordFailureNotification(lifecycle, result)
         if (terminalIllustrationStates.has(lifecycle.state)) {
             await notifyIllustrationFailure(bot, runtime, lifecycle)
             continue
@@ -965,11 +935,12 @@ export function createTgSender({
                         ctx,
                         writeFileIds
                     )
+                    runtime.logger = logger
                     runtime.reportError = (error, chatId, languageCode, options) => catchily(
                         error,
                         chatId,
                         languageCode,
-                        { ...options, config }
+                        { ...options, config, bot, logger }
                     )
                     return runtime
                 },

@@ -81,7 +81,7 @@ test('Telegram sender implementation stays outside app.js', t => {
 
 test('Telegram sender runner invokes phases in order with one shared runtime', async t => {
     const machine = createTgSenderMachine()
-    const runtime = { requestId: 'request-1' }
+    const runtime = { requestId: 'request-1', lifecycles: new Map(), deliveryErrors: [] }
     const calls = []
     const phase = name => async value => {
         calls.push(name)
@@ -156,4 +156,54 @@ test('Telegram sender result exposes handled delivery failures to callers', t =>
         lifecycles: new Map(),
         deliveryErrors: ['PIXIV_NOVEL_NOT_FOUND']
     }), { ok: false, errorCode: 'PIXIV_NOVEL_NOT_FOUND' })
+})
+
+test('unfinished and completed-with-errors illustrations cannot summarize as success', t => {
+    for (const state of ['ready', 'sending', 'refreshing', 'retrying', 'failed', 'not_found']) {
+        t.deepEqual(summarizeTgSenderResult({
+            lifecycles: new Map([[1, { state, errorCode: null }]]), deliveryErrors: []
+        }), { ok: false, errorCode: 'ILLUSTRATION_SEND_FAILED' })
+    }
+    t.deepEqual(summarizeTgSenderResult({
+        lifecycles: new Map([[1, { state: 'completed', errorCode: 'TELEGRAM_DOCUMENT_SEND_FAILED' }]]),
+        deliveryErrors: []
+    }), { ok: false, errorCode: 'TELEGRAM_DOCUMENT_SEND_FAILED' })
+})
+
+test('concurrent state-machine callers share sends and settled runs cannot replay', async t => {
+    const machine = createTgSenderMachine()
+    const runtime = { lifecycles: new Map(), deliveryErrors: [] }
+    const calls = []
+    const phases = Object.fromEntries([
+        'initialize', 'collectIllustrations', 'sendIllustrations', 'sendNovels', 'notifyFanbox'
+    ].map(name => [name, async () => { calls.push(name); return runtime }]))
+    const first = runTgSenderStateMachine(machine, phases)
+    const second = runTgSenderStateMachine(machine, phases)
+    t.is(first, second)
+    await Promise.all([first, second])
+    t.is(calls.length, 5)
+    await t.throwsAsync(() => runTgSenderStateMachine(machine, phases), {
+        message: /Cannot run Telegram sender in state: completed/
+    })
+    t.is(calls.length, 5)
+    t.is(machine.state, TgSenderState.COMPLETED)
+})
+
+test('handled failure finishes independent phases but settles the machine as failed', async t => {
+    const machine = createTgSenderMachine()
+    const runtime = { lifecycles: new Map(), deliveryErrors: [] }
+    const calls = []
+    await runTgSenderStateMachine(machine, {
+        initialize: async () => runtime,
+        collectIllustrations: async () => {},
+        sendIllustrations: async () => runtime.deliveryErrors.push('TELEGRAM_FORBIDDEN'),
+        sendNovels: async () => calls.push('novels'),
+        notifyFanbox: async () => calls.push('fanbox')
+    })
+    t.deepEqual(calls, ['novels', 'fanbox'])
+    t.is(machine.state, TgSenderState.FAILED)
+    t.deepEqual(summarizeTgSenderResult(runtime), { ok: false, errorCode: 'TELEGRAM_FORBIDDEN' })
+    await t.throwsAsync(() => runTgSenderStateMachine(machine, {}), {
+        message: /Cannot run Telegram sender in state: failed/
+    })
 })

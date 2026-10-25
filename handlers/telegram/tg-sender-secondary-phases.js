@@ -27,10 +27,10 @@ export async function sendNovels(bot, runtime) {
         try {
             await bot.api.sendMessage(chatId, novel.telegraph_url, extra)
         } catch (error) {
-            runtime.deliveryErrors.push(error.code || 'TELEGRAM_NOVEL_SEND_FAILED')
-            await runtime.reportError(error, chatId, ctx.l, {
+            await reportIndependentFailure(runtime, error, {
+                notifyUser: true,
                 method: 'sendNovel',
-                errorCode: error.code || 'TELEGRAM_NOVEL_SEND_FAILED'
+                errorCode: error?.code || 'TELEGRAM_NOVEL_SEND_FAILED'
             })
         }
     }, async error => {

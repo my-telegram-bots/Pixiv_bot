@@ -325,3 +325,36 @@ test('flood report occurrence count is capped and report delivery failure is con
     t.is(warnings.length, 1)
     t.true(warnings[0].join(' ').includes('ADMIN_ERROR_REPORT_FAILED'))
 })
+
+test('an uncertain specific error notice suppresses a later generic duplicate', async t => {
+    const { notifyFailureOnce, recordFailureNotification } = await import('../handlers/telegram/failure-notification.js')
+    const lifecycle = { errorCode: 'TELEGRAM_PERMISSION_DENIED' }
+    let sends = 0
+    const report = await catchily({ error_code: 400, description: 'not enough rights to send' }, 1, 'en', {
+        bot: { api: { sendMessage: async () => { sends++; throw new Error('timeout') } } },
+        logger: quietLogger, masterId: null
+    })
+    t.false(report.userNotified)
+    t.true(report.userNotificationUncertain)
+    recordFailureNotification(lifecycle, report)
+    await notifyFailureOnce({ lifecycle, logger: quietLogger, send: async () => { sends++ } })
+    t.is(sends, 1)
+    t.false(Boolean(lifecycle.failureNotified))
+})
+
+test('a rejected specific notice consumes the first shared notification attempt', async t => {
+    const { notifyFailureOnce, recordFailureNotification } = await import('../handlers/telegram/failure-notification.js')
+    const lifecycle = { errorCode: 'TELEGRAM_PERMISSION_DENIED' }
+    let sends = 0
+    const send = async () => { sends++; throw { error_code: 403 } }
+    const report = await catchily({ error_code: 400, description: 'not enough rights to send' }, 1, 'en', {
+        bot: { api: { sendMessage: send } }, logger: quietLogger, masterId: null
+    })
+    recordFailureNotification(lifecycle, report)
+    await notifyFailureOnce({ lifecycle, logger: quietLogger, send })
+    t.is(sends, 1)
+    await notifyFailureOnce({ lifecycle, logger: quietLogger, send })
+    await notifyFailureOnce({ lifecycle, logger: quietLogger, send })
+    t.is(sends, 2)
+    t.false(Boolean(lifecycle.failureNotified))
+})

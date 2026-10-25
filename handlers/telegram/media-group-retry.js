@@ -4,6 +4,7 @@ import {
     selectMediaRetryType
 } from '#handlers/telegram/media-send-result'
 import { deliveryTraceEvent } from '#handlers/telegram/delivery-telemetry'
+import { canRetryMediaSource, releaseBufferedErrorPayload } from '#handlers/telegram/send-retry-policy'
 
 function traceFailedAttempt(mediaGroup, currentType, attempt, classification) {
     const failedIndex = classification.failedIndex
@@ -30,30 +31,40 @@ export async function runMediaGroupAttempts(options) {
         sendMedia,
         classifyError,
         reportError,
-        maxAttempts = 5
+        maxAttempts = 5,
+        runAttempt = (_type, task) => task()
     } = options
     const queue = [...mediaTypes]
     let lastError
     let lastClassification
     let knownFailedIndex = null
     let attempts = 0
+    let userNotified = false
+    let userNotificationUncertain = false
+    let userNotificationFailed = false
 
     for (let attempt = 1; attempt <= maxAttempts && queue.length > 0; attempt++) {
         attempts = attempt
         const currentType = queue.shift()
+        let phase = 'prepare'
         try {
-            const result = await sendMedia(await buildMedia([...mediaGroup], currentType))
+            const result = await runAttempt(currentType, async () => {
+                const media = await buildMedia([...mediaGroup], currentType)
+                phase = 'send'
+                return sendMedia(media)
+            })
             return { kind: MediaSendKind.SENT, result, attempts: attempt }
         } catch (error) {
             lastError = error
-            let classification = classifyError(error, currentType)
+            let classification = classifyError(error, currentType, phase)
+            releaseBufferedErrorPayload(error)
             if (Number.isInteger(classification.failedIndex)) {
                 knownFailedIndex = classification.failedIndex
             } else if (classification.code === 'TELEGRAM_PHOTO_TOO_LARGE' &&
                 Number.isInteger(knownFailedIndex)) {
                 classification = { ...classification, failedIndex: knownFailedIndex }
             }
-            if (classification.retryRegular) {
+            if (classification.retryRegular && canRetryMediaSource(error, classification, phase)) {
                 const failedItems = Number.isInteger(classification.failedIndex)
                     ? [mediaGroup[classification.failedIndex]]
                     : mediaGroup
@@ -88,37 +99,36 @@ export async function runMediaGroupAttempts(options) {
             } catch {
                 // Reporting must never change transport retry or continuation.
             }
+            userNotified ||= reportResult?.userNotified === true
+            userNotificationUncertain ||= reportResult?.userNotificationUncertain === true
+            userNotificationFailed ||= reportResult?.userNotificationFailed === true
             if (classification.stale) {
                 return {
                     kind: MediaSendKind.STALE_MEDIA,
                     code: classification.code,
                     failedIndex: classification.failedIndex,
                     error,
-                    attempts: attempt
+                    attempts: attempt,
+                    userNotified,
+                    userNotificationUncertain,
+                    userNotificationFailed
                 }
             }
-            if (classification.terminal) {
+            if (!canRetryMediaSource(error, classification, phase)) {
                 return {
                     kind: MediaSendKind.FAILED,
-                    code: classification.code,
+                    code: reportResult?.errorCode || classification.code,
                     failedIndex: classification.failedIndex,
                     error,
-                    attempts: attempt
+                    attempts: attempt,
+                    userNotified,
+                    userNotificationUncertain,
+                    userNotificationFailed
                 }
             }
 
-            if (classification.failedIndex !== null) {
+            if (classification.retryLocal && Number.isInteger(classification.failedIndex)) {
                 queueLocalMediaRetry(mediaGroup, classification.failedIndex, currentType, queue)
-            } else if (reportResult.decision === 'retry_transport') {
-                queue.unshift(currentType)
-            } else if (reportResult.decision === 'terminal') {
-                return {
-                    kind: MediaSendKind.FAILED,
-                    code: classification.code,
-                    error,
-                    userNotified: reportResult.userNotified,
-                    attempts: attempt
-                }
             }
         }
     }
@@ -129,6 +139,9 @@ export async function runMediaGroupAttempts(options) {
         error: lastError,
         failedIndex: lastClassification?.failedIndex,
         attempts,
+        userNotified,
+        userNotificationUncertain,
+        userNotificationFailed,
         exhausted: true,
         lastClassification
     }

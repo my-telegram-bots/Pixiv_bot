@@ -93,7 +93,7 @@ test('+file reaches document delivery and never selects photo mode', async t => 
     t.is(f.sends.length, 1)
 })
 
-test('document upload retries once with a fresh InputFile and invariant options', async t => {
+test('uncertain document upload is not repeated and keeps invariant options', async t => {
     let attempts = 0
     const f = deliveryFixture({
         async sendDocument(file, sendExtra) {
@@ -110,13 +110,12 @@ test('document upload retries once with a fresh InputFile and invariant options'
 
     const result = await deliverDocument(f.fixture)
 
-    t.is(result.kind, 'sent')
-    t.is(result.attempts, 2)
+    t.is(result.kind, 'failed')
+    t.is(result.attempts, 1)
     t.is(f.fetches.length, 1)
-    t.is(f.files.length, 2)
-    t.not(f.files[0], f.files[1])
+    t.is(f.files.length, 1)
+    t.is(f.sends.length, 1)
     t.deepEqual(f.sends[0].extra, f.extra)
-    t.deepEqual(f.sends[1].extra, f.extra)
 })
 
 test('stale download is returned to the illustration lifecycle without a send retry', async t => {
@@ -192,7 +191,7 @@ test('oversized and permission failures are actionable and are not retried', asy
     t.is(deniedResult.attempts, 1)
 })
 
-test('exhausted transient upload returns a stable retry code', async t => {
+test('uncertain upload preserves its existing stable error code without replay', async t => {
     const f = deliveryFixture({
         async sendDocument() {
             const error = new Error('service unavailable')
@@ -205,7 +204,7 @@ test('exhausted transient upload returns a stable retry code', async t => {
 
     t.is(result.kind, 'failed')
     t.is(result.code, 'TELEGRAM_DOCUMENT_RETRY_EXHAUSTED')
-    t.is(result.attempts, 2)
+    t.is(result.attempts, 1)
 })
 
 test('active flood gate stops document retry immediately', async t => {

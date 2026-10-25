@@ -1,11 +1,13 @@
+import { withMediaBufferBudget } from '#handlers/utils/media-buffer-budget'
+import { mediaGroupBufferWeight } from '#handlers/telegram/media-buffer-weight'
+import { deliverPhoto } from '#handlers/telegram/photo-delivery'
 import { getBot } from '../../bot.js'
-import { honsole, fetch_tmp_file, isStaleMediaError } from '../common.js'
+import { honsole, fetch_tmp_file } from '../common.js'
 import { mg_filter } from './mediagroup.js'
 import { InputFile } from 'grammy'
 import {
     MediaSendKind,
-    classifyMediaSendError,
-    queueLocalMediaRetry
+    classifyMediaSendError
 } from './media-send-result.js'
 import { runMediaGroupAttempts } from '#handlers/telegram/media-group-retry'
 import {
@@ -53,24 +55,6 @@ export async function catchily(e, chat_id, language_code = 'en', options = {}) {
 }
 
 /**
- * Mark failed media item and schedule retry with download fallback
- * @param {Array} mg Media group array
- * @param {number} failed_index Failed item index (0-based)
- * @param {string} current_type Current media type that failed
- * @param {Array} mg_type_queue Media type queue to update
- * @returns {boolean} Success status
- */
-export function markFailedMediaItem(mg, failed_index, current_type, mg_type_queue) {
-    if (!queueLocalMediaRetry(mg, failed_index, current_type, mg_type_queue)) {
-        honsole.warn(`Invalid media index ${failed_index + 1}, media group has ${mg.length} items`)
-        return false
-    }
-
-    honsole.log(`Media item #${failed_index + 1} failed with ${current_type}, retrying only that item as a local upload`)
-    return true
-}
-
-/**
  * Send media group with smart retry logic
  * - Parses Telegram error messages to identify specific failed media items
  * - Marks failed items as invalid and retries with local downloads
@@ -98,140 +82,45 @@ export async function sendMediaGroupWithRetry(chat_id, language_code, mg, extra,
         message_thread_id: extra.message_thread_id
     } : {}).catch(() => { })
 
-    if (mg[0].type !== 'document') {
-        const result = await runMediaGroupAttempts({
-            mediaGroup: mg,
-            mediaTypes: mg_type,
-            buildMedia: (mediaGroup, currentType) => mg_filter(mediaGroup, currentType),
-            sendMedia: media => bot.api.sendMediaGroup(chat_id, media, extra),
-            classifyError: classifyMediaSendError,
-            reportError: (error, fields) => {
-                const item = Number.isInteger(fields.failedIndex)
-                    ? mg[fields.failedIndex - 1]
-                    : null
-                return catchily(error, chat_id, language_code, {
-                    ...fields,
-                    illustId: item?.id,
-                    page: item?.p,
-                    method: 'sendMediaGroup'
-                })
+    const documentMode = mg[0].type === 'document'
+    const result = await runMediaGroupAttempts({
+        mediaGroup: mg,
+        mediaTypes: mg_type,
+        maxAttempts: documentMode ? 2 : 5,
+        runAttempt: (type, task) => withMediaBufferBudget(mediaGroupBufferWeight(mg, type), task),
+        buildMedia: (items, type) => mg_filter(items, type),
+        sendMedia: media => bot.api.sendMediaGroup(chat_id, media, extra),
+        classifyError: (error, type, phase) => {
+            const media = classifyMediaSendError(error, type)
+            if (!documentMode) return media
+            const document = classifyDocumentFailure(error, phase === 'prepare' ? 'download' : 'send')
+            return {
+                ...media,
+                retryRegular: false,
+                stale: document.kind === MediaSendKind.STALE_MEDIA,
+                terminal: media.terminal || (!media.retryLocal && document.retryable === false),
+                code: media.retryLocal ? media.code : document.code
             }
-        })
-        if (result.exhausted) {
-            honsole.warn('Media group retry budget exhausted', chat_id, mg.length, 'items')
-        }
-        return result
-    }
-
-    const queue = [...mg_type]
-    let lastError
-    let lastDocumentClassification = null
-    let lastFailedIndex = null
-    let attempts = 0
-    const attemptLimit = mg[0].type === 'document' ? 2 : 5
-    for (let attempt = 1; attempt <= attemptLimit && queue.length > 0; attempt++) {
-        attempts = attempt
-        const currentType = queue.shift()
-        try {
-            const result = await bot.api.sendMediaGroup(chat_id, await mg_filter([...mg], currentType), extra)
-            return { kind: MediaSendKind.SENT, result }
-        } catch (error) {
-            lastError = error
-            const documentMode = mg[0].type === 'document'
-            const mediaClassification = classifyMediaSendError(error)
-            const documentClassification = documentMode
-                ? classifyDocumentFailure(error, currentType.startsWith('dl') ? 'download' : 'send')
-                : null
-            lastDocumentClassification = documentClassification
-            lastFailedIndex = mediaClassification.failedIndex
-            const classification = documentMode
-                ? {
-                    stale: documentClassification.kind === MediaSendKind.STALE_MEDIA,
-                    retryLocal: mediaClassification.retryLocal,
-                    failedIndex: mediaClassification.failedIndex,
-                    code: mediaClassification.retryLocal
-                        ? mediaClassification.code
-                        : documentClassification.code
-                }
-                : mediaClassification
-            const catchResult = await catchily(error, chat_id, language_code, {
+        },
+        reportError: (error, fields) => {
+            const item = Number.isInteger(fields.failedIndex) ? mg[fields.failedIndex - 1] : null
+            return catchily(error, chat_id, language_code, {
+                ...fields,
                 notifyUser: !documentMode,
-                illustId: Number.isInteger(classification.failedIndex)
-                    ? mg[classification.failedIndex]?.id
-                    : undefined,
-                page: Number.isInteger(classification.failedIndex)
-                    ? mg[classification.failedIndex]?.p
-                    : undefined,
-                method: 'sendMediaGroup',
-                attempt,
-                failedIndex: Number.isInteger(classification.failedIndex)
-                    ? classification.failedIndex + 1
-                    : undefined,
-                errorCode: classification.code
+                illustId: item?.id,
+                page: item?.p,
+                method: 'sendMediaGroup'
             })
-            if (classification.stale) {
-                return {
-                    kind: MediaSendKind.STALE_MEDIA,
-                    code: classification.code,
-                    failedIndex: classification.failedIndex,
-                    error,
-                    attempts: attempt
-                }
-            }
-            if (documentMode && !classification.retryLocal &&
-                documentClassification.retryable === false) {
-                const failedItem = mg[classification.failedIndex ?? 0]
-                return {
-                    kind: MediaSendKind.FAILED,
-                    code: documentClassification.code,
-                    error,
-                    failedIndex: classification.failedIndex,
-                    attempts: attempt,
-                    recoveryUrl: publicDocumentRecoveryUrl(
-                        failedItem?.media_o,
-                        config.pixiv.pximgproxy
-                    )
-                }
-            }
-            if (classification.failedIndex !== null) {
-                markFailedMediaItem(mg, classification.failedIndex, currentType, queue)
-            } else if (catchResult.decision === CatchilyDecision.RETRY_TRANSPORT) {
-                queue.unshift(currentType)
-            } else if (catchResult.decision === CatchilyDecision.TERMINAL) {
-                return {
-                    kind: MediaSendKind.FAILED,
-                    code: classification.code,
-                    error,
-                    failedIndex: classification.failedIndex,
-                    attempts: attempt,
-                    userNotified: catchResult.userNotified
-                }
-            }
-        }
+        },
+        exhaustedCode: documentMode ? () => 'TELEGRAM_DOCUMENT_RETRY_EXHAUSTED' : undefined
+    })
+    if (documentMode && result.kind !== MediaSendKind.SENT) {
+        result.recoveryUrl = publicDocumentRecoveryUrl(
+            mg[result.failedIndex ?? 0]?.media_o, config.pixiv.pximgproxy
+        )
     }
-    honsole.warn('Media group retry budget exhausted', chat_id, mg.length, 'items')
-    if (mg[0].type === 'document') {
-        return {
-            kind: MediaSendKind.FAILED,
-            code: lastDocumentClassification?.retryable
-                ? 'TELEGRAM_DOCUMENT_RETRY_EXHAUSTED'
-                : lastDocumentClassification?.code || 'TELEGRAM_DOCUMENT_SEND_FAILED',
-            error: lastError,
-            failedIndex: lastFailedIndex,
-            attempts,
-            recoveryUrl: publicDocumentRecoveryUrl(
-                mg[0]?.media_o,
-                config.pixiv.pximgproxy
-            )
-        }
-    }
-    return {
-        kind: MediaSendKind.FAILED,
-        code: 'TELEGRAM_MEDIA_RETRY_EXHAUSTED',
-        error: lastError,
-        failedIndex: lastFailedIndex,
-        attempts
-    }
+    if (result.exhausted) honsole.warn('Media group retry budget exhausted', chat_id, mg.length, 'items')
+    return result
 }
 
 /**
@@ -253,77 +142,18 @@ export async function sendPhotoWithRetry(chat_id, language_code, photo_urls = []
         message_thread_id: extra.message_thread_id
     } : {}).catch(() => { })
 
-    let lastError
-    let userNotified = false
-    let finalErrorCode = 'TELEGRAM_MEDIA_SEND_FAILED'
-    const candidates = [...photo_urls]
-    const attemptLimit = photo_urls.length + 1
-    let attempts = 0
-    while (attempts < attemptLimit && candidates.length > 0) {
-        attempts++
-        const candidate = candidates.shift()
-        const source = typeof candidate === 'string' ? candidate : candidate.source
-        const candidateType = typeof candidate === 'string' ? undefined : candidate.type
-        const local = typeof candidate === 'string'
-            ? candidate.startsWith('dl-')
-            : candidate.local
-        try {
-            const photo = local
-                ? new InputFile(await fetch_tmp_file(
-                    typeof candidate === 'string' ? source.substring(3) : source
-                ))
-                : source
-            const result = await bot.api.sendPhoto(chat_id, photo, extra)
-            return { kind: MediaSendKind.SENT, result, attempts }
-        } catch (error) {
-            lastError = error
-            let classification = classifyMediaSendError(error, candidateType)
-            if (classification.retryRegular && !candidates.some(item =>
-                typeof item !== 'string' && ['r', 'dlr'].includes(item.type)
-            )) {
-                classification = classifyMediaSendError(error, 'r')
-            }
-            if (classification.retryRegular) continue
-            const catchResult = await catchily(error, chat_id, language_code, {
-                method: 'sendPhoto',
-                attempt: attempts,
-                mediaType: candidateType,
-                errorCode: classification.code
-            })
-            if (classification.stale) {
-                return {
-                    kind: MediaSendKind.STALE_MEDIA,
-                    code: classification.code,
-                    error,
-                    attempts
-                }
-            }
-            if (classification.terminal) {
-                return {
-                    kind: MediaSendKind.FAILED,
-                    code: classification.code,
-                    error,
-                    userNotified: catchResult.userNotified,
-                    attempts
-                }
-            }
-            if (catchResult.decision === CatchilyDecision.RETRY_TRANSPORT) {
-                candidates.unshift(candidate)
-            } else if (catchResult.decision === CatchilyDecision.TERMINAL) {
-                userNotified = catchResult.userNotified
-                finalErrorCode = catchResult.errorCode || classification.code
-                break
-            }
-        }
-    }
-    honsole.warn('error send photo', chat_id, 'candidate count', photo_urls.length)
-    return {
-        kind: MediaSendKind.FAILED,
-        code: finalErrorCode,
-        error: lastError,
-        userNotified,
-        attempts
-    }
+    const candidates = photo_urls.map(candidate => typeof candidate === 'string'
+        ? { source: candidate.startsWith('dl-') ? candidate.substring(3) : candidate, local: candidate.startsWith('dl-') }
+        : candidate)
+    return deliverPhoto({
+        candidates,
+        runAttempt: (candidate, task) => withMediaBufferBudget(candidate.local ? 1 : 0, task),
+        prepare: async candidate => candidate.local
+            ? new InputFile(await fetch_tmp_file(candidate.source))
+            : candidate.source,
+        send: photo => bot.api.sendPhoto(chat_id, photo, extra),
+        reportError: (error, fields) => catchily(error, chat_id, language_code, fields)
+    })
 }
 
 /**
@@ -344,7 +174,7 @@ export async function sendDocumentWithRetry(chat_id, media_o, extra, language_co
         ...extra,
         disable_content_type_detection: true
     }
-    const delivery = await deliverDocument({
+    const delivery = await withMediaBufferBudget(String(media_o).includes('tmp/') ? 0 : 1, () => deliverDocument({
         mediaUrl: media_o,
         extra,
         createLocalInputFile: (path, filename) => new InputFile(path, filename),
@@ -356,7 +186,7 @@ export async function sendDocumentWithRetry(chat_id, media_o, extra, language_co
             method: 'sendDocument',
             notifyUser: false
         })
-    })
+    }))
     delivery.recoveryUrl = publicDocumentRecoveryUrl(
         delivery.recoveryUrl,
         config.pixiv.pximgproxy

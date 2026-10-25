@@ -10,6 +10,7 @@ import {
     telegramTransportAttempts
 } from '#handlers/telegram/delivery-telemetry'
 import { reportAdminDeliveryError } from '#handlers/telegram/delivery-error-report'
+import { isDefiniteTelegramRejection } from '#handlers/telegram/send-retry-policy'
 
 export const CatchilyDecision = Object.freeze({
     NEXT_SOURCE: 'next_source',
@@ -75,24 +76,32 @@ export async function handleTelegramError(e, chatId, languageCode = 'en', option
     })
 
     let userNotified = false
+    let userNotificationUncertain = false
+    let userNotificationFailed = false
+    const sendNotice = (...args) => bot.api.sendMessage(...args).then(() => true, error => {
+        userNotificationFailed = true
+        userNotificationUncertain = !isDefiniteTelegramRejection(error)
+        logTelegramFailure(logger, error, { method: 'sendMessage', errorCode: 'ILLUSTRATION_FAILURE_NOTIFICATION_FAILED' })
+        return false
+    })
     try {
         if (options.notifyUser !== false && description.includes('media_caption_too_long')) {
-            userNotified = await bot.api.sendMessage(
+            userNotified = await sendNotice(
                 chatId,
                 _l(languageCode, 'error_text_too_long'),
                 { parse_mode: 'MarkdownV2' }
-            ).then(() => true, () => false)
+            )
         } else if (options.notifyUser !== false && description.includes("can't parse entities: character")) {
-            userNotified = await bot.api.sendMessage(
+            userNotified = await sendNotice(
                 chatId,
                 _l(languageCode, 'error_format', rawDescription)
-            ).then(() => true, () => false)
+            )
         } else if (options.notifyUser !== false && description.includes('not enough rights to send')) {
-            userNotified = await bot.api.sendMessage(
+            userNotified = await sendNotice(
                 chatId,
                 _l(languageCode, 'error_not_enough_rights'),
                 { parse_mode: 'MarkdownV2' }
-            ).then(() => true, () => false)
+            )
         } else if (description.includes('message thread not found')) {
             logger.log('Message thread not found, skipping message')
         } else if (description.includes('too many requests')) {
@@ -102,7 +111,10 @@ export async function handleTelegramError(e, chatId, languageCode = 'en', option
     } catch (error) {
         logTelegramFailure(logger, error)
     }
-    return { decision, userNotified, errorCode }
+    return {
+        decision, userNotified, errorCode,
+        ...(userNotificationFailed && { userNotificationFailed, userNotificationUncertain })
+    }
 }
 
 function scheduleRefetch(error, description, refetchApi, logger) {

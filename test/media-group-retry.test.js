@@ -38,6 +38,7 @@ test('album item #7 curl failure retries only item #7 as a local upload', async 
             sendCount += 1
             if (sendCount === 1) {
                 throw {
+                    error_code: 400,
                     description: "Bad Request: failed to send message #7 with the error message 'WEBPAGE_CURL_FAILED'"
                 }
             }
@@ -113,6 +114,7 @@ test('oversized local original retries the same album with Pixiv regular without
         sendMedia: async media => {
             if (attemptedTypes.at(-1) === 'dlo') {
                 throw {
+                    error_code: 400,
                     description: 'Bad Request: file of size 3 bytes is too big for a photo; the maximum size is 10485760 bytes',
                     payload: { media }
                 }
@@ -157,11 +159,13 @@ test('oversized regular preserves the original failed album item and reports onl
         sendMedia: async media => {
             if (attemptedTypes.at(-1) === 'dlo') {
                 throw {
+                    error_code: 400,
                     description: 'Bad Request: file of size 3 bytes is too big for a photo; the maximum size is 10485760 bytes',
                     payload: { media }
                 }
             }
             throw {
+                error_code: 400,
                 description: 'Bad Request: file of size 3 bytes is too big for a photo; the maximum size is 10485760 bytes'
             }
         },
@@ -196,7 +200,7 @@ test('reporting failure cannot block local retry of the failed album item', asyn
         sendMedia: async () => {
             sends++
             if (sends === 1) {
-                throw { description: 'failed to send message #1 with WEBPAGE_CURL_FAILED' }
+                throw { error_code: 400, description: 'failed to send message #1 with WEBPAGE_CURL_FAILED' }
             }
             return [{ message_id: 1 }]
         },
@@ -217,7 +221,7 @@ test('exhausted retry preserves actual attempts, code, and failed item', async t
         maxAttempts: 1,
         buildMedia: async items => items,
         sendMedia: async () => {
-            throw { description: 'failed to send message #1 with WEBPAGE_CURL_FAILED' }
+            throw { error_code: 400, description: 'failed to send message #1 with WEBPAGE_CURL_FAILED' }
         },
         classifyError: classifyMediaSendError,
         reportError: async () => ({

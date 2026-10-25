@@ -1,5 +1,10 @@
 # Documentation
 
+## Telegram Delivery
+
+- **[DELIVERY_LIFECYCLE.md](./DELIVERY_LIFECYCLE.md)** - Sender state, error recovery,
+  update ownership, shutdown, and validation boundaries.
+
 ## PostgreSQL Migration
 
 This directory contains documentation related to the MongoDB → PostgreSQL migration.

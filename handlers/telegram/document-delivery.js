@@ -1,4 +1,5 @@
 import { MediaSendKind } from '#handlers/telegram/media-send-result'
+import { releaseBufferedErrorPayload } from '#handlers/telegram/send-retry-policy'
 
 const terminalDescriptions = Object.freeze({
     permission: ['forbidden:', 'not enough rights to send', 'chat write forbidden'],
@@ -82,9 +83,9 @@ export function classifyDocumentFailure(error, phase = 'send') {
     return {
         kind: MediaSendKind.FAILED,
         code: retryable ? 'TELEGRAM_DOCUMENT_RETRY_EXHAUSTED' : 'TELEGRAM_DOCUMENT_SEND_FAILED',
-        // Preserve the former one-retry behavior for unknown Telegram transport
-        // failures while excluding failures that require user action.
-        retryable: retryable || status === undefined
+        // Rate-limit retries are owned by the transport. Uncertain sends must
+        // never be replayed here, including timeouts and server failures.
+        retryable: false
     }
 }
 
@@ -95,8 +96,7 @@ export async function deliverDocument({
     fetchRemoteFile,
     createBufferedInputFile,
     sendDocument,
-    reportError = async () => {},
-    maxSendAttempts = 2
+    reportError = async () => {}
 }) {
     const filename = String(mediaUrl || '').slice(String(mediaUrl || '').lastIndexOf('/') + 1)
     let createInputFile
@@ -117,37 +117,23 @@ export async function deliverDocument({
         return { ...classification, error, recoveryUrl: mediaUrl, attempts: 0 }
     }
 
-    let lastError
-    const attemptLimit = Math.max(1, maxSendAttempts)
-    for (let attempt = 1; attempt <= attemptLimit; attempt++) {
+    try {
+        const result = await sendDocument(createInputFile(), extra)
+        return { kind: MediaSendKind.SENT, result, attempts: 1 }
+    } catch (error) {
+        const classification = classifyDocumentFailure(error, 'send')
+        releaseBufferedErrorPayload(error)
         try {
-            const result = await sendDocument(createInputFile(), extra)
-            return { kind: MediaSendKind.SENT, result, attempts: attempt }
-        } catch (error) {
-            lastError = error
-            const classification = classifyDocumentFailure(error, 'send')
-            try {
-                await reportError(error, { attempt, errorCode: classification.code })
-            } catch {
-                // Reporting must never change document recovery or retry.
-            }
-            if (!classification.retryable || attempt === attemptLimit) {
-                return {
-                    ...classification,
-                    retryable: undefined,
-                    error,
-                    recoveryUrl: mediaUrl,
-                    attempts: attempt
-                }
-            }
+            await reportError(error, { attempt: 1, errorCode: classification.code })
+        } catch {
+            // Reporting must never change document recovery.
         }
-    }
-
-    return {
-        kind: MediaSendKind.FAILED,
-        code: 'TELEGRAM_DOCUMENT_RETRY_EXHAUSTED',
-        error: lastError,
-        recoveryUrl: mediaUrl,
-        attempts: attemptLimit
+        return {
+            ...classification,
+            retryable: undefined,
+            error,
+            recoveryUrl: mediaUrl,
+            attempts: 1
+        }
     }
 }

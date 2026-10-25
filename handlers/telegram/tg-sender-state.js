@@ -63,7 +63,22 @@ export function failTgSender(machine) {
     return transitionTgSender(machine, TgSenderState.FAILED)
 }
 
-export async function runTgSenderStateMachine(machine, phases) {
+const activeRuns = new WeakMap()
+
+export function runTgSenderStateMachine(machine, phases) {
+    if (activeRuns.has(machine)) return activeRuns.get(machine)
+    if (machine?.state !== TgSenderState.INITIALIZING) {
+        return Promise.reject(new Error(`Cannot run Telegram sender in state: ${machine?.state}`))
+    }
+    // Register before invoking any phase, including synchronous initialization.
+    const run = Promise.resolve().then(() => executeTgSender(machine, phases)).finally(() => {
+        activeRuns.delete(machine)
+    })
+    activeRuns.set(machine, run)
+    return run
+}
+
+async function executeTgSender(machine, phases) {
     try {
         const runtime = await phases.initialize()
         transitionTgSender(machine, TgSenderState.COLLECTING_ILLUSTRATIONS)
@@ -74,7 +89,9 @@ export async function runTgSenderStateMachine(machine, phases) {
         await phases.sendNovels(runtime)
         transitionTgSender(machine, TgSenderState.NOTIFYING_FANBOX)
         await phases.notifyFanbox(runtime)
-        transitionTgSender(machine, TgSenderState.COMPLETED)
+        transitionTgSender(machine, summarizeTgSenderResult(runtime).ok
+            ? TgSenderState.COMPLETED
+            : TgSenderState.FAILED)
         return runtime
     } catch (error) {
         failTgSender(machine)
@@ -84,8 +101,10 @@ export async function runTgSenderStateMachine(machine, phases) {
 
 export function summarizeTgSenderResult(runtime) {
     const failedIllustration = [...runtime.lifecycles.values()].find(
-        lifecycle => lifecycle.state !== 'completed'
+        lifecycle => lifecycle.errorCode || lifecycle.state !== 'completed'
     )
-    const errorCode = failedIllustration?.errorCode || runtime.deliveryErrors[0] || null
+    const errorCode = failedIllustration?.errorCode || runtime.deliveryErrors[0] || (
+        failedIllustration ? 'ILLUSTRATION_SEND_FAILED' : null
+    )
     return { ok: errorCode === null, errorCode }
 }

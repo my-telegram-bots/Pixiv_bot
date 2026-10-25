@@ -1,16 +1,13 @@
 import { format } from './format.js'
 import { asyncForEach, fetch_tmp_file, honsole, isStaleMediaError } from '../common.js'
-import { detect_ugpira_url, detect_ugpira_file, ugoira_to_mp4 } from '../pixiv/tools.js'
+import { detect_ugpira_file, ugoira_to_mp4 } from '../pixiv/tools.js'
 import { InputFile } from 'grammy'
-import config from '../../config.js'
 import { selectMediaRetryType } from '#handlers/telegram/media-send-result'
+import { prepareMediaBatch } from '#handlers/telegram/media-buffer-weight'
 
 export async function mg_create(illust, us) {
     let mediagroups = []
     if (illust) {
-        if (illust.type == 2) {
-            ugoira_to_mp4(illust)
-        }
         await asyncForEach(illust.imgs_.size, async (size, pid) => {
             let mediagroup_data = {
                 type: 'photo',
@@ -40,16 +37,10 @@ export async function mg_create(illust, us) {
                 mediagroup_data.media_o = illust.imgs_.original_urls[pid]
                 mediagroup_data.media_r = illust.imgs_.regular_urls[pid]
             } else if (illust.type == 2) {
-                let url = await detect_ugpira_url(illust, 'mp4')
-                // For local conversion: wait if mp4 doesn't exist yet
-                // For remote conversion: URL is always available (tensei handles on-demand)
-                if (!url && !config.pixiv.ugoira_remote) {
-                    honsole.log('Ugoira mp4 not ready, waiting for local conversion:', illust.id)
-                    url = await ugoira_to_mp4(illust)
-                    if (!url) {
-                        honsole.warn('Ugoira local conversion failed:', illust.id)
-                        return // Skip adding this to mediagroups
-                    }
+                const url = await ugoira_to_mp4(illust)
+                if (!url) {
+                    honsole.warn('Ugoira local conversion failed:', illust.id)
+                    return // Skip adding this to mediagroups
                 }
 
                 mediagroup_data = {
@@ -133,7 +124,7 @@ export async function mg_filter(mg, type = 't') {
     honsole.dev('filter_type', type)
 
     // Parallel processing for better performance (especially when downloading files)
-    const results = await Promise.all(mg.map(async (x) => {
+    return prepareMediaBatch(mg, async (x) => {
         let xx = {
             type: x.type
         }
@@ -208,7 +199,5 @@ export async function mg_filter(mg, type = 't') {
             }
         }
         return xx
-    }))
-
-    return results
+    })
 }

@@ -1,3 +1,4 @@
+import { MEDIA_BUFFER_POLICY, withMediaDownloadSlot } from '#handlers/utils/media-buffer-budget'
 import axios from 'axios'
 import config from '#config'
 import fs from 'fs'
@@ -377,7 +378,11 @@ export async function download_file(url, id, force = false) {
  * @param {*} url
  * @returns arraybuffer
  */
-export async function fetch_tmp_file(url) {
+export function fetch_tmp_file(url) {
+    return withMediaDownloadSlot(1, () => fetchBufferedMedia(url))
+}
+
+async function fetchBufferedMedia(url) {
     try {
         const response = await axios.get(url, {
             responseType: 'arraybuffer',
@@ -387,8 +392,8 @@ export async function fetch_tmp_file(url) {
                 'Referer': 'https://www.pixiv.net/'
             },
             timeout: 30000, // 30 second timeout
-            maxContentLength: 50 * 1024 * 1024, // 50MB limit for in-memory fetch
-            maxBodyLength: 50 * 1024 * 1024
+            maxContentLength: MEDIA_BUFFER_POLICY.fileBytes, // Shared per-file budget
+            maxBodyLength: MEDIA_BUFFER_POLICY.fileBytes
         })
 
         // Log warning if file is large (>20MB in memory)

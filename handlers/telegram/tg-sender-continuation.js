@@ -1,9 +1,11 @@
 import {
     IllustrationLifecycleState,
+    createIllustrationLifecycle,
     markIllustrationOutputQueued,
     markIllustrationOutputSent,
     markIllustrationPageSent
 } from '#handlers/telegram/illustration-lifecycle'
+import { logTelegramFailure } from '#handlers/telegram/delivery-telemetry'
 
 const terminalStates = new Set([
     IllustrationLifecycleState.COMPLETED,
@@ -28,18 +30,33 @@ export function recordOutputQueued(lifecycle, output) {
 
 export async function reportIndependentFailure(runtime, error, fields = {}) {
     const errorCode = fields.errorCode || error?.code || 'UNEXPECTED_PROCESSING_FAILURE'
+    const errorIndex = runtime.deliveryErrors.length
     runtime.deliveryErrors.push(errorCode)
-    const result = await runtime.reportError(error, runtime.chatId, runtime.ctx.l, {
-        notifyUser: false,
-        illustIds: fields.illustIds,
-        illustId: fields.illustId,
-        page: fields.page,
-        method: fields.method,
-        errorCode,
-        failedIndex: fields.failedIndex,
-        attempt: fields.attempt
-    })
-    return result.errorCode
+    try {
+        const result = await runtime.reportError(error, runtime.chatId, runtime.ctx.l, {
+            notifyUser: false,
+            ...fields,
+            errorCode
+        })
+        const reportedCode = result?.errorCode || errorCode
+        runtime.deliveryErrors[errorIndex] = reportedCode
+        return reportedCode
+    } catch (reportError) {
+        // Reporting is secondary to delivery; keep both failures observable locally.
+        logTelegramFailure(runtime.logger, error, { ...fields, errorCode })
+        logTelegramFailure(runtime.logger, reportError, {
+            ...fields,
+            errorCode: 'ADMIN_ERROR_REPORT_FAILED'
+        })
+        return errorCode
+    }
+}
+
+export function addResolvedIllustration(runtime, illust) {
+    const lifecycle = createIllustrationLifecycle(illust)
+    if (runtime.lifecycles.has(lifecycle.id)) return
+    runtime.illusts.push(lifecycle.illust)
+    runtime.lifecycles.set(lifecycle.id, lifecycle)
 }
 
 export async function runIndependentDeliveryItems(items, handler, onFailure) {
