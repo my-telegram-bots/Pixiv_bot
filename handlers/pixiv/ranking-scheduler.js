@@ -12,6 +12,8 @@ class RankingScheduler {
         this.isRunning = false
         this.nextTimer = null
         this.retryTimer = null
+        this.activeTask = null
+        this.isStopped = true
         this.updateHour = 8 // GMT+9 08:00
         this.retryInterval = 10 * 60 * 1000 // 10 minutes
     }
@@ -83,6 +85,7 @@ class RankingScheduler {
      * @returns {Promise<boolean>} Success status
      */
     async fetchRanking() {
+        if (this.isStopped) return false
         if (this.isRunning) {
             honsole.log('[RankingScheduler] Already running, skipping')
             return false
@@ -99,6 +102,7 @@ class RankingScheduler {
 
             // Fetch pages 1-10
             for (let page = 1; page <= totalPages; page++) {
+                if (this.isStopped) return false
                 try {
                     const result = await ranking(page, 'daily')
 
@@ -141,6 +145,8 @@ class RankingScheduler {
             honsole.error('[RankingScheduler] Error fetching ranking:', error)
             this.isRunning = false
             return false
+        } finally {
+            this.isRunning = false
         }
     }
 
@@ -148,10 +154,12 @@ class RankingScheduler {
      * Execute ranking update task with retry logic
      */
     async executeTask() {
+        if (this.isStopped) return
         honsole.log('[RankingScheduler] Executing ranking update task')
 
         // Check if cache already exists
         const hasCache = await this.hasTodayCache()
+        if (this.isStopped) return
         if (hasCache) {
             honsole.log('[RankingScheduler] Today\'s ranking already cached, skipping')
             this.scheduleNext()
@@ -160,6 +168,7 @@ class RankingScheduler {
 
         // Try to fetch ranking
         const success = await this.fetchRanking()
+        if (this.isStopped) return
 
         if (success) {
             honsole.log('[RankingScheduler] Ranking update completed successfully')
@@ -168,7 +177,7 @@ class RankingScheduler {
             // Retry after 10 minutes
             honsole.log(`[RankingScheduler] Ranking update failed, retrying in ${this.retryInterval / 60000} minutes`)
             this.retryTimer = setTimeout(() => {
-                this.executeTask()
+                this.runTask()
             }, this.retryInterval)
         }
     }
@@ -177,6 +186,7 @@ class RankingScheduler {
      * Schedule next daily update
      */
     scheduleNext() {
+        if (this.isStopped) return
         // Clear any existing timers
         if (this.nextTimer) {
             clearTimeout(this.nextTimer)
@@ -191,14 +201,23 @@ class RankingScheduler {
         honsole.log(`[RankingScheduler] Next update scheduled at ${nextTime.toISOString()} (in ${Math.round(delay / 1000 / 60)} minutes)`)
 
         this.nextTimer = setTimeout(() => {
-            this.executeTask()
+            this.runTask()
         }, delay)
+    }
+
+    runTask() {
+        if (this.isStopped || this.activeTask) return this.activeTask
+        this.activeTask = this.executeTask().finally(() => {
+            this.activeTask = null
+        })
+        return this.activeTask
     }
 
     /**
      * Start the scheduler
      */
     async start() {
+        this.isStopped = false
         honsole.log('[RankingScheduler] Starting ranking scheduler')
 
         // IMPORTANT: Never run ranking fetch immediately at startup
@@ -211,7 +230,8 @@ class RankingScheduler {
     /**
      * Stop the scheduler
      */
-    stop() {
+    async stop() {
+        this.isStopped = true
         if (this.nextTimer) {
             clearTimeout(this.nextTimer)
             this.nextTimer = null
@@ -221,6 +241,7 @@ class RankingScheduler {
             this.retryTimer = null
         }
         honsole.log('[RankingScheduler] Scheduler stopped')
+        await this.activeTask
     }
 }
 

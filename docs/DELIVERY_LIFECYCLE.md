@@ -19,6 +19,11 @@
   limits must not trigger another upload with an uncertain delivery outcome.
   Existing transport retry limits remain in force. Each failure is reported once,
   and a successful specific error notice suppresses the generic duplicate notice.
+- Channel and bootstrap middleware await downstream processing. Private and group
+  dispatch await sending and any error notice, so errors and completion stay owned
+  by the update runner. Shutdown drains that runner and active ranking/prewarm
+  tasks before closing PostgreSQL; repeated signals share one shutdown. Stopped
+  ranking tasks cannot schedule another run.
 
 ## Recovery and resource ownership
 
@@ -45,7 +50,8 @@
 
 Exercise state transitions, partial failure summaries, reporter rejection,
 duplicate collection, remote-media fallback decisions, and channel middleware
-completion/error propagation with deterministic tests. These local tests do not establish
+completion/error propagation with deterministic tests. Runner lifecycle tests
+must cover active work and repeated shutdown. These local tests do not establish
 delivery to Telegram or deployment recovery.
 
 Live acceptance requires an authorized test chat and configured bot/Pixiv

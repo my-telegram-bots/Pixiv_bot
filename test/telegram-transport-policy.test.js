@@ -117,10 +117,11 @@ test('long shared flood deadline fails fast without another Telegram request', a
     t.is(TELEGRAM_FLOOD_GATE_ACTIVE, 'TELEGRAM_FLOOD_GATE_ACTIVE')
 })
 
-test('application starts the concurrent runner with the explicit update budget', t => {
+test('application starts and retains the concurrent runner with the explicit update budget', t => {
     const source = readFileSync(new URL('../app.js', import.meta.url), 'utf8')
 
-    t.true(source.includes('grammyjsRun(bot, TELEGRAM_UPDATE_CONCURRENCY)'))
+    t.true(source.includes('updateRunner = grammyjsRun(bot, {'))
+    t.true(source.includes('sink: { concurrency: TELEGRAM_UPDATE_CONCURRENCY }'))
     t.false(source.includes('sequentialize('))
 })
 

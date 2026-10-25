@@ -63,9 +63,9 @@ export function createBot(config) {
     bot.api.config.use(createTelegramQueueTraceTransformer())
 
     // Handle channel posts
-    bot.on('channel_post', (ctx, next) => {
+    bot.on('channel_post', async (ctx, next) => {
         ctx.update.message = ctx.update.channel_post
-        next()
+        return await next()
     })
 
     botInstance = bot

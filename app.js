@@ -23,6 +23,7 @@ import { createChatLinkStore } from '#handlers/telegram/chat-link-store'
 import { createLinkLifecycle } from '#handlers/telegram/link-lifecycle'
 import { detect_ugpira_url } from '#handlers/pixiv/tools'
 import { createTgSender } from '#handlers/telegram/tg-sender'
+import { createSourceMessageDispatcher } from '#handlers/telegram/source-message-dispatch'
 import { catchily } from '#handlers/telegram/sender'
 import { renderUserFacingError } from '#handlers/telegram/user-facing-error'
 import {
@@ -42,6 +43,8 @@ import {
     guestMediaCacheStartupMessage
 } from '#handlers/telegram/guest-media-prewarmer'
 import { createBot, getBot } from './bot.js'
+import { createUpdateRunnerLifecycle } from './update-runner-lifecycle.js'
+import { logTelegramFailure } from '#handlers/telegram/delivery-telemetry'
 import { FileCleaner } from '#handlers/utils/file-cleaner'
 import illustService from '#handlers/pixiv/illust-service'
 import { rankingScheduler } from '#handlers/pixiv/ranking-scheduler'
@@ -77,6 +80,12 @@ const tg_sender = createTgSender({
     writeFileIds: process.env.DBLESS ? undefined : persistRegularIllustrationFileIds
 })
 const linkStore = createChatLinkStore({ getPool })
+const dispatchSourceMessage = createSourceMessageDispatcher({
+    bot,
+    send: tg_sender,
+    reportError: reportApplicationError,
+    renderError: renderUserFacingError
+})
 const linkLifecycle = createLinkLifecycle({ bot, linkStore, tgSender: tg_sender, logger: honsole })
 const inlineQueryHandler = createInlineQueryHandler({
     illustService,
@@ -114,15 +123,22 @@ const guestQueryHandler = createGuestQueryHandler({
 console.log('✓ Telegram bot instance created')
 
 async function reportApplicationError(error, fields = {}) {
-    await catchily(error, fields.chatId, fields.languageCode || 'en', {
-        config,
-        notifyUser: false,
-        illustIds: fields.illustIds,
-        illustId: fields.illustId,
-        page: fields.page,
-        method: fields.method || 'tgSender',
-        errorCode: fields.errorCode
-    })
+    try {
+        await catchily(error, fields.chatId, fields.languageCode || 'en', {
+            config,
+            notifyUser: false,
+            illustIds: fields.illustIds,
+            illustId: fields.illustId,
+            page: fields.page,
+            method: fields.method || 'tgSender',
+            errorCode: fields.errorCode
+        })
+        return true
+    } catch (reportError) {
+        logTelegramFailure(honsole, error, fields)
+        logTelegramFailure(honsole, reportError, { method: 'applicationErrorReport' })
+        return false
+    }
 }
 
 // Initialize file cleaner for temporary files only
@@ -134,6 +150,24 @@ const fileCleaner = new FileCleaner({
 })
 fileCleaner.start()
 console.log('✓ File cleanup scheduler started (temp files only, MP4 files preserved)')
+
+let updateRunner = null
+let startupPromise = null
+const updateRunnerLifecycle = createUpdateRunnerLifecycle({
+    getRunner: () => updateRunner,
+    stopBackground: async () => {
+        const results = await Promise.allSettled([
+            () => rankingScheduler.stop(),
+            () => fileCleaner.stop(),
+            () => linkLifecycle.dispose(),
+            () => guestMediaPrewarmer.stop()
+        ].map(stop => Promise.resolve().then(stop)))
+        const failures = results.filter(result => result.status === 'rejected')
+        if (failures.length) throw new AggregateError(failures.map(result => result.reason))
+    },
+    waitForStartup: () => startupPromise,
+    closeDatabase: db_close
+})
 
 // step 0 initial some necessary variables
 bot.use(async (ctx, next) => {
@@ -181,7 +215,7 @@ bot.use(async (ctx, next) => {
         ctx.chat_id = ctx.callbackQuery.message.chat.id
         ctx.user_id = ctx.callbackQuery.from.id
     }
-    next()
+    return await next()
 })
 
 // Guest messages must terminate here: grammY also includes them in :text/:caption.
@@ -272,47 +306,6 @@ bot.use(async (ctx, next) => {
     }
 })
 
-async function dispatchSourceMessage(ctx, chatId) {
-    if (ctx.ids && (ctx.ids.illust.length > 0 || ctx.ids.novel.length > 0)) {
-        if (chatId > 0) {
-            const action = ctx.ids.illust.length > 0 ? 'upload_photo' : 'typing'
-            bot.api.sendChatAction(chatId, action, ctx.default_extra.message_thread_id ? {
-                message_thread_id: ctx.default_extra.message_thread_id
-            } : {}).catch(() => { })
-            tg_sender(ctx).catch(error => {
-                reportApplicationError(error, {
-                    chatId,
-                    languageCode: ctx.l,
-                    illustIds: ctx.ids?.illust
-                }).catch(() => { })
-                bot.api.sendMessage(chatId, renderUserFacingError(ctx.l, error), ctx.default_extra).catch(() => { })
-            })
-            return
-        }
-        try {
-            await tg_sender(ctx)
-        } catch (error) {
-            await reportApplicationError(error, {
-                chatId,
-                languageCode: ctx.l,
-                illustIds: ctx.ids?.illust
-            })
-            bot.api.sendMessage(chatId, renderUserFacingError(ctx.l, error), ctx.default_extra).catch(() => { })
-        }
-        return
-    }
-    try {
-        await tg_sender(ctx)
-    } catch (error) {
-        await reportApplicationError(error, {
-            chatId,
-            languageCode: ctx.l,
-            illustIds: ctx.ids?.illust
-        })
-        bot.api.sendMessage(chatId, renderUserFacingError(ctx.l, error), ctx.default_extra).catch(() => { })
-    }
-}
-
 bot.on([':text', ':caption'], async (ctx) => {
     const chatId = ctx.chat_id
     if (ctx.command === 's' || ctx.text.substring(0, 3) === 'eyJ') {
@@ -347,7 +340,10 @@ bot.catch(async (e) => {
     })
 })
 
-db.db_initial(config).then(async () => {
+startupPromise = db.db_initial(config).then(async () => {
+    if (updateRunnerLifecycle.isStopping()) {
+        return
+    }
     // Check and apply database migrations
     if (!process.env.DBLESS) {
         const pool = getPool()
@@ -381,45 +377,42 @@ db.db_initial(config).then(async () => {
     if (process.argv[1].includes('cron')) {
         return
     }
-    bot.init().then(async () => {
-        const guestMode = guestModeStartupMessage(bot.botInfo)
-        console[guestMode.enabled ? 'log' : 'warn'](guestMode.message)
-        const guestMediaCache = guestMediaCacheStartupMessage(guestMediaCacheChatIds)
-        console[guestMediaCache.enabled ? 'log' : 'warn'](guestMediaCache.message)
-        // Initialize memory monitor with bot instance
-        memoryMonitor.init(bot, config.tg.master_id)
-        console.log('✓ Memory monitor initialized')
-
-        // Initialize ranking scheduler (skip in dbless mode)
-        if (!process.env.DBLESS) {
-            rankingScheduler.start()
-            console.log('✓ Ranking scheduler initialized')
-        } else {
-            console.log('⚠ Ranking scheduler skipped (DBLESS mode)')
-        }
-
-        grammyjsRun(bot, TELEGRAM_UPDATE_CONCURRENCY)
-
-        console.log(new Date(), `bot @${bot.botInfo.username} started!`)
-        bot.api.sendMessage(config.tg.master_id, `${new Date().toString()} bot started!`).catch(() => { })
-    }).catch((e) => {
-        console.error('You are offline or bad bot token', e)
-        process.exit()
-    })
-    if (config.web.enabled && !process.env.WEBLESS) {
-        import('./web.js')
+    await bot.init()
+    if (updateRunnerLifecycle.isStopping()) {
+        return
     }
+    const guestMode = guestModeStartupMessage(bot.botInfo)
+    console[guestMode.enabled ? 'log' : 'warn'](guestMode.message)
+    const guestMediaCache = guestMediaCacheStartupMessage(guestMediaCacheChatIds)
+    console[guestMediaCache.enabled ? 'log' : 'warn'](guestMediaCache.message)
+    // Initialize memory monitor with bot instance
+    memoryMonitor.init(bot, config.tg.master_id)
+    console.log('✓ Memory monitor initialized')
+
+    // Initialize ranking scheduler (skip in dbless mode)
+    if (!process.env.DBLESS) {
+        rankingScheduler.start()
+        console.log('✓ Ranking scheduler initialized')
+    } else {
+        console.log('⚠ Ranking scheduler skipped (DBLESS mode)')
+    }
+
+    updateRunner = grammyjsRun(bot, {
+        sink: { concurrency: TELEGRAM_UPDATE_CONCURRENCY }
+    })
+
+    console.log(new Date(), `bot @${bot.botInfo.username} started!`)
+    bot.api.sendMessage(config.tg.master_id, `${new Date().toString()} bot started!`).catch(() => { })
+    if (config.web.enabled && !process.env.WEBLESS) {
+        await import('./web.js')
+    }
+}).catch(error => {
+    if (updateRunnerLifecycle.isStopping()) {
+        return
+    }
+    logTelegramFailure(honsole, error, { method: 'botStartup' })
+    process.exit(1)
 })
 
-// Graceful shutdown
-async function shutdown(signal) {
-    console.log(`${signal} received, shutting down gracefully...`)
-    linkLifecycle.dispose()
-    await guestMediaPrewarmer.stop()
-    bot.stop(signal)
-    await db_close()
-    process.exit(0)
-}
-
-process.on('SIGTERM', () => shutdown('SIGTERM'))
-process.on('SIGINT', () => shutdown('SIGINT'))
+process.on('SIGTERM', () => updateRunnerLifecycle.shutdown('SIGTERM'))
+process.on('SIGINT', () => updateRunnerLifecycle.shutdown('SIGINT'))
