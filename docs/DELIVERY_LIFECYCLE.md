@@ -50,6 +50,11 @@
   error or server error after a send starts is not proof that delivery failed.
   Such errors end that output attempt without another send. Preparation errors
   can use another source because no Telegram send has started.
+- Album recovery must reach a complete local-upload attempt within its existing
+  retry budget after explicit remote-media rejection. Per-item fallback must not
+  consume every attempt while leaving other rejected remote URLs in the batch.
+  This includes appended original-file albums and mixed-work albums with uncached
+  multi-page illustrations; keep every item in its original work/page order.
 - Error notices distinguish pending, sent, failed, and suppressed. Concurrent
   notices share one attempt. Only confirmed delivery sets `failureNotified`.
   An uncertain notification outcome is not replayed. A definite rejection may

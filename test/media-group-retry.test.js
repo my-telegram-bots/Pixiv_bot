@@ -10,6 +10,100 @@ import {
 import {
     runMediaGroupAttempts
 } from '../handlers/telegram/media-group-retry.js'
+import { mediaGroupBufferWeight } from '../handlers/telegram/media-buffer-weight.js'
+
+async function rejectRemoteAlbumItems({ mediaGroup, mediaTypes, maxAttempts, indexed = true }) {
+    const attempts = []
+    const reservations = []
+    const result = await runMediaGroupAttempts({
+        mediaGroup,
+        mediaTypes,
+        maxAttempts,
+        runAttempt: (type, task) => {
+            reservations.push(mediaGroupBufferWeight(mediaGroup, type))
+            return task()
+        },
+        buildMedia: async (items, requestedType) => items.map(item => ({
+            id: item.id,
+            p: item.p,
+            media: item.media_t || (selectMediaRetryType(item, requestedType).startsWith('dl')
+                ? new InputFile(Buffer.from(`${item.id}:${item.p}`), `${item.id}_p${item.p}.jpg`)
+                : item.media_r || item.media_o)
+        })),
+        sendMedia: async media => {
+            attempts.push(media)
+            const failedIndex = media.findIndex(item =>
+                typeof item.media === 'string' && item.media.startsWith('https://'))
+            if (failedIndex >= 0) {
+                throw {
+                    error_code: 400,
+                    description: indexed
+                        ? `Bad Request: failed to send message #${failedIndex + 1} with the error message 'WEBPAGE_CURL_FAILED'`
+                        : 'Bad Request: WEBPAGE_CURL_FAILED'
+                }
+            }
+            return media.map((_, index) => ({ message_id: index + 1 }))
+        },
+        classifyError: classifyMediaSendError,
+        reportError: async (_error, fields) => ({ errorCode: fields.errorCode })
+    })
+    return { result, attempts, reservations }
+}
+
+test('two appended originals reach a complete upload within the two-attempt budget', async t => {
+    const { result, attempts, reservations } = await rejectRemoteAlbumItems({
+        mediaGroup: [0, 1].map(p => ({
+            type: 'document', id: 149811412, p,
+            media_o: `https://i.pximg.net/149811412_p${p}.jpg`
+        })),
+        mediaTypes: ['o', 'dlo'],
+        maxAttempts: 2
+    })
+
+    t.is(result.kind, 'sent')
+    t.is(result.attempts, 2)
+    t.true(attempts[1].every(item => item.media instanceof InputFile))
+    t.deepEqual(attempts[1].map(item => [item.id, item.p]), [[149811412, 0], [149811412, 1]])
+    t.deepEqual(reservations, [0, 2])
+})
+
+test('mixed cached and uncached multi-page works upload every page before the budget ends', async t => {
+    const mediaGroup = [
+        { type: 'photo', id: 149800000, p: 0, media_t: 'cached-photo' },
+        ...Array.from({ length: 6 }, (_, p) => ({
+            type: 'photo', id: 149811412, p,
+            media_r: `https://i.pximg.net/149811412_p${p}.jpg`
+        }))
+    ]
+    const { result, attempts, reservations } = await rejectRemoteAlbumItems({
+        mediaGroup,
+        mediaTypes: ['r', 'o', 'dlr', 'dlo'],
+        maxAttempts: 5
+    })
+
+    t.is(result.kind, 'sent')
+    t.is(result.attempts, 5)
+    t.is(result.result.length, 7)
+    t.is(attempts[4][0].media, 'cached-photo')
+    t.true(attempts[4].slice(1).every(item => item.media instanceof InputFile))
+    t.deepEqual(attempts[4].map(item => [item.id, item.p]), mediaGroup.map(item => [item.id, item.p]))
+    t.deepEqual(reservations, [0, 1, 2, 3, 6])
+})
+
+test('unindexed remote rejection also reaches local upload within the document budget', async t => {
+    const { result, attempts } = await rejectRemoteAlbumItems({
+        mediaGroup: [1, 2].map(id => ({
+            type: 'document', id, p: 0, media_o: `https://i.pximg.net/${id}.jpg`
+        })),
+        mediaTypes: ['o', 'dlo'],
+        maxAttempts: 2,
+        indexed: false
+    })
+
+    t.is(result.kind, 'sent')
+    t.is(result.attempts, 2)
+    t.true(attempts[1].every(item => item.media instanceof InputFile))
+})
 
 test('album item #7 curl failure retries only item #7 as a local upload', async t => {
     const mediaGroup = Array.from({ length: 10 }, (_, index) => ({

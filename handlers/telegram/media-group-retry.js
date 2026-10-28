@@ -130,6 +130,16 @@ export async function runMediaGroupAttempts(options) {
             if (classification.retryLocal && Number.isInteger(classification.failedIndex)) {
                 queueLocalMediaRetry(mediaGroup, classification.failedIndex, currentType, queue)
             }
+            if (classification.retryLocal && !currentType.startsWith('dl') &&
+                (attempt === maxAttempts - 1 || !Number.isInteger(classification.failedIndex))) {
+                // A rejected album can contain several inaccessible remote URLs.
+                // Reserve the final attempt for the whole source locally instead
+                // of spending the budget discovering one rejected item at a time.
+                const localType = `dl${currentType}`
+                const queuedIndex = queue.indexOf(localType)
+                if (queuedIndex >= 0) queue.splice(queuedIndex, 1)
+                queue.unshift(localType)
+            }
         }
     }
 
