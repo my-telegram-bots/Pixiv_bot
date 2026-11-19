@@ -7,7 +7,7 @@ export default {
     illust_404: "没有在 Pixiv 找到该作品。请检查链接或稍后重试。(PIXIV_ILLUSTRATION_NOT_FOUND)",
     media_refresh_failed: "作品仍然存在，但无法刷新图片链接。请稍后重试。(PIXIV_MEDIA_REFRESH_FAILED)",
     media_send_failed: "刷新图片链接后仍无法发送该作品。请稍后重试。(PIXIV_MEDIA_STALE)",
-    media_delivery_failed: "Telegram 无法发送该作品。请检查当前聊天的媒体发送权限后重试。(TELEGRAM_MEDIA_SEND_FAILED)",
+    media_delivery_failed: "Telegram 无法发送该作品。请稍后重试；若问题持续，请向维护者提供错误码 {}。",
     photo_too_large: "Pixiv regular 图片超过 Telegram 的照片大小上限。请添加 +file，改为以文件发送。(TELEGRAM_PHOTO_TOO_LARGE)",
     illustration_refresh_id_mismatch: "刷新图片链接时 Pixiv 返回了不一致的作品 ID，因此未能发送该作品。请重试；若仍然失败，请将错误码 ILLUSTRATION_REFRESH_ID_MISMATCH 提供给运维人员。",
     request_processing_failed: "请求未能完成。\n原因：{}\n请重试；若仍然失败，请将错误码 {} 提供给运维人员。",

@@ -259,7 +259,10 @@ async function notifyIllustrationFailure(bot, runtime, lifecycle) {
     })
     const [key, ...values] = lifecycle.state === IllustrationLifecycleState.NOT_FOUND
         ? ['illust_404']
-        : documentMessage || messages[lifecycle.errorCode] || ['media_delivery_failed']
+        : documentMessage || messages[lifecycle.errorCode] || [
+            'media_delivery_failed',
+            lifecycle.errorCode || 'TELEGRAM_MEDIA_SEND_FAILED'
+        ]
     return notifyFailureOnce({
         lifecycle,
         logger: honsole,
