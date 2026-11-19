@@ -4,7 +4,11 @@ const DEFAULT_MAX_FLOOD_WAIT_SECONDS = 10
 
 export const TELEGRAM_FLOOD_GATE_ACTIVE = 'TELEGRAM_FLOOD_GATE_ACTIVE'
 
-const nonDeliveryMethods = new Set(['sendChatAction', 'setMessageReaction'])
+const nonDeliveryMethods = new Set([
+    'sendChatAction',
+    'sendMessageDraft',
+    'setMessageReaction'
+])
 const defaultSchedule = (callback, delayMs) => {
     const timer = setTimeout(callback, delayMs)
     timer.unref?.()

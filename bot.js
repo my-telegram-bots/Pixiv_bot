@@ -15,7 +15,11 @@ import { createTelegramDeliveryGate } from '#handlers/telegram/telegram-transpor
 import { createUpdateDeduplicator } from '#handlers/telegram/update-deduplication'
 
 let botInstance = null
-const nonDeliveryMethods = new Set(['sendChatAction', 'setMessageReaction'])
+const nonDeliveryMethods = new Set([
+    'sendChatAction',
+    'sendMessageDraft',
+    'setMessageReaction'
+])
 
 export function createDeliveryThrottler(options, gateOptions = TELEGRAM_DELIVERY_GATE_OPTIONS) {
     const throttler = apiThrottler(options)

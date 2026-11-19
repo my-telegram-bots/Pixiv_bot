@@ -117,6 +117,18 @@ async function initializeInvocation(resolveUserSettings, ctx, writeFileIds) {
     return runtime
 }
 
+async function showPrivateThinkingDraft(bot, runtime) {
+    const { ctx, chatId } = runtime
+    if (ctx.message?.chat?.type !== 'private') return
+
+    await bot.api.sendMessageDraft(
+        chatId,
+        ctx.message.message_id,
+        '',
+        messageThreadOptions(ctx)
+    ).catch(() => { })
+}
+
 async function collectIllustrations(bot, config, runtime) {
     const { ctx, chatId, userId, ids, defaultExtra } = runtime
 
@@ -942,6 +954,7 @@ export function createTgSender({
                         languageCode,
                         { ...options, config, bot, logger }
                     )
+                    await showPrivateThinkingDraft(bot, runtime)
                     return runtime
                 },
                 collectIllustrations: async runtime => {

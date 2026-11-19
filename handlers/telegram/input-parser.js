@@ -1,4 +1,4 @@
-const PIXIV_URL_PATTERN = /(?<![\w.-])(?:https?:\/\/)*(?:www\.)?(?:phixiv|pixiv)\.net\/[^\s+<>()\[\]{}"',;!]+/gi
+const PIXIV_URL_PATTERN = /(?<![\w./?&=#-])(?:https?:\/\/)*(?:www\.)?(?:phixiv|pixiv)\.net\/[^\s+<>()\[\]{}"',;!]+/gi
 const STANDALONE_ILLUST_ID_PATTERN = /^(?:#|id=?)?(\d{8,9})$/i
 
 const PIXIV_ROUTE_MATCHERS = Object.freeze([
